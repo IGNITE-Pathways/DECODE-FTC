@@ -16,10 +16,13 @@ import java.util.Map;
 @TeleOp(name = "Main Spindexer", group = "Linear OpMode")
 public class MainSpindexer extends LinearOpMode {
     int xPressCount = 0;  // counts how many balls have been shot
-    private NormalizedColorSensor intakeColorSensor;
-    private Servo indexServo;
-    private CRServo intakeServo;
+    public NormalizedColorSensor intakeColorSensor;
+    public Servo indexServo;
+    public CRServo intakeServo;
 
+    public Servo kickerServo;
+
+    public CRServo kickerWheelServo;
     Map<Integer, String> indexColors = new HashMap<>();
 
     String[] need_colors = {"purple", "purple", "green"};
@@ -33,18 +36,20 @@ public class MainSpindexer extends LinearOpMode {
 
     boolean prevY = false;
 
-    private static final double MAX_DEGREES = 720.0;
-    private static final double DIVISION_DEGREES = 55.0;
+    public static final double MAX_DEGREES = 720.0;
+    public static final double DIVISION_DEGREES = 55.0;
 
-    private static final double SPEED_DEG_PER_STEP = 2.0;
+    public static final double SPEED_DEG_PER_STEP = 2.0;
 
-    private double targetDegrees = 0.0;
+    public double targetDegrees = 0.0;
     boolean intakeOn = false;
     @Override
     public void runOpMode() {
         intakeColorSensor = hardwareMap.get(NormalizedColorSensor.class, "intakeSensor");
         indexServo = hardwareMap.get(Servo.class, "indexServo");
         intakeServo = hardwareMap.get(CRServo.class, "intakeServo");
+        kickerServo = hardwareMap.get(Servo.class, "kicker");
+        kickerWheelServo = hardwareMap.get(CRServo.class, "kickerWheel");
 
 
         indexColors.put(0, "none");
@@ -60,13 +65,13 @@ public class MainSpindexer extends LinearOpMode {
         telemetry.update();
 
         waitForStart();
-
+        kickerServo.setPosition(0.011);
         while (opModeIsActive()) {
 
             // ---------------- COLOR DETECTION -----------------
             NormalizedRGBA colors = intakeColorSensor.getNormalizedColors();
             float hue = JavaUtil.colorToHue(colors.toColor());
-
+            telemetry.addData("Hue", hue);
             boolean found = false;
             String detectedColor = "unknown";
 
@@ -90,7 +95,6 @@ public class MainSpindexer extends LinearOpMode {
                 }
                 rotateOneDivision();
             }
-
             // ---------------- BUTTON A -------------------------
             boolean Y = gamepad1.y;
 
@@ -101,7 +105,7 @@ public class MainSpindexer extends LinearOpMode {
                 }
                 if (!intakeOn){
                     intakeOn = true;
-                    intakeServo.setPower(-0.6);
+                    intakeServo.setPower(0.9);
                 }
             }
             prevY = Y;
@@ -130,6 +134,29 @@ public class MainSpindexer extends LinearOpMode {
                 // Find the division of the next needed color
                 int goalDiv = findDivisionWithColor(need_colors[(flag+2) % need_colors.length]);
                 moveToDivision(goalDiv);  // move to that division first
+                kickerWheelServo.setPower(0.7); //Run kicker wheel servo
+
+                try {
+                    // Pause execution for 3 seconds (3000 milliseconds)
+                    Thread.sleep(350);
+                } catch (InterruptedException e) {
+                    // Handle the InterruptedException if the thread is interrupted while sleeping
+                    e.printStackTrace();
+                }
+
+
+
+                kickerServo.setPosition(1); //Flick up kicker servo
+                try {
+                    // Pause execution for 3 seconds (3000 milliseconds)
+                    Thread.sleep(350);
+                } catch (InterruptedException e) {
+                    // Handle the InterruptedException if the thread is interrupted while sleeping
+                    e.printStackTrace();
+                }
+                kickerServo.setPosition(0.011); //reset kickerServo position
+                kickerWheelServo.setPower(0); // set kicker wheel servo back to zero
+
                 telemetry.addLine("Ball shot!");
                 // "Shoot" the ball
                 xPressCount++;
@@ -150,6 +177,7 @@ public class MainSpindexer extends LinearOpMode {
                     currentDivision = 0;
                     xPressCount = 0;
                     flag = 0;
+
                 }
             }
             prevX = X;
@@ -162,7 +190,7 @@ public class MainSpindexer extends LinearOpMode {
     }
 
     // Telemetry helper
-    private void addTelemetry() {
+    public void addTelemetry() {
         telemetry.addData("Target°", "%.1f", targetDegrees);
         telemetry.addData("Servo Pos", "%.3f", indexServo.getPosition());
         telemetry.addData("Division", currentDivision);
@@ -177,7 +205,7 @@ public class MainSpindexer extends LinearOpMode {
     }
 
     // ---------------- SMOOTH SERVO MOVEMENT (FIXED) -------------------
-    private void smoothMoveTo(double newTargetDeg) {
+    public void smoothMoveTo(double newTargetDeg) {
 
         // ❗️THIS FIXES THE ISSUE — start from actual servo output
         double startPos = indexServo.getPosition();  // 0.0–1.0
@@ -196,13 +224,13 @@ public class MainSpindexer extends LinearOpMode {
     }
 
     // ---------------- DIVISION ROTATION ---------------------
-    private void rotateOneDivision() {
+    public void rotateOneDivision() {
         currentDivision = (currentDivision + 1) % 3;
         targetDegrees = clipDeg(targetDegrees - DIVISION_DEGREES);
         smoothMoveTo(targetDegrees);
     }
 
-    private void moveToDivision(int targetDiv) {
+    public void moveToDivision(int targetDiv) {
         int steps = (targetDiv - currentDivision + 3) % 3;
         for (int i = 0; i < steps; i++) {
             rotateOneDivision();
@@ -210,7 +238,7 @@ public class MainSpindexer extends LinearOpMode {
         }
     }
 
-    private int findDivisionWithColor(String c) {
+    public int findDivisionWithColor(String c) {
         for (int i = 0; i < 3; i++) {
             if (indexColors.get(i).equals(c)) return i;
         }
@@ -218,11 +246,12 @@ public class MainSpindexer extends LinearOpMode {
     }
 
     // ---------------- DEG <-> POS HELPERS ---------------------
-    private static double posFromDeg(double degrees) {
+    public static double posFromDeg(double degrees) {
         return Range.clip(degrees / MAX_DEGREES, 0.0, 1.0);
     }
 
-    private static double clipDeg(double d) {
+    public static double clipDeg(double d) {
         return Range.clip(d, 0.0, MAX_DEGREES);
     }
+
 }
