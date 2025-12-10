@@ -404,5 +404,27 @@ public class Spindexer {
         }
         return targetDegrees;
     }
+    
+    /**
+     * Get the current number of balls in the spindexer
+     * @return Number of balls (0-3)
+     */
+    public int getBallCount() {
+        int ballCount = 0;
+        for (int i = 0; i < 3; i++) {
+            if (!indexColors.get(i).equals("none")) {
+                ballCount++;
+            }
+        }
+        return ballCount;
+    }
+    
+    /**
+     * Check if all 3 balls are intaked
+     * @return true if 3 balls are present
+     */
+    public boolean areAllBallsIntaked() {
+        return allBallsIntaked;
+    }
 }
 
