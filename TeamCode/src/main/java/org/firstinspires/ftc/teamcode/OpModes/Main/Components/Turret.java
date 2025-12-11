@@ -379,5 +379,16 @@ public class Turret {
         }
         return true; // Continue OpMode
     }
+    
+    /**
+     * Set turret to a fixed position directly (bypasses scanning/alignment)
+     * @param position Servo position (0.0 to 1.0)
+     */
+    public void setPositionDirect(double position) {
+        // Clamp position to valid range
+        position = Math.max(SERVO_MIN, Math.min(SERVO_MAX, position));
+        servoPos = position;
+        turretServo.setPosition(servoPos);
+    }
 }
 

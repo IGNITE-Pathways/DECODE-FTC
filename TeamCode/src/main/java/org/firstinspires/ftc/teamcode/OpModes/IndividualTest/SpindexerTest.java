@@ -21,7 +21,7 @@ public class SpindexerTest extends LinearOpMode {
 
         // Read servo position BEFORE component initialization to preserve original position
         Servo tempServo = hardwareMap.get(Servo.class, "indexServo");
-        double originalPos = tempServo != null ? tempServo.getPosition() : 0.0;
+        double originalPos = tempServo != null ? tempServo.getPosition() : 1;
         double targetDegrees = originalPos * Spindexer.MAX_DEGREES;
         targetDegrees = Spindexer.clipDeg(targetDegrees);
 
@@ -45,7 +45,7 @@ public class SpindexerTest extends LinearOpMode {
 
             if (a && !prevA) {
                 // increment 60°
-                spindexer.incrementPosition(STEP_DEGREES);
+                spindexer.incrementPosition(-STEP_DEGREES);
             }
 
             prevA = a;
