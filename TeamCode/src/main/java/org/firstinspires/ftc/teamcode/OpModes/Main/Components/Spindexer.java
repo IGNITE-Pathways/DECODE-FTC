@@ -9,6 +9,7 @@ import com.qualcomm.robotcore.util.Range;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import org.firstinspires.ftc.robotcore.external.JavaUtil;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
+import org.firstinspires.ftc.teamcode.Constants.HardwareConfig;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -52,10 +53,10 @@ public class Spindexer {
         this.opMode = opMode;
         this.telemetry = telemetry;
 
-        intakeColorSensor = hardwareMap.get(NormalizedColorSensor.class, "intakeSensor");
-        indexServo = hardwareMap.get(Servo.class, "indexServo");
-        intakeServo = hardwareMap.get(CRServo.class, "intakeServo");
-        kickerServo = hardwareMap.get(Servo.class, "kicker");
+        intakeColorSensor = hardwareMap.get(NormalizedColorSensor.class, HardwareConfig.INTAKE_COLOR_SENSOR);
+        indexServo = hardwareMap.get(Servo.class, HardwareConfig.INDEX_SERVO);
+        intakeServo = hardwareMap.get(CRServo.class, HardwareConfig.INTAKE_SERVO);
+        kickerServo = hardwareMap.get(Servo.class, HardwareConfig.KICKER_SERVO);
 
         indexColors.put(0, "none");
         indexColors.put(1, "none");

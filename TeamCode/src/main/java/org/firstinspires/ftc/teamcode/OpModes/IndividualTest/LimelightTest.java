@@ -11,7 +11,7 @@ public class LimelightTest extends OpMode {
 
     @Override
     public void init() {
-        limelight = hardwareMap.get(Limelight3A.class, "Individual Test");
+        limelight = hardwareMap.get(Limelight3A.class, "Limelight");
         if (limelight != null) {
             limelight.setPollRateHz(100);
             limelight.start();

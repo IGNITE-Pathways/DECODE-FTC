@@ -5,6 +5,7 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.NormalizedColorSensor;
 import com.qualcomm.robotcore.hardware.Servo;
+import org.firstinspires.ftc.teamcode.Constants.HardwareConfig;
 
 public class ProgrammingBoardOTHER {
     public DcMotor flyWheelMotor = null;
@@ -24,20 +25,20 @@ public class ProgrammingBoardOTHER {
     public void initializeComponents(HardwareMap hwMap) {
 
 
-        //indexServo = hwMap.get(Servo.class, "indexServo"); // port 2
+        //indexServo = hwMap.get(Servo.class, HardwareConfig.INDEX_SERVO); // port 2
 
-        //intakeServo = hwMap.get(CRServo.class, "intakeservo");  // port 0
+        //intakeServo = hwMap.get(CRServo.class, HardwareConfig.INTAKE_SERVO);  // port 0
 
-        flyWheelMotor = hwMap.get(DcMotor.class, "flywheelmotor");
+        flyWheelMotor = hwMap.get(DcMotor.class, HardwareConfig.FLYWHEEL_MOTOR);
 
-        flyWheelMotor2 = hwMap.get(DcMotor.class, "flywheelmotor2");
+        flyWheelMotor2 = hwMap.get(DcMotor.class, HardwareConfig.FLYWHEEL_MOTOR_2);
 
 //        flyWheelMotor.setMode(DcMotor.RunMode.RUN_TO_POSITION);
-        //hoodServo = hwMap.get(Servo.class, "hoodservo");
+        //hoodServo = hwMap.get(Servo.class, HardwareConfig.HOOD_SERVO);
 
-        //BallLauncherServo = hwMap.get(Servo.class, "balllauncher");
+        //BallLauncherServo = hwMap.get(Servo.class, HardwareConfig.BALL_LAUNCHER);
 
-        //kickerWheel = hwMap.get(CRServo.class, "kickerwheel");
+        //kickerWheel = hwMap.get(CRServo.class, HardwareConfig.KICKER_WHEEL);
 
 
     }

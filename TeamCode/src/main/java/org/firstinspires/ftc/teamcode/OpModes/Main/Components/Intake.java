@@ -3,6 +3,7 @@ package org.firstinspires.ftc.teamcode.OpModes.Main.Components;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
+import org.firstinspires.ftc.teamcode.Constants.HardwareConfig;
 
 public class Intake {
     private CRServo intakeServo;
@@ -13,7 +14,7 @@ public class Intake {
 
     public void initialize(HardwareMap hardwareMap, Telemetry telemetry) {
         this.telemetry = telemetry;
-        intakeServo = hardwareMap.get(CRServo.class, "intakeServo");
+        intakeServo = hardwareMap.get(CRServo.class, HardwareConfig.INTAKE_SERVO);
         
         if (intakeServo != null) {
             intakeServo.setPower(0.0);

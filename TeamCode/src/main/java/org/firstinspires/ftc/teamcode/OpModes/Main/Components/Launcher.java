@@ -4,6 +4,7 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.ProgrammingBoard.ProgrammingBoardOTHER;
+import org.firstinspires.ftc.teamcode.Constants.HardwareConfig;
 
 public class Launcher {
     private ProgrammingBoardOTHER board;
@@ -19,7 +20,7 @@ public class Launcher {
         board = new ProgrammingBoardOTHER();
         board.initializeComponents(hardwareMap);
         
-        hoodServo = hardwareMap.get(Servo.class, "hoodservo");
+        hoodServo = hardwareMap.get(Servo.class, HardwareConfig.HOOD_SERVO);
         if (hoodServo != null) {
             hoodServo.setPosition(hoodPosition);
         }

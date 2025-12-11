@@ -6,6 +6,7 @@ import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
+import org.firstinspires.ftc.teamcode.Constants.HardwareConfig;
 
 import java.util.List;
 
@@ -58,8 +59,8 @@ public class Turret {
 
     public void initialize(HardwareMap hardwareMap, Telemetry telemetry) {
         this.telemetry = telemetry;
-        limelight = hardwareMap.get(Limelight3A.class, "limelight");
-        turretServo = hardwareMap.get(Servo.class, "turretServo");
+        limelight = hardwareMap.get(Limelight3A.class, HardwareConfig.LIMELIGHT);
+        turretServo = hardwareMap.get(Servo.class, HardwareConfig.TURRET_SERVO);
 
         if (limelight != null) {
             limelight.setPollRateHz(100);

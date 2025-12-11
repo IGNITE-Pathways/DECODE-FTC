@@ -3,6 +3,7 @@ package org.firstinspires.ftc.teamcode.OpModes.Main.Components;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
+import org.firstinspires.ftc.teamcode.Constants.HardwareConfig;
 
 public class Lift {
     // Hardware
@@ -29,8 +30,8 @@ public class Lift {
         this.telemetry = telemetry;
         
         // Get motors from hardware map
-        leftViper = hardwareMap.get(DcMotor.class, "leftviper");
-        rightViper = hardwareMap.get(DcMotor.class, "rightviper");
+        leftViper = hardwareMap.get(DcMotor.class, HardwareConfig.LEFT_VIPER);
+        rightViper = hardwareMap.get(DcMotor.class, HardwareConfig.RIGHT_VIPER);
 
         // Reverse one motor so they move in sync
         rightViper.setDirection(DcMotor.Direction.REVERSE);

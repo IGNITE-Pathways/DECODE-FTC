@@ -3,6 +3,7 @@ package org.firstinspires.ftc.teamcode.OpModes.Main.Components;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
+import org.firstinspires.ftc.teamcode.Constants.HardwareConfig;
 
 public class DriveTrain {
     private DcMotor frontLeftDrive;
@@ -15,10 +16,10 @@ public class DriveTrain {
         this.telemetry = telemetry;
         
         // Initialize hardware
-        frontLeftDrive = hardwareMap.get(DcMotor.class, "leftfrontmotor");
-        frontRightDrive = hardwareMap.get(DcMotor.class, "rightfrontmotor");
-        backLeftDrive = hardwareMap.get(DcMotor.class, "leftbackmotor");
-        backRightDrive = hardwareMap.get(DcMotor.class, "rightbackmotor");
+        frontLeftDrive = hardwareMap.get(DcMotor.class, HardwareConfig.LEFT_FRONT_MOTOR);
+        frontRightDrive = hardwareMap.get(DcMotor.class, HardwareConfig.RIGHT_FRONT_MOTOR);
+        backLeftDrive = hardwareMap.get(DcMotor.class, HardwareConfig.LEFT_BACK_MOTOR);
+        backRightDrive = hardwareMap.get(DcMotor.class, HardwareConfig.RIGHT_BACK_MOTOR);
 
         // Correct motor directions
         frontLeftDrive.setDirection(DcMotor.Direction.REVERSE);

@@ -4,6 +4,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.util.ElapsedTime;
+import org.firstinspires.ftc.teamcode.Constants.HardwareConfig;
 
 @TeleOp(name = "DriveTrain", group = "Main")
 public class DriveTrain extends LinearOpMode {
@@ -18,10 +19,10 @@ public class DriveTrain extends LinearOpMode {
     @Override
     public void runOpMode() {
         // Initialize hardware
-        frontLeftDrive = hardwareMap.get(DcMotor.class, "leftfrontmotor");
-        frontRightDrive = hardwareMap.get(DcMotor.class, "rightfrontmotor");
-        backLeftDrive = hardwareMap.get(DcMotor.class, "leftbackmotor");
-        backRightDrive = hardwareMap.get(DcMotor.class, "rightbackmotor");
+        frontLeftDrive = hardwareMap.get(DcMotor.class, HardwareConfig.LEFT_FRONT_MOTOR);
+        frontRightDrive = hardwareMap.get(DcMotor.class, HardwareConfig.RIGHT_FRONT_MOTOR);
+        backLeftDrive = hardwareMap.get(DcMotor.class, HardwareConfig.LEFT_BACK_MOTOR);
+        backRightDrive = hardwareMap.get(DcMotor.class, HardwareConfig.RIGHT_BACK_MOTOR);
 
         // Correct motor directions
         frontLeftDrive.setDirection(DcMotor.Direction.REVERSE);
