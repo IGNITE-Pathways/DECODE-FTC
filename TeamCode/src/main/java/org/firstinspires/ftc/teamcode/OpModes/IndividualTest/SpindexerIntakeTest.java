@@ -17,7 +17,7 @@ public class SpindexerIntakeTest extends LinearOpMode {
     // Slot constants (matching SpindexerOLD.java)
     private static final int INTAKE_SLOT = 0;   // Fixed intake position
     private static final int LAUNCH_SLOT = 1;   // Fixed launch position
-    private static final int MIDDLE_SLOT = 2;   // Fixed middle position
+    private static final int LAST_SLOT = 2;   // Fixed middle position
 
     // Ball slot tracking - tracks which ball is in which slot position
     private Map<Integer, String> ballSlots = new HashMap<>();
@@ -40,7 +40,7 @@ public class SpindexerIntakeTest extends LinearOpMode {
 
         // Initialize ball slot tracking
         ballSlots.put(INTAKE_SLOT, "none");
-        ballSlots.put(MIDDLE_SLOT, "none");
+        ballSlots.put(LAST_SLOT, "none");
         ballSlots.put(LAUNCH_SLOT, "none");
 
         telemetry.addLine("Spindexer + Intake Test Initialized");
@@ -120,19 +120,19 @@ public class SpindexerIntakeTest extends LinearOpMode {
 
     /**
      * Shifts balls between slots when spindexer rotates one division.
-     * Rotation pattern (clockwise): INTAKE_SLOT -> MIDDLE_SLOT -> LAUNCH_SLOT -> INTAKE_SLOT
+     * Rotation pattern (clockwise): INTAKE_SLOT -> LAST_SLOT -> LAUNCH_SLOT -> INTAKE_SLOT
      * Matches SpindexerOLD.java rotation logic
      */
     private void shiftBallsBetweenSlots() {
         // Save current state
         String launchSlotBall = ballSlots.get(LAUNCH_SLOT);
-        String middleSlotBall = ballSlots.get(MIDDLE_SLOT);
+        String lastSlotBall = ballSlots.get(LAST_SLOT);
         String intakeSlotBall = ballSlots.get(INTAKE_SLOT);
 
         // Rotate clockwise: LAUNCH -> INTAKE, INTAKE -> MIDDLE, MIDDLE -> LAUNCH
-        ballSlots.put(INTAKE_SLOT, launchSlotBall);
-        ballSlots.put(MIDDLE_SLOT, intakeSlotBall);
-        ballSlots.put(LAUNCH_SLOT, middleSlotBall);
+        ballSlots.put(INTAKE_SLOT, lastSlotBall);
+        ballSlots.put(LAUNCH_SLOT, intakeSlotBall);
+        ballSlots.put(LAST_SLOT, launchSlotBall);
     }
 
     private void addIntakeTelemetry() {
@@ -164,8 +164,8 @@ public class SpindexerIntakeTest extends LinearOpMode {
         String launchDisplay = launchSlotColor.equals("none") ? "EMPTY" : "●" + launchSlotColor.toUpperCase();
         telemetry.addData("Slot 1 (LAUNCH)", launchDisplay);
         
-        String middleSlotColor = ballSlots.get(MIDDLE_SLOT);
-        String middleDisplay = middleSlotColor.equals("none") ? "EMPTY" : "●" + middleSlotColor.toUpperCase();
+        String lastSlotColor = ballSlots.get(LAST_SLOT);
+        String middleDisplay = lastSlotColor.equals("none") ? "EMPTY" : "●" + lastSlotColor.toUpperCase();
         telemetry.addData("Slot 2 (MIDDLE)", middleDisplay);
     }
 }

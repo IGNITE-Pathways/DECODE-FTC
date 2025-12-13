@@ -42,7 +42,7 @@ public class SpindexerOLD extends LinearOpMode {
     private static final int NUM_SLOTS = 3;
     private static final int INTAKE_SLOT = 0;   // Fixed intake position
     private static final int LAUNCH_SLOT = 1;   // Fixed launch position
-    private static final int MIDDLE_SLOT = 2;   // Fixed middle position
+    private static final int LAST_SLOT = 2;   // Fixed middle position
 
     private static final double INITIAL_SERVO_POSITION = 670;
 
@@ -85,7 +85,7 @@ public class SpindexerOLD extends LinearOpMode {
 
         // Initialize ball colors
         ballColors.put(INTAKE_SLOT, "none");   // Slot 0 - Intake
-        ballColors.put(MIDDLE_SLOT, "none");   // Slot 1 - Middle
+        ballColors.put(LAST_SLOT, "none");   // Slot 1 - Middle
         ballColors.put(LAUNCH_SLOT, "none");   // Slot 2 - Launch
 
         // Set servo to initial position DURING INIT
@@ -220,7 +220,7 @@ public class SpindexerOLD extends LinearOpMode {
         if (ballSlot == INTAKE_SLOT) {  // Slot 0 → Slot 2
             rotationsNeeded = 2;
             lastAction = "Moving ball from INTAKE → LAUNCH (2 spins)";
-        } else if (ballSlot == MIDDLE_SLOT) {  // Slot 1 → Slot 2
+        } else if (ballSlot == LAST_SLOT) {  // Slot 1 → Slot 2
             rotationsNeeded = 1;
             lastAction = "Moving ball from MIDDLE → LAUNCH (1 spin)";
         } else if (ballSlot == LAUNCH_SLOT) {  // Already at Slot 2
@@ -274,7 +274,7 @@ public class SpindexerOLD extends LinearOpMode {
         String slot0Display = slot0Color.equals("none") ? "EMPTY" : "●" + slot0Color.toUpperCase();
         telemetry.addData("│ Slot 0 (INTAKE)", slot0Display);
 
-        String slot1Color = ballColors.get(MIDDLE_SLOT);
+        String slot1Color = ballColors.get(LAST_SLOT);
         String slot1Display = slot1Color.equals("none") ? "EMPTY" : "●" + slot1Color.toUpperCase();
         telemetry.addData("│ Slot 1 (MIDDLE)", slot1Display);
 
@@ -363,7 +363,7 @@ public class SpindexerOLD extends LinearOpMode {
 
         // Save current ball positions before rotation
         String ball0 = ballColors.get(INTAKE_SLOT);
-        String ball1 = ballColors.get(MIDDLE_SLOT);
+        String ball1 = ballColors.get(LAST_SLOT);
         String ball2 = ballColors.get(LAUNCH_SLOT);
 
         // Move servo BACKWARD by STEP_DEGREES (clockwise direction)
@@ -379,7 +379,7 @@ public class SpindexerOLD extends LinearOpMode {
 
         // Update ball positions after rotation (balls move clockwise through slots)
         ballColors.put(INTAKE_SLOT, ball2);   // Ball from Launch → Intake
-        ballColors.put(MIDDLE_SLOT, ball0);   // Ball from Intake → Middle
+        ballColors.put(LAST_SLOT, ball0);   // Ball from Intake → Middle
         ballColors.put(LAUNCH_SLOT, ball1);   // Ball from Middle → Launch
 
         lastAction = String.format("Rotated: %.2f°→%.2f° | Balls moved", oldTarget, targetDegrees);
