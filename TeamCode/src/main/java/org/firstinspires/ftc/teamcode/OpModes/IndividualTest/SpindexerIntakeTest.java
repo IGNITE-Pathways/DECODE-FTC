@@ -26,6 +26,7 @@ public class SpindexerIntakeTest extends LinearOpMode {
     private Map<Integer, String> ballSlots = new HashMap<>();
     
     private int ballCount = 0;  // Current number of balls detected (0-3)
+    private int launchIndex = 0;  // Current index in DESIRED_LAUNCH_ORDER (0-2)
     // Button state tracking for edge detection
     private boolean prevRightBumper = false;
     private boolean prevRightTrigger = false;
@@ -80,6 +81,12 @@ public class SpindexerIntakeTest extends LinearOpMode {
                 intake.stop();
                 spindexer.stopSensing();
                 telemetry.addLine("Intake stopped, color sensing stopped");
+                
+                // Reset launch index when we have 3 balls loaded via Intake
+                if (getCurrentBallCount() >= 3) {
+                    launchIndex = 0;
+                    telemetry.addLine("Launch sequence reset - 3 balls loaded!");
+                }
             }
             prevRightTrigger = rightTrigger;
             
@@ -127,6 +134,11 @@ public class SpindexerIntakeTest extends LinearOpMode {
         spindexer.rotateOneDivision();
         // Shift balls between slots after rotation
         shiftBallsBetweenSlots();
+        
+        // Reset launch index when we have 3 balls again
+        if (ballCount >= 3) {
+            launchIndex = 0;
+        }
     }
 
     /**
@@ -147,43 +159,67 @@ public class SpindexerIntakeTest extends LinearOpMode {
     }
 
     /**
-     * Pseudo launch method that simulates launching all three balls in the desired launch order (PPG).
+     * Pseudo launch method that launches one ball at a time in the desired launch order (PPG).
+     * Each press of X launches the next ball in sequence.
      * Rotates the spindexer to ensure the correct color ball is in the launch slot, then clears it.
      */
     private void pseudoLaunch() {
-        telemetry.addLine("Starting pseudo launch sequence (PPG order)...");
-        telemetry.update();
+        // Check if we have 3 balls loaded
+        int currentBallCount = getCurrentBallCount();
         
-        // Launch each ball in the desired order
-        for (int i = 0; i < DESIRED_LAUNCH_ORDER.length; i++) {
-            String desiredColor = DESIRED_LAUNCH_ORDER[i];
-            telemetry.addLine("Launching ball " + (i + 1) + "/3: " + desiredColor);
+        if (currentBallCount < 3) {
+            telemetry.addLine("Cannot launch: Need 3 balls loaded. Current: " + currentBallCount);
             telemetry.update();
-            
-            // Find which slot contains the desired color ball
-            int ballSlot = findSlotWithColor(desiredColor);
-            
-            if (ballSlot == -1) {
-                telemetry.addLine("WARNING: " + desiredColor + " ball not found! Skipping...");
-                telemetry.update();
-                sleep(500);
-                continue;
-            }
-            
-            // Rotate spindexer to move the ball to LAUNCH_SLOT
-            rotateBallToLaunchSlot(ballSlot);
-            
-            // Simulate launch by clearing the launch slot
-            ballSlots.put(LAUNCH_SLOT, "none");
-            telemetry.addLine("Launched " + desiredColor + " ball!");
-            telemetry.update();
-            
-            // Small delay between launches
-            sleep(500);
+            return;
         }
         
-        telemetry.addLine("Pseudo launch sequence complete!");
+        // Check if we've already launched all balls
+        if (launchIndex >= DESIRED_LAUNCH_ORDER.length) {
+            telemetry.addLine("All balls launched! Load 3 more balls using Intake to launch again.");
+            telemetry.update();
+            return;
+        }
+        
+        // Get the desired color for this launch
+        String desiredColor = DESIRED_LAUNCH_ORDER[launchIndex];
+        telemetry.addLine("Launching ball " + (launchIndex + 1) + "/3: " + desiredColor);
         telemetry.update();
+        
+        // Find which slot contains the desired color ball
+        int ballSlot = findSlotWithColor(desiredColor);
+        
+        if (ballSlot == -1) {
+            telemetry.addLine("WARNING: " + desiredColor + " ball not found! Skipping...");
+            telemetry.update();
+            launchIndex++; // Still increment to avoid getting stuck
+            return;
+        }
+        
+        // Rotate spindexer to move the ball to LAUNCH_SLOT
+        rotateBallToLaunchSlot(ballSlot);
+        
+        // Simulate launch by clearing the launch slot
+        ballSlots.put(LAUNCH_SLOT, "none");
+        telemetry.addLine("Launched " + desiredColor + " ball!");
+        telemetry.update();
+        
+        // Move to next ball in launch order
+        launchIndex++;
+    }
+    
+    /**
+     * Counts how many balls are currently in the slots (not "none").
+     * @return Number of balls currently loaded (0-3)
+     */
+    private int getCurrentBallCount() {
+        int count = 0;
+        for (int slot : new int[]{INTAKE_SLOT, LAST_SLOT, LAUNCH_SLOT}) {
+            String slotColor = ballSlots.get(slot);
+            if (slotColor != null && !slotColor.equals("none")) {
+                count++;
+            }
+        }
+        return count;
     }
     
     /**
@@ -256,6 +292,8 @@ public class SpindexerIntakeTest extends LinearOpMode {
         telemetry.addLine("");
         telemetry.addLine("=== SLOT POSITIONS ===");
         telemetry.addData("Balls Detected", ballCount);
+        telemetry.addData("Current Balls Loaded", getCurrentBallCount());
+        telemetry.addData("Launch Index", launchIndex + "/" + DESIRED_LAUNCH_ORDER.length);
         String intakeSlotColor = ballSlots.get(INTAKE_SLOT);
         String intakeDisplay = intakeSlotColor.equals("none") ? "EMPTY" : "●" + intakeSlotColor.toUpperCase();
         telemetry.addData("Slot 0 (INTAKE)", intakeDisplay);
