@@ -17,6 +17,8 @@ public class SpindexerIntakeTest extends LinearOpMode {
     // Button state tracking for edge detection
     private boolean prevRightBumper = false;
     private boolean prevRightTrigger = false;
+    private boolean prevA = false;
+    private boolean prevB = false;
 
     @Override
     public void runOpMode() {
@@ -30,6 +32,8 @@ public class SpindexerIntakeTest extends LinearOpMode {
         telemetry.addLine("Spindexer + Intake Test Initialized");
         telemetry.addLine("Right Bumper: Start Intake + Color Sensing");
         telemetry.addLine("Right Trigger: Stop Intake + Color Sensing");
+        telemetry.addLine("A: Rotate One Division");
+        telemetry.addLine("B: Kick");
 
         telemetry.update();
 
@@ -39,6 +43,8 @@ public class SpindexerIntakeTest extends LinearOpMode {
             // Read gamepad inputs for intake
             boolean rightBumper = gamepad1.right_bumper;
             boolean rightTrigger = gamepad1.right_trigger > 0.5;  // Threshold for trigger press
+            boolean a = gamepad1.a;
+            boolean b = gamepad1.b;
          
             // Handle intake start/stop controls
             if (rightBumper && !prevRightBumper) {
@@ -49,13 +55,24 @@ public class SpindexerIntakeTest extends LinearOpMode {
             }
             prevRightBumper = rightBumper;
             
-            if (rightTrigger && !prevRightTrigger) {
+            if ((rightTrigger && !prevRightTrigger) || ballCount >= 3) {
                 // Stop intake and color sensing
                 intake.stop();
                 spindexer.stopSensing();
                 telemetry.addLine("Intake stopped, color sensing stopped");
             }
             prevRightTrigger = rightTrigger;
+            
+            // Handle spindexer controls
+            if (a && !prevA) {
+                spindexer.rotateOneDivision();
+            }
+            prevA = a;
+            
+            if (b && !prevB) {
+                spindexer.kick();
+            }
+            prevB = b;
             
             // Update color sensing (needs to be called every loop iteration when active)
             spindexer.updateSensing();
