@@ -10,7 +10,7 @@ import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import org.firstinspires.ftc.teamcode.OpModes.Main.Components.Robot;
 
-@Autonomous(name = "Autonomous - Ball Collection", group = "Autonomous")
+@Autonomous(name = "Autonomous - Ball Collection 2", group = "Autonomous")
 public class SamarBlueRight extends OpMode {
     private Follower follower;
     private Robot robot;

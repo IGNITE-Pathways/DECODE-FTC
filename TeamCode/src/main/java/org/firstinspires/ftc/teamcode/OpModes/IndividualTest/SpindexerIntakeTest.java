@@ -34,7 +34,7 @@ public class SpindexerIntakeTest extends LinearOpMode {
         telemetry.update();
 
         waitForStart();
-
+        
         while (opModeIsActive()) {
             // Read gamepad inputs for intake
             boolean rightBumper = gamepad1.right_bumper;
