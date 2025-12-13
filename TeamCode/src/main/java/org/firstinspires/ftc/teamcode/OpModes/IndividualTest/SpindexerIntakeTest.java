@@ -5,16 +5,18 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import org.firstinspires.ftc.teamcode.OpModes.Main.Components.Intake;
 import org.firstinspires.ftc.teamcode.OpModes.Main.Components.Spindexer;
 
-import java.util.Map;
-
 @TeleOp(name = "Test: Spindexer + Intake", group = "Test")
 public class SpindexerIntakeTest extends LinearOpMode {
 
     private Intake intake;
     private Spindexer spindexer;
 
+    // Ball order tracking (for use in both TeleOp and AutoOp)
+    private String[] ballOrder = new String[3];  // Max 3 balls: PPG, PGP, or GPP
+    private int ballCount = 0;  // Current number of balls tracked (0-3)
     // Button state tracking for edge detection
-
+    private boolean prevRightBumper = false;
+    private boolean prevRightTrigger = false;
 
     @Override
     public void runOpMode() {
@@ -26,66 +28,41 @@ public class SpindexerIntakeTest extends LinearOpMode {
         spindexer.initialize(hardwareMap, telemetry, this);
 
         telemetry.addLine("Spindexer + Intake Test Initialized");
+        telemetry.addLine("Right Bumper: Start Intake + Color Sensing");
+        telemetry.addLine("Right Trigger: Stop Intake + Color Sensing");
 
-        telemetry.addLine("=== Intake Controls (A, B, X, Y) ===");
-        telemetry.addLine("A: Start intake");
-        telemetry.addLine("B: Stop intake");
-        telemetry.addLine("X: Reverse intake (eject)");
-        telemetry.addLine("Y: Toggle spindexer intake servo");
-        telemetry.addLine("=== Spindexer Controls ===");
-        telemetry.addLine("Right Bumper: Rotate spindexer one division");
-        telemetry.addLine("Right Trigger: Reset spindexer to division 0");
-        telemetry.addLine("Left Trigger: Shoot ball");
-        telemetry.addLine("Left Bumper: Toggle rapid fire/indexing mode");
         telemetry.update();
 
         waitForStart();
 
         while (opModeIsActive()) {
-            // Read gamepad inputs
-            boolean a = gamepad1.a;
-            boolean b = gamepad1.b;
-            boolean x = gamepad1.x;
-            boolean y = gamepad1.y;
-            boolean leftBumper = gamepad1.left_bumper;
+            // Read gamepad inputs for intake
             boolean rightBumper = gamepad1.right_bumper;
-            boolean leftTrigger = gamepad1.left_trigger > 0.5;
-            boolean rightTrigger = gamepad1.right_trigger > 0.5;
-
-            // ========== INTAKE CONTROLS (A, B, X, Y) ==========
-
-            // Y: Toggle spindexer intake servo (handled by spindexer.update)
-            // We'll pass false for A, B, X to spindexer since we're using them for intake
-            // and use triggers/bumpers for spindexer controls
-
-            // ========== SPINDEXER CONTROLS (Bumpers/Triggers) ==========
+            boolean rightTrigger = gamepad1.right_trigger > 0.5;  // Threshold for trigger press
+         
+            // Handle intake start/stop controls
+            if (rightBumper && !prevRightBumper) {
+                // Start intake and color sensing
+                intake.start();
+                spindexer.startSensing(this::onBallDetected);
+                telemetry.addLine("Intake started, color sensing active");
+            }
+            prevRightBumper = rightBumper;
             
-            // Map spindexer controls to new buttons:
-            // Right Bumper = A (rotate)
-            // Right Trigger = B (reset)
-            // Left Trigger = X (shoot)
-            // Y = Y (toggle intake servo)
-            // Left Bumper = Left Bumper (toggle mode)
-            boolean spindexerA = rightBumper;
-            boolean spindexerB = rightTrigger;
-            boolean spindexerX = leftTrigger;
+            if (rightTrigger && !prevRightTrigger) {
+                // Stop intake and color sensing
+                intake.stop();
+                spindexer.stopSensing();
+                telemetry.addLine("Intake stopped, color sensing stopped");
+            }
+            prevRightTrigger = rightTrigger;
             
-            // Update spindexer with mapped inputs
-            spindexer.update(spindexerA, spindexerB, spindexerX, y, leftBumper);
-
-
-
-            // ========== UPDATE COMPONENTS ==========
+            // Update color sensing (needs to be called every loop iteration when active)
+            spindexer.updateSensing();
             
-            // Update intake (handles power ramping, telemetry, etc.)
+            // Update intake (handles power ramping if enabled)
             intake.update();
-            
-            // Update spindexer (this also adds telemetry via addTelemetry() call)
-            // spindexer.update() is already called above with gamepad inputs
-            
-            // ========== TELEMETRY DISPLAY ==========
-            
-            // Add intake telemetry (spindexer telemetry is already added by spindexer.update())
+        
             addIntakeTelemetry();
             
             telemetry.update();
@@ -94,9 +71,17 @@ public class SpindexerIntakeTest extends LinearOpMode {
         }
     }
 
+    private void onBallDetected(String color) {
+        if (ballCount < 3) {
+            ballOrder[ballCount] = color;
+            ballCount++;
+        }
+        // Rotate spindexer by one cycle when ball is detected
+        spindexer.rotateOneDivision();
+    }
+
     private void addIntakeTelemetry() {
         // Add intake-specific telemetry
-        // Note: spindexer.update() already calls addTelemetry() which shows spindexer info
         telemetry.addLine("");
         telemetry.addLine("=== INTAKE STATUS ===");
         telemetry.addData("Intake Power", "%.2f", intake.getPower());
@@ -114,10 +99,18 @@ public class SpindexerIntakeTest extends LinearOpMode {
         telemetry.addData("Color Sensing Active", spindexer.isSensing() ? "Yes" : "No");
         
         telemetry.addLine("");
-        telemetry.addLine("=== CONTROLS ===");
-        telemetry.addLine("A: Start Intake | B: Stop Intake | X: Reverse Intake");
-        telemetry.addLine("Y: Toggle Spindexer Intake | Right Bumper: Rotate | Right Trigger: Reset | Left Trigger: Shoot");
-        telemetry.addLine("Left Bumper: Toggle Rapid Fire/Indexing Mode");
+        telemetry.addLine("=== BALL ORDER TRACKING ===");
+        telemetry.addData("Tracked Ball Count", ballCount);
+        if (ballCount > 0) {
+            StringBuilder order = new StringBuilder();
+            for (int i = 0; i < ballCount; i++) {
+                if (i > 0) order.append("-");
+                order.append(ballOrder[i] != null ? ballOrder[i] : "null");
+            }
+            telemetry.addData("Ball Order", order.toString());
+        } else {
+            telemetry.addData("Ball Order", "None");
+        }
     }
 }
 
