@@ -164,6 +164,7 @@ public class SpindexerIntakeTest extends LinearOpMode {
      * Rotates the spindexer to ensure the correct color ball is in the launch slot, then clears it.
      */
     private void pseudoLaunch() {
+
         // Check if we've already launched all balls
         if (launchIndex >= DESIRED_LAUNCH_ORDER.length) {
             telemetry.addLine("All balls launched! Load 3 more balls using Intake to launch again.");
@@ -173,7 +174,7 @@ public class SpindexerIntakeTest extends LinearOpMode {
         
         // Get the desired color for this launch
         String desiredColor = DESIRED_LAUNCH_ORDER[launchIndex];
-        telemetry.addLine("Launching ball " + (launchIndex + 1) + "/3: " + desiredColor);
+        telemetry.addLine("Launching ball " + (launchIndex+1) + "/3: " + desiredColor);
         telemetry.update();
         
         // Find which slot contains the desired color ball
@@ -285,7 +286,7 @@ public class SpindexerIntakeTest extends LinearOpMode {
         } else {
             telemetry.addData("Color Sensor Hue", "N/A");
         }
-        
+
         telemetry.addLine("");
         telemetry.addLine("=== SLOT POSITIONS ===");
         telemetry.addData("Balls Detected", ballCount);

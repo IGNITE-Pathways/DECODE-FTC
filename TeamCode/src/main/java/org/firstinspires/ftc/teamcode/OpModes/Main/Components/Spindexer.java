@@ -52,11 +52,11 @@ public class Spindexer {
     private BallDetectionCallback ballDetectionCallback = null;
     private boolean lastBallDetected = false;  // For debouncing
     private long lastDetectionTime = 0;  // For debouncing
-    private static final long DEBOUNCE_TIME_MS = 500;  // Minimum time between detections
+    private static final long DEBOUNCE_TIME_MS = 1000;  // Minimum time between detections
 
     // Constants
     public static final double MAX_DEGREES = 720.0;
-    public static final double DIVISION_DEGREES = 58.0;
+    public static final double DIVISION_DEGREES = 56.16;
     public static final double SPEED_DEG_PER_STEP = 1.65;
     public static final double INITIAL_POSITION_OFFSET = 25.0;
     public static final double KICKER_RESET_POSITION = 0.85;

@@ -37,8 +37,10 @@ public class SpindexerTest extends LinearOpMode {
             boolean b = gamepad1.b;
 
             if (a && !prevA) {
-                // increment 60°
-                spindexer.rotateOneDivision();
+                // increment q60°
+
+
+                spindexer.smoothMoveTo(spindexer.getTargetDegrees() + 5);
             }
 
             prevA = a;

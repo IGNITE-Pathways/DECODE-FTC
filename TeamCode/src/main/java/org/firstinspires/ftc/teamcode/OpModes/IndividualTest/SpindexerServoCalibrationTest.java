@@ -32,7 +32,7 @@ public class SpindexerServoCalibrationTest extends LinearOpMode {
         indexer = hardwareMap.get(Servo.class, HardwareConfig.INDEX_SERVO);
         
         // Record initial position
-        initialPosition = indexer.getPosition();
+        initialPosition = 0;//indexer.getPosition();
         currentPosition = initialPosition;
         finalPosition = 0.0;
         measurementComplete = false;
