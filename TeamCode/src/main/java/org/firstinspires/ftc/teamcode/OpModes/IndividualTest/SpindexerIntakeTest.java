@@ -121,7 +121,7 @@ public class SpindexerIntakeTest extends LinearOpMode {
         if (ballCount < 3) {
             ballCount++;
             // Assign detected ball to INTAKE_SLOT (slot 0)
-            ballSlots.put(INTAKE_SLOT, color);
+            ballSlots.put(LAST_SLOT, color);
         }
         // Rotate spindexer by one cycle when ball is detected
         spindexer.rotateOneDivision();
