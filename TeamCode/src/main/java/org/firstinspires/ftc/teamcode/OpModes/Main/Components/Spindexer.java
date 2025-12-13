@@ -56,10 +56,10 @@ public class Spindexer {
 
     // Constants
     public static final double MAX_DEGREES = 720.0;
-    public static final double DIVISION_DEGREES = 60.0;
+    public static final double DIVISION_DEGREES = 58.0;
     public static final double SPEED_DEG_PER_STEP = 1.65;
     public static final double INITIAL_POSITION_OFFSET = 25.0;
-    public static final double KICKER_RESET_POSITION = 0.89;
+    public static final double KICKER_RESET_POSITION = 0.85;
     public static final double KICKER_FLICK_POSITION = 0.98;
     public static final double SHOOTING_DEGREE_ADJUSTMENT = 36.0;
 
@@ -77,7 +77,7 @@ public class Spindexer {
         indexColors.put(2, "none");
 
         // Initialize exactly as you needed earlier:
-        targetDegrees = 0;
+        targetDegrees = 53;
         indexer.setPosition(posFromDeg(targetDegrees));
 
         telemetry.addLine("Ready. Press A to move 60°.");
@@ -125,7 +125,7 @@ public class Spindexer {
             if (rapidFireMode) {
                 // Rapid fire mode: go to closest ball (next division)
                 try {
-                    Thread.sleep(1000);
+                    Thread.sleep(750);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -133,7 +133,7 @@ public class Spindexer {
             } else {
                 // Indexing mode: original behavior
                 try {
-                    Thread.sleep(1000);
+                    Thread.sleep(750);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -163,8 +163,8 @@ public class Spindexer {
 
         // ---------------- BUTTON B -------------------------
         if (gamepadB && !prevB) {
-            targetDegrees = 0;
-            smoothMoveTo(0);
+            targetDegrees = 53;
+            smoothMoveTo(53);
             currentDivision = 0;
         }
         prevB = gamepadB;
@@ -238,7 +238,7 @@ public class Spindexer {
             indexColors.put(2, "none");
 
             // Reset servo
-            targetDegrees = MAX_DEGREES - INITIAL_POSITION_OFFSET;
+            targetDegrees = 54;
             smoothMoveTo(targetDegrees);
 
             // Reset counters
@@ -279,7 +279,7 @@ public class Spindexer {
             indexColors.put(1, "none");
             indexColors.put(2, "none");
             
-            targetDegrees = 0;
+            targetDegrees = 42;
             smoothMoveTo(targetDegrees);
             
             // Only after three balls are intaked, subtract SHOOTING_DEGREE_ADJUSTMENT

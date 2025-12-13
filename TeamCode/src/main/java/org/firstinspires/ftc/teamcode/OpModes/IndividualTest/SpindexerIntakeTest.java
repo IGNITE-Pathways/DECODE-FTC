@@ -228,7 +228,7 @@ public class SpindexerIntakeTest extends LinearOpMode {
      * @return The slot number (INTAKE_SLOT, LAST_SLOT, or LAUNCH_SLOT), or -1 if not found
      */
     private int findSlotWithColor(String color) {
-        for (int slot : new int[]{INTAKE_SLOT, LAST_SLOT, LAUNCH_SLOT}) {
+        for (int slot : new int[]{LAUNCH_SLOT, INTAKE_SLOT, LAST_SLOT}) {
             String slotColor = ballSlots.get(slot);
             if (slotColor != null && slotColor.equals(color)) {
                 return slot;
