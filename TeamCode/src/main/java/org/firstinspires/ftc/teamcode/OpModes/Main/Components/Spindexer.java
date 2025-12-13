@@ -56,7 +56,7 @@ public class Spindexer {
 
     // Constants
     public static final double MAX_DEGREES = 720.0;
-    public static final double DIVISION_DEGREES = 48.0;
+    public static final double DIVISION_DEGREES = 60.0;
     public static final double SPEED_DEG_PER_STEP = 1.65;
     public static final double INITIAL_POSITION_OFFSET = 25.0;
     public static final double KICKER_RESET_POSITION = 0.89;
