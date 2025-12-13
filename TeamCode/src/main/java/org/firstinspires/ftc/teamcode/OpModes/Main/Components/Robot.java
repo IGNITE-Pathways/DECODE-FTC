@@ -253,9 +253,9 @@ public class Robot {
         
         // Shoot all three balls in sequence
         // Each call will: spindex to needed ball, shoot, advance flag to next color
-        spindexer.shoot_ball_new(); // First ball (purple)
-        spindexer.shoot_ball_new(); // Second ball (purple)
-        spindexer.shoot_ball_new(); // Third ball (green)
+        spindexer.shootBall(); // First ball (purple)
+        spindexer.shootBall(); // Second ball (purple)
+        spindexer.shootBall(); // Third ball (green)
         
         // Stop flywheel after all shots are complete
         stopFlywheel();

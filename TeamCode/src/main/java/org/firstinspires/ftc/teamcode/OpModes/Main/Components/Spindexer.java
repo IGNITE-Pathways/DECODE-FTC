@@ -27,9 +27,9 @@ public class Spindexer {
 
     // Hardware
     private NormalizedColorSensor intakeColorSensor;
-    private Servo indexServo;
+    private Servo indexer;
     private CRServo intakeServo;
-    private Servo soupLadle;
+    private Servo Spoon;
 
     // State
     private int xPressCount = 0;  // counts how many balls have been shot
@@ -46,7 +46,7 @@ public class Spindexer {
     private boolean intakeOn = false;
     private boolean rapidFireMode = true;  // Start in rapid fire mode
     private boolean allBallsIntaked = false;  // Track if all three balls are intaked
-    
+
     // Color sensing state
     private boolean isSensing = false;
     private BallDetectionCallback ballDetectionCallback = null;
@@ -56,11 +56,11 @@ public class Spindexer {
 
     // Constants
     public static final double MAX_DEGREES = 720.0;
-    public static final double DIVISION_DEGREES = 57.0;
+    public static final double DIVISION_DEGREES = 48.0;
     public static final double SPEED_DEG_PER_STEP = 1.65;
-    public static final double INITIAL_POSITION_OFFSET = 100; // Moved 45 degrees to the left (was 35.0)
-    public static final double SOUP_LADLE_RESET_POSITION = 0.85; // Slightly more down than before (was 0.89)
-    public static final double SOUP_LADLE_FLICK_POSITION = 0.98;
+    public static final double INITIAL_POSITION_OFFSET = 25.0;
+    public static final double KICKER_RESET_POSITION = 0.89;
+    public static final double KICKER_FLICK_POSITION = 0.98;
     public static final double SHOOTING_DEGREE_ADJUSTMENT = 36.0;
 
     public void initialize(HardwareMap hardwareMap, Telemetry telemetry, LinearOpMode opMode) {
@@ -68,23 +68,22 @@ public class Spindexer {
         this.telemetry = telemetry;
 
         intakeColorSensor = hardwareMap.get(NormalizedColorSensor.class, HardwareConfig.INTAKE_COLOR_SENSOR);
-        indexServo = hardwareMap.get(Servo.class, HardwareConfig.INDEX_SERVO);
+        indexer = hardwareMap.get(Servo.class, HardwareConfig.INDEX_SERVO);
         intakeServo = hardwareMap.get(CRServo.class, HardwareConfig.INTAKE_SERVO);
-        soupLadle = hardwareMap.get(Servo.class, HardwareConfig.KICKER_SERVO);
+        Spoon = hardwareMap.get(Servo.class, HardwareConfig.KICKER_SERVO);
 
         indexColors.put(0, "none");
         indexColors.put(1, "none");
         indexColors.put(2, "none");
 
-        // Initialize to corrected initial position:
-        targetDegrees = MAX_DEGREES - INITIAL_POSITION_OFFSET;
-        // Use smoothMoveTo to ensure servo actually moves to the correct position
-        smoothMoveTo(targetDegrees);
+        // Initialize exactly as you needed earlier:
+        targetDegrees = 0;
+        indexer.setPosition(posFromDeg(targetDegrees));
 
         telemetry.addLine("Ready. Press A to move 60°.");
         addTelemetry();
         telemetry.update();
-        soupLadle.setPosition(SOUP_LADLE_RESET_POSITION);
+        Spoon.setPosition(KICKER_RESET_POSITION);
     }
 
     public void update(boolean gamepadA, boolean gamepadB, boolean gamepadX, boolean gamepadY, boolean gamepadLeftBumper) {
@@ -122,7 +121,7 @@ public class Spindexer {
                 }
             }
             allBallsIntaked = (ballCount >= 3);
-            
+
             if (rapidFireMode) {
                 // Rapid fire mode: go to closest ball (next division)
                 try {
@@ -156,7 +155,7 @@ public class Spindexer {
 
         // ---------------- BUTTON A -------------------------
         if (gamepadA && !prevA) {
-            targetDegrees = clipDeg(targetDegrees - DIVISION_DEGREES);
+            targetDegrees = clipDeg(targetDegrees + DIVISION_DEGREES);
             smoothMoveTo(targetDegrees);
             currentDivision = (currentDivision + 1) % 3;
         }
@@ -164,7 +163,9 @@ public class Spindexer {
 
         // ---------------- BUTTON B -------------------------
         if (gamepadB && !prevB) {
-            resetDivisions();
+            targetDegrees = 0;
+            smoothMoveTo(0);
+            currentDivision = 0;
         }
         prevB = gamepadB;
 
@@ -203,19 +204,18 @@ public class Spindexer {
             e.printStackTrace();
         }
 
-        soupLadle.setPosition(SOUP_LADLE_FLICK_POSITION); //Flick up soup ladle
+        Spoon.setPosition(KICKER_FLICK_POSITION); //Flick up kicker servo
         try {
-            // Further reduced delay for soup ladle flick (was 600ms, now 400ms)
+            // Further reduced delay for kicker flick (was 600ms, now 400ms)
             Thread.sleep(400);
         } catch (InterruptedException e) {
             // Handle the InterruptedException if the thread is interrupted while sleeping
             e.printStackTrace();
         }
-
-        soupLadle.setPosition(SOUP_LADLE_RESET_POSITION);
+        Spoon.setPosition(KICKER_RESET_POSITION);
 
         try {
-            // Further reduced delay for soup ladle reset (was 400ms, now 200ms)
+            // Further reduced delay for kicker reset (was 400ms, now 200ms)
             Thread.sleep(200);
         } catch (InterruptedException e) {
             // Handle the InterruptedException if the thread is interrupted while sleeping
@@ -249,78 +249,9 @@ public class Spindexer {
         }
     }
 
-    /**
-     * Fixed version of shootBall() that addresses the following bugs:
-     * 1. Removed extra rotateOneDivision() call that moved away from target
-     * 2. Clears the correct division (goalDiv) instead of flag index
-     * 3. Removed unnecessary goalDiv clamping logic
-     * 4. Proper flow: move to target -> adjust for shooting -> shoot -> restore
-     */
-    public void shoot_ball_new() {
-        // Find the division containing the next needed color
-        String neededColor = need_colors[flag % need_colors.length];
-        int goalDiv = findDivisionWithColor(neededColor);
-        
-        // Validate that the ball with the needed color actually exists
-        // findDivisionWithColor returns currentDivision if color not found, so check if it matches
-        if (!indexColors.get(goalDiv).equals(neededColor)) {
-            telemetry.addLine("ERROR: Ball with color " + neededColor + " not found in spindexer!");
-            telemetry.addLine("Current divisions: " + indexColors.get(0) + ", " + indexColors.get(1) + ", " + indexColors.get(2));
-            return;
-        }
-        
-        // Validate goalDiv is within valid range (0-2)
-        if (goalDiv < 0 || goalDiv > 2) {
-            telemetry.addLine("ERROR: Invalid goalDiv: " + goalDiv);
-            return;
-        }
-        
-        // Move to the division with the needed ball
-        moveToDivision(goalDiv);
-        
-        // Apply shooting degree adjustment to align ball for shooting
-        targetDegrees -= SHOOTING_DEGREE_ADJUSTMENT;
-        smoothMoveTo(targetDegrees);
-        
-        // Clear the color from the division that was just positioned (before shooting)
-        indexColors.put(goalDiv, "none");
-
-        // Wait for servo movement to complete
-        try {
-            Thread.sleep(200);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        // Flick up soup ladle to shoot the ball
-        soupLadle.setPosition(SOUP_LADLE_FLICK_POSITION);
-        try {
-            Thread.sleep(400); // Wait for soup ladle to complete flick
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-
-        // Reset soup ladle to down position
-        soupLadle.setPosition(SOUP_LADLE_RESET_POSITION);
-        try {
-            Thread.sleep(200); // Wait for soup ladle to reset
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-        
-        // Restore the shooting degree adjustment
-        targetDegrees += SHOOTING_DEGREE_ADJUSTMENT;
-        smoothMoveTo(targetDegrees);
-
-        telemetry.addLine("Ball shot!");
-        
-        // Update flag to track next needed color (removed xPressCount increment)
-        flag++; // Advance to next needed color - this cycles through need_colors array
-    }
-
     public void shootBallRapidFire() {
         // Rapid fire mode shooting sequence
-        // First press: just shoot (faster soup ladle sequence)
+        // First press: just shoot (faster kicker sequence)
         // Second press: move one division and shoot
         // Third press: move one division, shoot, then reset
         
@@ -330,15 +261,15 @@ public class Spindexer {
                 targetDegrees = clipDeg(targetDegrees - SHOOTING_DEGREE_ADJUSTMENT);
                 smoothMoveTo(targetDegrees);
             }
-            performSoupLadleSequence();
+            kick();
         } else if (xPressCount == 1) {
             // Second shot: move one division and shoot
             rotateOneDivision();
-            performSoupLadleSequence();
+            kick();
         } else if (xPressCount == 2) {
             // Third shot: move one division, shoot, then reset
             rotateOneDivision();
-            performSoupLadleSequence();
+            kick();
             
             // Check if all balls were intaked before resetting
             boolean wereAllBallsIntaked = allBallsIntaked;
@@ -348,7 +279,7 @@ public class Spindexer {
             indexColors.put(1, "none");
             indexColors.put(2, "none");
             
-            targetDegrees = MAX_DEGREES - INITIAL_POSITION_OFFSET;
+            targetDegrees = 0;
             smoothMoveTo(targetDegrees);
             
             // Only after three balls are intaked, subtract SHOOTING_DEGREE_ADJUSTMENT
@@ -367,21 +298,21 @@ public class Spindexer {
         telemetry.addLine("Ball shot! (Rapid Fire)");
     }
     
-    private void performSoupLadleSequence() {
-        // Faster soup ladle sequence for rapid fire mode
+    public void kick() {
+        // Faster kicker sequence for rapid fire mode
         try {
             Thread.sleep(200);  // Further reduced from 400ms
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
         
-        soupLadle.setPosition(SOUP_LADLE_FLICK_POSITION);
+        Spoon.setPosition(KICKER_FLICK_POSITION);
         try {
             Thread.sleep(400);  // Further reduced from 600ms
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-        soupLadle.setPosition(SOUP_LADLE_RESET_POSITION);
+        Spoon.setPosition(KICKER_RESET_POSITION);
         
         try {
             Thread.sleep(200);  // Further reduced from 400ms
@@ -402,7 +333,7 @@ public class Spindexer {
     public void addTelemetry() {
         telemetry.addData("Mode", rapidFireMode ? "RAPID FIRE" : "INDEXING");
         telemetry.addData("Target°", "%.1f", targetDegrees);
-        telemetry.addData("Servo Pos", "%.3f", indexServo.getPosition());
+        telemetry.addData("Servo Pos", "%.3f", indexer.getPosition());
         telemetry.addData("Division", currentDivision);
 
         telemetry.addData("Div0", indexColors.get(0));
@@ -419,7 +350,7 @@ public class Spindexer {
     // ---------------- SMOOTH SERVO MOVEMENT (FIXED) -------------------
     public void smoothMoveTo(double newTargetDeg) {
         // ❗️THIS FIXES THE ISSUE — start from actual servo output
-        double startPos = indexServo.getPosition();  // 0.0–1.0
+        double startPos = indexer.getPosition();  // 0.0–1.0
         double startDeg = startPos * MAX_DEGREES;
 
         double distance = newTargetDeg - startDeg;
@@ -427,30 +358,22 @@ public class Spindexer {
 
         for (int i = 1; i <= steps; i++) {
             double interpDeg = startDeg + distance * (i / (double) steps);
-            indexServo.setPosition(posFromDeg(interpDeg));
-            if (opMode != null) {
-                opMode.sleep(10);
-            } else {
-                try {
-                    Thread.sleep(10);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
+            indexer.setPosition(posFromDeg(interpDeg));
+            opMode.sleep(10);
         }
 
-        indexServo.setPosition(posFromDeg(newTargetDeg));
+        indexer.setPosition(posFromDeg(newTargetDeg));
     }
 
     // ---------------- DIVISION ROTATION ---------------------
     public void rotateOneDivision() {
         currentDivision = (currentDivision + 1) % 3;
-        targetDegrees = clipDeg(targetDegrees - DIVISION_DEGREES);
+        targetDegrees = clipDeg(targetDegrees + DIVISION_DEGREES);
         smoothMoveTo(targetDegrees);
     }
 
     public void moveToDivision(int targetDiv) {
-        int steps = (targetDiv - currentDivision + 3) % 3;
+        int steps = (targetDiv + currentDivision + 3) % 3;
         for (int i = 0; i < steps; i++) {
             rotateOneDivision();
             if (opMode != null) {
@@ -463,29 +386,6 @@ public class Spindexer {
                 }
             }
         }
-    }
-
-    /**
-     * Reset all divisions to empty state and reset all counters
-     * Works even when all divisions are already empty
-     */
-    public void resetDivisions() {
-        // Reset all divisions to "none" (works even if already empty)
-        indexColors.put(0, "none");
-        indexColors.put(1, "none");
-        indexColors.put(2, "none");
-        
-        // Reset servo to initial position
-        targetDegrees = MAX_DEGREES - INITIAL_POSITION_OFFSET;
-        smoothMoveTo(targetDegrees);
-        
-        // Reset all counters and state
-        currentDivision = 0;
-        flag = 0;
-        xPressCount = 0;
-        allBallsIntaked = false;
-        
-        telemetry.addLine("Divisions reset to empty state");
     }
 
     public int findDivisionWithColor(String c) {
@@ -514,20 +414,20 @@ public class Spindexer {
     }
 
     public double getServoPosition() {
-        return indexServo != null ? indexServo.getPosition() : 0.0;
+        return indexer != null ? indexer.getPosition() : 0.0;
     }
 
     public void setPositionDirect(double degrees) {
         targetDegrees = clipDeg(degrees);
-        if (indexServo != null) {
-            indexServo.setPosition(posFromDeg(targetDegrees));
+        if (indexer != null) {
+            indexer.setPosition(posFromDeg(targetDegrees));
         }
     }
 
     public double incrementPosition(double stepDegrees) {
         targetDegrees = clipDeg(targetDegrees + stepDegrees);
-        if (indexServo != null) {
-            indexServo.setPosition(posFromDeg(targetDegrees));
+        if (indexer != null) {
+            indexer.setPosition(posFromDeg(targetDegrees));
         }
         return targetDegrees;
     }
@@ -555,7 +455,7 @@ public class Spindexer {
     }
     
     // ---------------- COLOR SENSING METHODS ---------------------
-    
+
     /**
      * Start color sensing with a callback function
      * @param callback Callback function to be called when a ball is detected
@@ -566,7 +466,7 @@ public class Spindexer {
         lastBallDetected = false;
         lastDetectionTime = 0;
     }
-    
+
     /**
      * Stop color sensing
      */
@@ -575,7 +475,7 @@ public class Spindexer {
         ballDetectionCallback = null;
         lastBallDetected = false;
     }
-    
+
     /**
      * Check if sensing is currently active
      * @return true if sensing is active
@@ -583,7 +483,7 @@ public class Spindexer {
     public boolean isSensing() {
         return isSensing;
     }
-    
+
     /**
      * Update color sensing - should be called every loop iteration when sensing is active
      * This method handles continuous color detection and callback invocation
@@ -593,14 +493,14 @@ public class Spindexer {
         if (!isSensing || intakeColorSensor == null) {
             return;
         }
-        
+
         // Read color sensor
         NormalizedRGBA colors = intakeColorSensor.getNormalizedColors();
         float hue = JavaUtil.colorToHue(colors.toColor());
-        
+
         boolean found = false;
         String detectedColor = "unknown";
-        
+
         // Detect purple (hue 160-350) or green (hue 100-160)
         if (hue > 160 && hue < 350) {
             detectedColor = "purple";
@@ -609,7 +509,7 @@ public class Spindexer {
             detectedColor = "green";
             found = true;
         }
-        
+
         // Debouncing: prevent duplicate detections
         long currentTime = System.currentTimeMillis();
         if (found) {
@@ -619,7 +519,7 @@ public class Spindexer {
                 indexColors.put(currentDivision, detectedColor);
                 lastBallDetected = true;
                 lastDetectionTime = currentTime;
-                
+
                 // Check if all three balls are intaked
                 int ballCount = 0;
                 for (int i = 0; i < 3; i++) {
@@ -628,12 +528,12 @@ public class Spindexer {
                     }
                 }
                 allBallsIntaked = (ballCount >= 3);
-                
+
                 // Invoke callback if provided (rotation should be handled in callback)
                 if (ballDetectionCallback != null) {
                     ballDetectionCallback.onBallDetected(detectedColor);
                 }
-                
+
                 if (telemetry != null) {
                     telemetry.addData("Detected ball:", detectedColor);
                 }
@@ -645,7 +545,7 @@ public class Spindexer {
             }
         }
     }
-    
+
     /**
      * Get the indexColors HashMap for telemetry/debugging
      * @return Map of division number to ball color

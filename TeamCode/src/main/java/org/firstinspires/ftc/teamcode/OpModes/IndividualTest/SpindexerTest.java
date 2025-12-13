@@ -13,6 +13,8 @@ public class SpindexerTest extends LinearOpMode {
 
     private boolean prevA = false;
 
+    private boolean prevB = false;
+
     // 720° sail-winch style servo
     private static final double STEP_DEGREES = 60.0;   // one press = +60°
 
@@ -42,13 +44,20 @@ public class SpindexerTest extends LinearOpMode {
         while (opModeIsActive()) {
 
             boolean a = gamepad1.a;
+            boolean b = gamepad1.b;
 
             if (a && !prevA) {
                 // increment 60°
-                spindexer.incrementPosition(-STEP_DEGREES);
+                spindexer.rotateOneDivision();
             }
 
             prevA = a;
+
+            if (b && !prevB){
+                spindexer.kick();
+            }
+            prevB = b;
+
 
             addTelemetry();
             telemetry.update();
