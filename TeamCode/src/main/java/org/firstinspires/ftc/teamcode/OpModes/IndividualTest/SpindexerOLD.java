@@ -41,8 +41,8 @@ public class SpindexerOLD extends LinearOpMode {
 
     private static final int NUM_SLOTS = 3;
     private static final int INTAKE_SLOT = 0;   // Fixed intake position
-    private static final int MIDDLE_SLOT = 1;   // Fixed middle position
-    private static final int LAUNCH_SLOT = 2;   // Fixed launch position
+    private static final int LAUNCH_SLOT = 1;   // Fixed launch position
+    private static final int MIDDLE_SLOT = 2;   // Fixed middle position
 
     private static final double INITIAL_SERVO_POSITION = 670;
 

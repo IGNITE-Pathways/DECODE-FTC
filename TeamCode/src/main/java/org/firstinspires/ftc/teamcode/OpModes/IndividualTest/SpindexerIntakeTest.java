@@ -5,15 +5,24 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import org.firstinspires.ftc.teamcode.OpModes.Main.Components.Intake;
 import org.firstinspires.ftc.teamcode.OpModes.Main.Components.Spindexer;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @TeleOp(name = "Test: Spindexer + Intake", group = "Test")
 public class SpindexerIntakeTest extends LinearOpMode {
 
     private Intake intake;
     private Spindexer spindexer;
 
-    // Ball order tracking (for use in both TeleOp and AutoOp)
-    private String[] ballOrder = new String[3];  // Max 3 balls: PPG, PGP, or GPP
-    private int ballCount = 0;  // Current number of balls tracked (0-3)
+    // Slot constants (matching SpindexerOLD.java)
+    private static final int INTAKE_SLOT = 0;   // Fixed intake position
+    private static final int LAUNCH_SLOT = 1;   // Fixed launch position
+    private static final int MIDDLE_SLOT = 2;   // Fixed middle position
+
+    // Ball slot tracking - tracks which ball is in which slot position
+    private Map<Integer, String> ballSlots = new HashMap<>();
+    
+    private int ballCount = 0;  // Current number of balls detected (0-3)
     // Button state tracking for edge detection
     private boolean prevRightBumper = false;
     private boolean prevRightTrigger = false;
@@ -28,6 +37,11 @@ public class SpindexerIntakeTest extends LinearOpMode {
 
         spindexer = new Spindexer();
         spindexer.initialize(hardwareMap, telemetry, this);
+
+        // Initialize ball slot tracking
+        ballSlots.put(INTAKE_SLOT, "none");
+        ballSlots.put(MIDDLE_SLOT, "none");
+        ballSlots.put(LAUNCH_SLOT, "none");
 
         telemetry.addLine("Spindexer + Intake Test Initialized");
         telemetry.addLine("Right Bumper: Start Intake + Color Sensing");
@@ -66,11 +80,15 @@ public class SpindexerIntakeTest extends LinearOpMode {
             // Handle spindexer controls
             if (a && !prevA) {
                 spindexer.rotateOneDivision();
+                // Shift balls between slots when rotating
+                shiftBallsBetweenSlots();
             }
             prevA = a;
             
             if (b && !prevB) {
                 spindexer.kick();
+                // Clear launch slot after kick
+                ballSlots.put(LAUNCH_SLOT, "none");
             }
             prevB = b;
             
@@ -90,11 +108,31 @@ public class SpindexerIntakeTest extends LinearOpMode {
 
     private void onBallDetected(String color) {
         if (ballCount < 3) {
-            ballOrder[ballCount] = color;
             ballCount++;
+            // Assign detected ball to INTAKE_SLOT (slot 0)
+            ballSlots.put(INTAKE_SLOT, color);
         }
         // Rotate spindexer by one cycle when ball is detected
         spindexer.rotateOneDivision();
+        // Shift balls between slots after rotation
+        shiftBallsBetweenSlots();
+    }
+
+    /**
+     * Shifts balls between slots when spindexer rotates one division.
+     * Rotation pattern (clockwise): INTAKE_SLOT -> MIDDLE_SLOT -> LAUNCH_SLOT -> INTAKE_SLOT
+     * Matches SpindexerOLD.java rotation logic
+     */
+    private void shiftBallsBetweenSlots() {
+        // Save current state
+        String launchSlotBall = ballSlots.get(LAUNCH_SLOT);
+        String middleSlotBall = ballSlots.get(MIDDLE_SLOT);
+        String intakeSlotBall = ballSlots.get(INTAKE_SLOT);
+
+        // Rotate clockwise: LAUNCH -> INTAKE, INTAKE -> MIDDLE, MIDDLE -> LAUNCH
+        ballSlots.put(INTAKE_SLOT, launchSlotBall);
+        ballSlots.put(MIDDLE_SLOT, intakeSlotBall);
+        ballSlots.put(LAUNCH_SLOT, middleSlotBall);
     }
 
     private void addIntakeTelemetry() {
@@ -116,18 +154,19 @@ public class SpindexerIntakeTest extends LinearOpMode {
         telemetry.addData("Color Sensing Active", spindexer.isSensing() ? "Yes" : "No");
         
         telemetry.addLine("");
-        telemetry.addLine("=== BALL ORDER TRACKING ===");
-        telemetry.addData("Tracked Ball Count", ballCount);
-        if (ballCount > 0) {
-            StringBuilder order = new StringBuilder();
-            for (int i = 0; i < ballCount; i++) {
-                if (i > 0) order.append("-");
-                order.append(ballOrder[i] != null ? ballOrder[i] : "null");
-            }
-            telemetry.addData("Ball Order", order.toString());
-        } else {
-            telemetry.addData("Ball Order", "None");
-        }
+        telemetry.addLine("=== SLOT POSITIONS ===");
+        telemetry.addData("Balls Detected", ballCount);
+        String intakeSlotColor = ballSlots.get(INTAKE_SLOT);
+        String intakeDisplay = intakeSlotColor.equals("none") ? "EMPTY" : "●" + intakeSlotColor.toUpperCase();
+        telemetry.addData("Slot 0 (INTAKE)", intakeDisplay);
+        
+        String launchSlotColor = ballSlots.get(LAUNCH_SLOT);
+        String launchDisplay = launchSlotColor.equals("none") ? "EMPTY" : "●" + launchSlotColor.toUpperCase();
+        telemetry.addData("Slot 1 (LAUNCH)", launchDisplay);
+        
+        String middleSlotColor = ballSlots.get(MIDDLE_SLOT);
+        String middleDisplay = middleSlotColor.equals("none") ? "EMPTY" : "●" + middleSlotColor.toUpperCase();
+        telemetry.addData("Slot 2 (MIDDLE)", middleDisplay);
     }
 }
 
