@@ -15,6 +15,13 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class Spindexer {
+    /**
+     * Functional interface for ball detection callbacks
+     */
+    @FunctionalInterface
+    public interface BallDetectionCallback {
+        void onBallDetected(String color);
+    }
     private LinearOpMode opMode;
     private Telemetry telemetry;
 
@@ -39,6 +46,13 @@ public class Spindexer {
     private boolean intakeOn = false;
     private boolean rapidFireMode = true;  // Start in rapid fire mode
     private boolean allBallsIntaked = false;  // Track if all three balls are intaked
+    
+    // Color sensing state
+    private boolean isSensing = false;
+    private BallDetectionCallback ballDetectionCallback = null;
+    private boolean lastBallDetected = false;  // For debouncing
+    private long lastDetectionTime = 0;  // For debouncing
+    private static final long DEBOUNCE_TIME_MS = 500;  // Minimum time between detections
 
     // Constants
     public static final double MAX_DEGREES = 720.0;
@@ -538,6 +552,98 @@ public class Spindexer {
      */
     public boolean areAllBallsIntaked() {
         return allBallsIntaked;
+    }
+    
+    // ---------------- COLOR SENSING METHODS ---------------------
+    
+    /**
+     * Start color sensing with a callback function
+     * @param callback Callback function to be called when a ball is detected
+     */
+    public void startSensing(BallDetectionCallback callback) {
+        isSensing = true;
+        ballDetectionCallback = callback;
+        lastBallDetected = false;
+        lastDetectionTime = 0;
+    }
+    
+    /**
+     * Stop color sensing
+     */
+    public void stopSensing() {
+        isSensing = false;
+        ballDetectionCallback = null;
+        lastBallDetected = false;
+    }
+    
+    /**
+     * Check if sensing is currently active
+     * @return true if sensing is active
+     */
+    public boolean isSensing() {
+        return isSensing;
+    }
+    
+    /**
+     * Update color sensing - should be called every loop iteration when sensing is active
+     * This method handles continuous color detection and callback invocation
+     * Rotation should be handled in the callback implementation
+     */
+    public void updateSensing() {
+        if (!isSensing || intakeColorSensor == null) {
+            return;
+        }
+        
+        // Read color sensor
+        NormalizedRGBA colors = intakeColorSensor.getNormalizedColors();
+        float hue = JavaUtil.colorToHue(colors.toColor());
+        
+        boolean found = false;
+        String detectedColor = "unknown";
+        
+        // Detect purple (hue 160-350) or green (hue 100-160)
+        if (hue > 160 && hue < 350) {
+            detectedColor = "purple";
+            found = true;
+        } else if (hue >= 100 && hue <= 160) {
+            detectedColor = "green";
+            found = true;
+        }
+        
+        // Debouncing: prevent duplicate detections
+        long currentTime = System.currentTimeMillis();
+        if (found) {
+            // Only trigger if we haven't detected a ball recently (debouncing)
+            if (!lastBallDetected || (currentTime - lastDetectionTime) >= DEBOUNCE_TIME_MS) {
+                // Update state
+                indexColors.put(currentDivision, detectedColor);
+                lastBallDetected = true;
+                lastDetectionTime = currentTime;
+                
+                // Check if all three balls are intaked
+                int ballCount = 0;
+                for (int i = 0; i < 3; i++) {
+                    if (!indexColors.get(i).equals("none")) {
+                        ballCount++;
+                    }
+                }
+                allBallsIntaked = (ballCount >= 3);
+                
+                // Invoke callback if provided (rotation should be handled in callback)
+                if (ballDetectionCallback != null) {
+                    ballDetectionCallback.onBallDetected(detectedColor);
+                }
+                
+                if (telemetry != null) {
+                    telemetry.addData("Detected ball:", detectedColor);
+                }
+            }
+        } else {
+            // Reset debouncing when no ball is detected
+            if (lastBallDetected && (currentTime - lastDetectionTime) >= DEBOUNCE_TIME_MS) {
+                lastBallDetected = false;
+            }
+        }
     }
     
     /**

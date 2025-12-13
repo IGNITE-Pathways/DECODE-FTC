@@ -70,6 +70,7 @@ public class AutonPedroDocumentation extends OpMode {
         // These loop the movements of the robot, these must be called continuously in order to work
         follower.update();
         robot.updateIntake(); // Update intake to keep it running
+        robot.updateSpindexerSensing(); // Update color sensing for ball detection
         autonomousPathUpdate();
 
         // Feedback to Driver Hub for debugging
@@ -77,6 +78,8 @@ public class AutonPedroDocumentation extends OpMode {
         telemetry.addData("is waiting", isWaiting);
         telemetry.addData("is busy", follower.isBusy());
         telemetry.addData("intake running", robot.isIntakeRunning());
+        telemetry.addData("ball count", robot.getBallCount());
+        telemetry.addData("ball sequence", robot.getBallSequence());
         telemetry.addData("x", follower.getPose().getX());
         telemetry.addData("y", follower.getPose().getY());
         telemetry.addData("heading", Math.toDegrees(follower.getPose().getHeading()));
@@ -109,6 +112,7 @@ public class AutonPedroDocumentation extends OpMode {
             /*case 1:
                 if(!follower.isBusy()) {
                     robot.startIntake(); // Start intake before aligning with set 1
+                    robot.startColorSensing(); // Start color sensing for ball detection
                     startWait();
                     follower.followPath(Path2);
                     setPathState(2);
@@ -138,6 +142,7 @@ public class AutonPedroDocumentation extends OpMode {
             case 5:
                 if(!follower.isBusy()) {
                     robot.stopIntake(); // Stop intake after getting all balls from set 1
+                    robot.stopColorSensing(); // Stop color sensing
                     startWait();
                     follower.followPath(Path6);
                     setPathState(6);
@@ -146,6 +151,7 @@ public class AutonPedroDocumentation extends OpMode {
             case 6:
                 if(!follower.isBusy()) {
                     robot.startIntake(); // Start intake before aligning with set 2
+                    robot.startColorSensing(); // Start color sensing for ball detection
                     startWait();
                     follower.followPath(Path7);
                     setPathState(7);
@@ -175,6 +181,7 @@ public class AutonPedroDocumentation extends OpMode {
             case 10:
                 if(!follower.isBusy()) {
                     robot.stopIntake(); // Stop intake after getting all balls from set 2
+                    robot.stopColorSensing(); // Stop color sensing
                     startWait();
                     follower.followPath(Path11);
                     setPathState(11);

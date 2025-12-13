@@ -12,6 +12,10 @@ public class Robot {
     private DriveTrain driveTrain;
     private Lift lift;
     private Intake intake;
+    
+    // Ball order tracking (for use in both TeleOp and AutoOp)
+    private String[] ballOrder = new String[3];  // Max 3 balls: PPG, PGP, or GPP
+    private int ballCount = 0;  // Current number of balls tracked (0-3)
 
     /**
      * Initialize all robot components
@@ -38,6 +42,9 @@ public class Robot {
 
         intake = new Intake();
         intake.initialize(hardwareMap, telemetry);
+        
+        // Initialize ball order tracking
+        resetBallTracking();
 
         telemetry.addData("Status", "Robot Initialized");
         telemetry.update();
@@ -379,5 +386,87 @@ public class Robot {
 
     public Intake getIntake() {
         return intake;
+    }
+    
+    // ==================== COLOR SENSING AND BALL TRACKING ====================
+    
+    /**
+     * Callback method called when a ball is detected by the color sensor
+     * @param color Detected color ("purple" or "green")
+     */
+    private void onBallDetected(String color) {
+        if (ballCount < 3) {
+            ballOrder[ballCount] = color;
+            ballCount++;
+        }
+        // Rotate spindexer by one cycle when ball is detected
+        spindexer.rotateOneDivision();
+    }
+    
+    /**
+     * Start color sensing - begins continuous color detection
+     * When a ball is detected, callback is invoked which handles rotation
+     */
+    public void startColorSensing() {
+        spindexer.startSensing(this::onBallDetected);
+    }
+    
+    /**
+     * Stop color sensing
+     */
+    public void stopColorSensing() {
+        spindexer.stopSensing();
+    }
+    
+    /**
+     * Update color sensing - should be called every loop iteration
+     * This handles continuous color detection when sensing is active
+     */
+    public void updateSpindexerSensing() {
+        spindexer.updateSensing();
+    }
+    
+    /**
+     * Reset ball tracking - clears the ball order array
+     */
+    public void resetBallTracking() {
+        ballOrder[0] = null;
+        ballOrder[1] = null;
+        ballOrder[2] = null;
+        ballCount = 0;
+    }
+    
+    /**
+     * Get the current ball order array
+     * @return Array of ball colors (may contain nulls if less than 3 balls)
+     */
+    public String[] getBallOrder() {
+        return ballOrder.clone();
+    }
+    
+    /**
+     * Get the current number of balls tracked
+     * @return Number of balls (0-3)
+     */
+    public int getBallCount() {
+        return ballCount;
+    }
+    
+    /**
+     * Get the ball sequence as a string (e.g., "PPG", "PGP", "GPP")
+     * @return String representation of ball sequence, or empty string if no balls
+     */
+    public String getBallSequence() {
+        if (ballCount == 0) {
+            return "";
+        }
+        StringBuilder sequence = new StringBuilder();
+        for (int i = 0; i < ballCount; i++) {
+            if (ballOrder[i] != null) {
+                // Use first letter: P for purple, G for green
+                sequence.append(ballOrder[i].substring(0, 1).toUpperCase());
+            }
+        }
+        return sequence.toString();
     }
 }
