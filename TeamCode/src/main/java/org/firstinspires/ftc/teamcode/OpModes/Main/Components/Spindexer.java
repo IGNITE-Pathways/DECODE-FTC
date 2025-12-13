@@ -547,6 +547,18 @@ public class Spindexer {
     }
 
     /**
+     * Get the current hue value from the color sensor
+     * @return Current hue value (0-360), or -1 if sensor is not available
+     */
+    public float getCurrentHue() {
+        if (intakeColorSensor == null) {
+            return -1;
+        }
+        NormalizedRGBA colors = intakeColorSensor.getNormalizedColors();
+        return JavaUtil.colorToHue(colors.toColor());
+    }
+    
+    /**
      * Get the indexColors HashMap for telemetry/debugging
      * @return Map of division number to ball color
      */

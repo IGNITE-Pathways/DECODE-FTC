@@ -164,15 +164,6 @@ public class SpindexerIntakeTest extends LinearOpMode {
      * Rotates the spindexer to ensure the correct color ball is in the launch slot, then clears it.
      */
     private void pseudoLaunch() {
-        // Check if we have 3 balls loaded
-        int currentBallCount = getCurrentBallCount();
-        
-        if (currentBallCount < 3) {
-            telemetry.addLine("Cannot launch: Need 3 balls loaded. Current: " + currentBallCount);
-            telemetry.update();
-            return;
-        }
-        
         // Check if we've already launched all balls
         if (launchIndex >= DESIRED_LAUNCH_ORDER.length) {
             telemetry.addLine("All balls launched! Load 3 more balls using Intake to launch again.");
@@ -288,6 +279,12 @@ public class SpindexerIntakeTest extends LinearOpMode {
         telemetry.addData("Ball Count", spindexer.getBallCount());
         telemetry.addData("All Balls Intaked", spindexer.areAllBallsIntaked() ? "Yes" : "No");
         telemetry.addData("Color Sensing Active", spindexer.isSensing() ? "Yes" : "No");
+        float currentHue = spindexer.getCurrentHue();
+        if (currentHue >= 0) {
+            telemetry.addData("Color Sensor Hue", "%.2f", currentHue);
+        } else {
+            telemetry.addData("Color Sensor Hue", "N/A");
+        }
         
         telemetry.addLine("");
         telemetry.addLine("=== SLOT POSITIONS ===");
