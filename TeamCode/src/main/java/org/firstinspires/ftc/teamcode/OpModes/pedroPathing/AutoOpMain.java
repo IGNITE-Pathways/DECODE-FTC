@@ -122,6 +122,9 @@ public class AutoOpMain extends OpMode {
     public void start() {
         opmodeTimer.resetTimer();
         setPathState(0);
+        
+        // Read limelight Obelisk and populate detectedBallSequence in Robot
+        robot.detectObeliskSequence();
     }
 
     @Override
@@ -130,6 +133,12 @@ public class AutoOpMain extends OpMode {
         follower.update();
         robot.updateIntake(); // Update intake to keep it running
         robot.updateSpindexerSensing(); // Update color sensing for ball detection
+        
+        // Keep trying to detect obelisk sequence until successful
+        if (robot.needsObeliskDetection()) {
+            robot.detectObeliskSequence();
+        }
+        
         autonomousPathUpdate();
 
         // Feedback to Driver Hub for debugging
@@ -139,6 +148,13 @@ public class AutoOpMain extends OpMode {
         telemetry.addData("intake running", robot.isIntakeRunning());
         telemetry.addData("ball count", robot.getBallCount());
         telemetry.addData("ball sequence", robot.getBallSequence());
+        
+        // Display obelisk detection status
+        if (robot.getDetectedBallSequence() != null) {
+            telemetry.addData("Obelisk Sequence", robot.getDetectedBallSequence().toString());
+        } else {
+            telemetry.addData("Obelisk Sequence", "Not detected yet");
+        }
         telemetry.addData("x", follower.getPose().getX());
         telemetry.addData("y", follower.getPose().getY());
         telemetry.addData("heading", Math.toDegrees(follower.getPose().getHeading()));
