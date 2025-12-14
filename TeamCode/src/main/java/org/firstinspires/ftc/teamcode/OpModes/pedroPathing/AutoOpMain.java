@@ -113,6 +113,21 @@ public class AutoOpMain extends OpMode {
         if (ballsLoaded) {
             telemetry.addLine("");
             telemetry.addLine("✓ READY TO PLAY - 3 balls loaded!");
+            telemetry.addLine("");
+            telemetry.addLine("=== SLOT POSITIONS ===");
+            
+            // Display all three slots and their ball colors
+            String intakeSlotColor = robot.getSlotColor(0); // INTAKE_SLOT
+            String intakeDisplay = intakeSlotColor.equals("none") ? "EMPTY" : intakeSlotColor.toUpperCase();
+            telemetry.addData("Slot 0 (INTAKE)", intakeDisplay);
+            
+            String launchSlotColor = robot.getSlotColor(1); // LAUNCH_SLOT
+            String launchDisplay = launchSlotColor.equals("none") ? "EMPTY" : launchSlotColor.toUpperCase();
+            telemetry.addData("Slot 1 (LAUNCH)", launchDisplay);
+            
+            String lastSlotColor = robot.getSlotColor(2); // LAST_SLOT
+            String lastDisplay = lastSlotColor.equals("none") ? "EMPTY" : lastSlotColor.toUpperCase();
+            telemetry.addData("Slot 2 (MIDDLE)", lastDisplay);
         } else {
             telemetry.addLine("");
             telemetry.addLine("Waiting for player to provide 3 balls...");
