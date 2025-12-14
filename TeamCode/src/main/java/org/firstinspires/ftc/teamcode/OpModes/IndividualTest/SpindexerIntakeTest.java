@@ -88,7 +88,7 @@ public class SpindexerIntakeTest extends LinearOpMode {
                 spindexer.stopSensing();
 
                 // insert flywheel power plus hood here with prediction
-                launcher.setPower(0.7);
+                launcher.setHoodPosition(0.75);
                 launcher.setSpinning(true);
                 launcher.update();
 

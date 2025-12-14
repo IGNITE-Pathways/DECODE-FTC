@@ -14,7 +14,7 @@ public class Launcher {
     public DcMotor flyWheelMotor = null;
     public DcMotor flyWheelMotor2 = null;
 
-    private double flywheelPower = 0.75; // starting power
+    private double flywheelPower = 1.0; // starting power
     private boolean spinning = false;   // flywheel state
     private double hoodPosition = 0.8;  // hood servo position
 
