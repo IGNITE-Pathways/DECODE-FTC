@@ -14,12 +14,12 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.firstinspires.ftc.teamcode.OpModes.Main.DriveTrain;
-import org.firstinspires.ftc.teamcode.ProgrammingBoard.ProgrammingBoardOTHER;
+//import org.firstinspires.ftc.teamcode.ProgrammingBoard.ProgrammingBoardOTHER;
 
 @TeleOp(name = "Main Op Mode 2", group = "Linear OpMode")
 public class IndexingOrShootPie2 extends LinearOpMode {
 
-    ProgrammingBoardOTHER board = new ProgrammingBoardOTHER();
+//    ProgrammingBoardOTHER board = new ProgrammingBoardOTHER();
 
 
 
@@ -76,13 +76,13 @@ public class IndexingOrShootPie2 extends LinearOpMode {
 
     @Override
     public void runOpMode() {
-        board.initializeComponents(hardwareMap);
+//        board.initializeComponents(hardwareMap);
 
 
-        intakeColorSensor = board.intakeColorSensor;
-        indexServo = board.indexServo;
-        intakeServo = board.intakeServo;
-        kickerWheel = board.kickerWheel;
+//        intakeColorSensor = board.intakeColorSensor;
+//        indexServo = board.indexServo;
+//        intakeServo = board.intakeServo;
+//        kickerWheel = board.kickerWheel;
 
         // Initialize intake (OFF by default)
         intakeServo.setPower(0.0);

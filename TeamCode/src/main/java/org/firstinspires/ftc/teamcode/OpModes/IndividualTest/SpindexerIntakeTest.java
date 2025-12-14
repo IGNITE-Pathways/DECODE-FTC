@@ -4,7 +4,7 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import org.firstinspires.ftc.teamcode.OpModes.Main.Components.Intake;
 import org.firstinspires.ftc.teamcode.OpModes.Main.Components.Spindexer;
-
+import org.firstinspires.ftc.teamcode.OpModes.Main.Components.Launcher;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -13,6 +13,8 @@ public class SpindexerIntakeTest extends LinearOpMode {
 
     private Intake intake;
     private Spindexer spindexer;
+
+    private Launcher launcher;
 
     // Slot constants (matching SpindexerOLD.java)
     private static final int INTAKE_SLOT = 0;   // Fixed intake position
@@ -43,6 +45,9 @@ public class SpindexerIntakeTest extends LinearOpMode {
 
         spindexer = new Spindexer();
         spindexer.initialize(hardwareMap, telemetry, this);
+
+        launcher = new Launcher();
+        launcher.initialize(hardwareMap, telemetry);
 
         // Initialize ball slot tracking
         ballSlots.put(INTAKE_SLOT, "none");
@@ -81,6 +86,12 @@ public class SpindexerIntakeTest extends LinearOpMode {
                 // Stop intake and color sensing
                 intake.stop();
                 spindexer.stopSensing();
+
+                // insert flywheel power plus hood here with prediction
+                launcher.setPower(0.7);
+                launcher.setSpinning(true);
+                launcher.update();
+
                 telemetry.addLine("Intake stopped, color sensing stopped");
                 
                 // Reset launch index when we have 3 balls loaded via Intake

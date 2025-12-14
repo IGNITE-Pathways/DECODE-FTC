@@ -22,13 +22,7 @@ public class Spindexer {
     public interface BallDetectionCallback {
         void onBallDetected(String color);
     }
-    /**
-     * Functional interface for ball detection callbacks
-     */
-    @FunctionalInterface
-    public interface BallDetectionCallback {
-        void onBallDetected(String color);
-    }
+
     private LinearOpMode opMode;
     private Telemetry telemetry;
 

@@ -8,11 +8,11 @@ import com.qualcomm.robotcore.hardware.NormalizedRGBA;
 
 import org.firstinspires.ftc.robotcore.external.JavaUtil;
 
-import org.firstinspires.ftc.teamcode.ProgrammingBoard.ProgrammingBoardOTHER;
+//import org.firstinspires.ftc.teamcode.ProgrammingBoard.ProgrammingBoardOTHER;
 @Disabled
 @TeleOp(name = "Main Op Mode", group = "Linear OpMode")
 public class IndexingOrShootSystem extends LinearOpMode {
-    ProgrammingBoardOTHER board = new ProgrammingBoardOTHER();
+//    ProgrammingBoardOTHER board = new ProgrammingBoardOTHER();
     private NormalizedColorSensor test_color;
 
     int flag = 0;
@@ -22,7 +22,7 @@ public class IndexingOrShootSystem extends LinearOpMode {
     @Override
     public void runOpMode() {
         test_color = hardwareMap.get(NormalizedColorSensor.class, "shooterSensor");
-        board.initializeComponents(hardwareMap);
+//        board.initializeComponents(hardwareMap);
         boolean isPurple = false;
         boolean isGreen = false;
         waitForStart();
@@ -45,9 +45,9 @@ public class IndexingOrShootSystem extends LinearOpMode {
             if (gamepad1.square || imperfect){
                 if ((isPurple && neededBall.equals("purple")) || (isGreen && neededBall.equals("green"))) {
                     //insert flywheel shoot code
-                    board.flyWheelMotor.setPower(1);
-                    sleep(3000);
-                    board.flyWheelMotor.setPower(0);
+//                    board.flyWheelMotor.setPower(1);
+//                    sleep(3000);
+//                    board.flyWheelMotor.setPower(0);
                     //f
                     flag += 1;
                     if (flag > 2){
@@ -57,9 +57,9 @@ public class IndexingOrShootSystem extends LinearOpMode {
                 }
                 else{
                     //set hood positition low and shoot so it lands in intake
-                    board.flyWheelMotor.setPower(0.6);
-                    sleep(3000);
-                    board.flyWheelMotor.setPower(0);
+//                    board.flyWheelMotor.setPower(0.6);
+//                    sleep(3000);
+//                    board.flyWheelMotor.setPower(0);
 
                     imperfect = true;
                 }

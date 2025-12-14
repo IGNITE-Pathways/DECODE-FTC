@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.OpModes.Main.Components;
 
+import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
@@ -27,8 +28,8 @@ public class Launcher {
             hoodServo.setPosition(hoodPosition);
         }
         
-        flyWheelMotor = hwMap.get(DcMotor.class, HardwareConfig.FLYWHEEL_MOTOR);
-        flyWheelMotor2 = hwMap.get(DcMotor.class, HardwareConfig.FLYWHEEL_MOTOR_2);
+        flyWheelMotor = hardwareMap.get(DcMotor.class, HardwareConfig.FLYWHEEL_MOTOR);
+        flyWheelMotor2 = hardwareMap.get(DcMotor.class, HardwareConfig.FLYWHEEL_MOTOR_2);
         
         telemetry.addData("Status", "Initialized. Flywheel power: " + flywheelPower);
         telemetry.update();

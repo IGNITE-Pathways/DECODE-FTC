@@ -1,20 +1,21 @@
 package org.firstinspires.ftc.teamcode.OpModes.Main.Components;
 
+import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
-import org.firstinspires.ftc.teamcode.ProgrammingBoard.ProgrammingBoardOTHER;
+import org.firstinspires.ftc.teamcode.Constants.HardwareConfig;
 
 public class Flywheel {
-    private ProgrammingBoardOTHER board;
     private Telemetry telemetry;
-    
+    public DcMotor flyWheelMotor = null;
+    public DcMotor flyWheelMotor2 = null;
     private double flywheelPower = 0.8; // starting power
     private boolean spinning = false;   // flywheel state
 
     public void initialize(HardwareMap hardwareMap, Telemetry telemetry) {
         this.telemetry = telemetry;
-        board = new ProgrammingBoardOTHER();
-        board.initializeComponents(hardwareMap);
+        flyWheelMotor = hardwareMap.get(DcMotor.class, HardwareConfig.FLYWHEEL_MOTOR);
+
         telemetry.addData("Status", "Initialized. Flywheel power: " + flywheelPower);
         telemetry.update();
     }
@@ -25,8 +26,8 @@ public class Flywheel {
     }
 
     public void update() {
-        board.flyWheelMotor.setPower(spinning ? flywheelPower : 0);
-        board.flyWheelMotor2.setPower(spinning ? flywheelPower : 0);
+        flyWheelMotor.setPower(spinning ? flywheelPower : 0);
+        flyWheelMotor2.setPower(spinning ? flywheelPower : 0);
     }
 
     public void setSpinning(boolean spinning) {

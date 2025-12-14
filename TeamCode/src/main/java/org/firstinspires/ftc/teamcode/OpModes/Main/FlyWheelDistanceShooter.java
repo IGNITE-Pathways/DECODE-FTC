@@ -7,7 +7,7 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.Constants.Shooter;
-import org.firstinspires.ftc.teamcode.ProgrammingBoard.ProgrammingBoardOTHER;
+//import org.firstinspires.ftc.teamcode.ProgrammingBoard.ProgrammingBoardOTHER;
 
 import java.util.LinkedList;
 import java.util.Queue;
@@ -15,7 +15,7 @@ import java.util.Queue;
 @TeleOp(name = "FlyWheel Distance Shooter", group = "Main")
 public class FlyWheelDistanceShooter extends OpMode {
 
-    private ProgrammingBoardOTHER board = new ProgrammingBoardOTHER();
+//    private ProgrammingBoardOTHER board = new ProgrammingBoardOTHER();
     private Limelight3A limelight;
 
     private double flywheelPower = 0.1;  // starting power
@@ -34,7 +34,7 @@ public class FlyWheelDistanceShooter extends OpMode {
 
     @Override
     public void init() {
-        board.initializeComponents(hardwareMap);
+//        board.initializeComponents(hardwareMap);
         limelight = hardwareMap.get(Limelight3A.class, "limelight");
         limelight.start();
 
@@ -83,7 +83,7 @@ public class FlyWheelDistanceShooter extends OpMode {
         if (gamepad1.cross) flywheelPower = Math.max(0.0, flywheelPower - 0.05);
 
         // Apply power
-        board.flyWheelMotor.setPower(spinning ? flywheelPower : 0);
+//        board.flyWheelMotor.setPower(spinning ? flywheelPower : 0);
 
         telemetry.addData("Average Distance (ft)", "%.2f", avgDistanceFeet);
         telemetry.addData("Flywheel Power", "%.2f", flywheelPower);

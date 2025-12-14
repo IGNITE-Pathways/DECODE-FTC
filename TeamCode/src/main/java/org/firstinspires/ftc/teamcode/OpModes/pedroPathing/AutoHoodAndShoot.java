@@ -6,15 +6,16 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.Servo;
 
-import org.firstinspires.ftc.teamcode.ProgrammingBoard.ProgrammingBoardOTHER;
+import org.firstinspires.ftc.teamcode.OpModes.Main.Components.Launcher;
+//import org.firstinspires.ftc.teamcode.ProgrammingBoard.ProgrammingBoardOTHER;
 
 @TeleOp(name = "Auto Hood and Shoot", group = "Main")
 public class AutoHoodAndShoot extends LinearOpMode {
 
     private Limelight3A limelight;
     private Servo hoodServo;
-    private ProgrammingBoardOTHER board = new ProgrammingBoardOTHER();
-
+//    private ProgrammingBoardOTHER board = new ProgrammingBoardOTHER();
+    private Launcher launcher;
     // --- State ---
     private double servoPosition = 0.0;
     private double flywheelPower = 0.0;
@@ -33,7 +34,7 @@ public class AutoHoodAndShoot extends LinearOpMode {
     public void runOpMode() {
         limelight = hardwareMap.get(Limelight3A.class, "limelight");
         hoodServo = hardwareMap.get(Servo.class, "hoodservo");
-        board.initializeComponents(hardwareMap);
+//        board.initializeComponents(hardwareMap);
         limelight.start();
 
         telemetry.addLine("Auto Hood + Shoot Ready");
@@ -92,8 +93,8 @@ public class AutoHoodAndShoot extends LinearOpMode {
             if (shooterActive && distanceFeet > 0) {
                     flywheelPower = Math.min(1.0, ((0.085 * distanceFeet)));
 
-                board.flyWheelMotor.setPower(flywheelPower);
-                board.flyWheelMotor2.setPower(flywheelPower);
+//                board.flyWheelMotor.setPower(flywheelPower);
+//                board.flyWheelMotor2.setPower(flywheelPower);
             }
 
             // --- Keep servo powered always (holding position) ---
@@ -108,8 +109,8 @@ public class AutoHoodAndShoot extends LinearOpMode {
         }
 
         // Stop shooter at end of OpMode
-        board.flyWheelMotor.setPower(0);
-        board.flyWheelMotor2.setPower(0);
+//        board.flyWheelMotor.setPower(0);
+//        board.flyWheelMotor2.setPower(0);
         limelight.stop();
     }
 }
