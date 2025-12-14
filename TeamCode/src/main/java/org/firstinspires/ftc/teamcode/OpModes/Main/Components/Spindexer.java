@@ -50,6 +50,8 @@ public class Spindexer {
     private boolean isSensing = false;
     private BallDetectionCallback ballDetectionCallback = null;
     private boolean lastBallDetected = false;  // For debouncing
+
+    public boolean needPut = false;
     private long lastDetectionTime = 0;  // For debouncing
     private static final long DEBOUNCE_TIME_MS = 1000;  // Minimum time between detections
 
@@ -91,6 +93,7 @@ public class Spindexer {
      */
     public void reset() {
         // Reset indexColors HashMap
+        needPut = false;
         indexColors.put(0, "none");
         indexColors.put(1, "none");
         indexColors.put(2, "none");

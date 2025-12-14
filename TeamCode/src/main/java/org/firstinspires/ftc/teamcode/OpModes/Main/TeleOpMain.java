@@ -37,6 +37,8 @@ public class TeleOpMain extends LinearOpMode {
 
     @Override
     public void runOpMode() {
+        telemetry.addData("Distance",robot.getDistance());
+
         // Safety check: Warn if running TeleOpMain directly instead of through Blue/Red subclass
         // This shouldn't happen since @TeleOp annotation was removed, but defensive check
         String className = this.getClass().getSimpleName();
@@ -61,6 +63,19 @@ public class TeleOpMain extends LinearOpMode {
         waitForStart();
 
         while (opModeIsActive()) {
+            if (robot.getSpindexer().needPut) {
+                if (robot.getDistance() < 7) {
+                    robot.setHoodPosition(0.78);
+                    robot.setFlywheelPower(0.6);
+                    robot.updateLauncher();
+                }
+
+                if (robot.getDistance() > 8.5) {
+                    robot.setHoodPosition(0.75);
+                    robot.setFlywheelPower(0.84);
+                    robot.updateLauncher();
+                }
+            }
 
             // Update drive train
             double forward = -gamepad1.left_stick_y;
@@ -107,18 +122,8 @@ public class TeleOpMain extends LinearOpMode {
                 // Stop intake and color sensing
                 robot.stopIntake();
                 robot.stopColorSensing();
-                telemetry.addData("Distance",robot.getDistance());
-                if (robot.getDistance() > 4.5 && robot.getDistance() < 7){
-                    robot.setHoodPosition(0.78);
-                    robot.setFlywheelPower(0.6);
-                    robot.updateLauncher();
-                }
 
-                if (robot.getDistance() > 8.5){
-                    robot.setHoodPosition(0.75);
-                    robot.setFlywheelPower(0.84);
-                    robot.updateLauncher();
-                }
+                robot.getSpindexer().needPut = true;
                 // Set flywheel power and hood position
 
 
@@ -153,6 +158,7 @@ public class TeleOpMain extends LinearOpMode {
             prevB = b;
             
             if (x && !prevX) {
+
                 robot.launchOne(telemetry);
             }
             prevX = x;
