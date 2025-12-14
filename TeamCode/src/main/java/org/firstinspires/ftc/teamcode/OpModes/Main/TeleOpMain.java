@@ -101,7 +101,7 @@ public class TeleOpMain extends LinearOpMode {
                 // Stop intake and color sensing
                 robot.stopIntake();
                 robot.stopColorSensing();
-
+                telemetry.addData("Distance",robot.getDistance());
                 if (robot.getDistance() > 4.5 && robot.getDistance() < 7){
                     robot.setHoodPosition(0.78);
                     robot.setFlywheelPower(0.6);
