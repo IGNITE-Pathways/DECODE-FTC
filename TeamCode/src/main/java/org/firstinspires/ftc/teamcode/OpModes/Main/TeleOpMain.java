@@ -61,19 +61,6 @@ public class TeleOpMain extends LinearOpMode {
         waitForStart();
 
         while (opModeIsActive()) {
-            if (robot.getSpindexer().needPut) {
-                if (robot.getDistance() < 7) {
-                    robot.setHoodPosition(0.78);
-                    robot.setFlywheelPower(0.6);
-                    robot.updateLauncher();
-                }
-
-                if (robot.getDistance() > 8.5) {
-                    robot.setHoodPosition(0.75);
-                    robot.setFlywheelPower(0.84);
-                    robot.updateLauncher();
-                }
-            }
 
             // Update drive train
             double forward = -gamepad1.left_stick_y;
@@ -83,11 +70,24 @@ public class TeleOpMain extends LinearOpMode {
 
             // Read gamepad inputs with edge detection
             boolean rightBumper = gamepad1.right_bumper;
-            boolean rightTrigger = gamepad1.right_trigger > 0.5;  // Threshold for trigger press
+            boolean rightTrigger = gamepad1.right_trigger > 0.2;
+            boolean leftTrigger = gamepad1.right_trigger > 0.2;// Threshold for trigger press
             boolean a = gamepad1.a;
             boolean b = gamepad1.b;
             boolean x = gamepad1.x;
             boolean y = gamepad1.y;
+            if (rightTrigger) {
+                    robot.setHoodPosition(0.78);
+                    robot.setFlywheelPower(0.6);
+                    robot.updateLauncher();
+                }
+
+            if (leftTrigger) {
+                    robot.setHoodPosition(0.75);
+                    robot.setFlywheelPower(0.84);
+                    robot.updateLauncher();
+
+            }
 
             if (y && !prevY){
                 robot.reverseIntake();
@@ -133,7 +133,6 @@ public class TeleOpMain extends LinearOpMode {
                     robot.resetLaunchIndex();
                 }
             }
-            prevRightTrigger = rightTrigger;
             
             // Reset flag when ball count drops below 3 (allows re-triggering)
             if (robot.getCurrentBallCount() < 3) {
