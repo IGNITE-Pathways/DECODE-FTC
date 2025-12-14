@@ -106,6 +106,7 @@ public class TeleOpMain extends LinearOpMode {
                 // All three balls have been launched
                 telemetry.addLine("All balls launched!");
                 robot.resetSpindexer();
+                robot.resetBallTracking();
             }
 
             // Update color sensing (needs to be called every loop iteration when active)

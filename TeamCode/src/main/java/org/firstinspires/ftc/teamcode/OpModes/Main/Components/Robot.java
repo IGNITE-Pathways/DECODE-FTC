@@ -747,6 +747,7 @@ public class Robot {
     
     public void resetSpindexer() {
         spindexer.reset();
+        resetBallTracking();
     }
     /**
      * Add comprehensive intake, spindexer, and slot position telemetry
