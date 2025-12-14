@@ -31,7 +31,6 @@ public class AutoOpMain extends OpMode {
     // Ball preloading state tracking
     private boolean intakeStarted = false; // Track if intake has been started
     private boolean ballsLoaded = false; // Track if 3 balls have been loaded
-    private boolean path2Started = false; // Track if Path2 has been started
     
     // Alliance color: BLUE or RED
     protected AllianceColor allianceColor = null;
@@ -216,15 +215,8 @@ public class AutoOpMain extends OpMode {
                 setPathState(1);
                 break;
             case 1:
-                if (!path2Started) {
-                    // Start Path2
-                    robot.startIntake(); // Start intake before aligning with set 1
-                    robot.startColorSensing(); // Start color sensing for ball detection
-                    startWait();
-                    follower.followPath(Path2);
-                    path2Started = true;
-                } else if (!follower.isBusy()) {
-                    // Path2 complete, start shooting sequence
+                // Path1 complete, start shooting sequence immediately
+                if (!follower.isBusy()) {
                     robot.startFlywheel(); // Start flywheel early
                     robot.resetLaunchIndex(); // Reset to shoot first ball
                     setPathState(15); // Transition to shooting prep
@@ -233,7 +225,7 @@ public class AutoOpMain extends OpMode {
             
             case 15: // Shooting preparation
                 // Keep turret aligned during preparation
-                robot.updateTurret();
+                robot.getTurret().setPositionDirect(0.6); //We should lock turret straight
                 // Wait for flywheel spin-up
                 if (pathTimer.getElapsedTimeSeconds() >= FLYWHEEL_SPINUP_TIME) {
                     setPathState(16); // Start shooting ball 1
@@ -242,7 +234,7 @@ public class AutoOpMain extends OpMode {
             
             case 16: // Shoot ball 1
                 if (!isWaiting) {
-                    robot.updateTurret(); // Keep turret aligned
+                    robot.getTurret().setPositionDirect(0.6);
                     robot.launchOne(telemetry); // Position ball 1
                     robot.kickSpoon(); // Fire kicker (blocks ~800ms)
                     startWait(KICKER_WAIT_TIME); // Wait for kicker sequence
@@ -252,7 +244,7 @@ public class AutoOpMain extends OpMode {
             
             case 17: // Shoot ball 2
                 if (!isWaiting) {
-                    robot.updateTurret(); // Keep turret aligned
+                    robot.getTurret().setPositionDirect(0.6);
                     robot.launchOne(telemetry); // Position ball 2
                     robot.kickSpoon(); // Fire kicker
                     startWait(KICKER_WAIT_TIME);
@@ -262,7 +254,7 @@ public class AutoOpMain extends OpMode {
             
             case 18: // Shoot ball 3
                 if (!isWaiting) {
-                    robot.updateTurret(); // Keep turret aligned
+                    robot.getTurret().setPositionDirect(0.6);
                     robot.launchOne(telemetry); // Position ball 3
                     robot.kickSpoon(); // Fire kicker
                     startWait(KICKER_WAIT_TIME);
@@ -273,11 +265,27 @@ public class AutoOpMain extends OpMode {
             case 19: // Shooting complete
                 if (!isWaiting) {
                     robot.stopFlywheel();
-                    setPathState(2); // Continue to case 2 (or whatever comes next)
+                    setPathState(2); // Transition to Path2 after shooting
+                }
+                break;
+            
+            case 2: // Follow Path2 after shooting all 3 balls
+                // Start Path2 on first entry (follower not busy yet)
+                if (!follower.isBusy()) {
+                    startWait();
+                    follower.followPath(Path2);
+                    setPathState(3); // Move to waiting state
+                }
+                break;
+            
+            case 3: // Wait for Path2 to complete
+                if (!follower.isBusy()) {
+                    // Path2 complete, end autonomous routine
+                    setPathState(-1);
                 }
                 break;
             /*
-            case 2:
+            case 3:
                 if(!follower.isBusy()) {
                     startWait();
                     follower.followPath(Path3); // Get ball 1
