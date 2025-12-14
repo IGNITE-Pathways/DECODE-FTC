@@ -39,9 +39,9 @@ public class ScanningObeliskTest extends LinearOpMode {
 
     // AprilTag ID to ball sequence mapping
     // TODO: Configure these IDs to match your obelisk AprilTag IDs
-    private static final int APRILTAG_ID_PPG = 1;  // Purple - Purple - Green
-    private static final int APRILTAG_ID_PGP = 2;  // Purple - Green - Purple
-    private static final int APRILTAG_ID_GPP = 3;  // Green - Purple - Purple
+    private static final int APRILTAG_ID_PPG = 23;  // Purple - Purple - Green
+    private static final int APRILTAG_ID_PGP = 22;  // Purple - Green - Purple
+    private static final int APRILTAG_ID_GPP = 21;  // Green - Purple - Purple
 
     // Currently detected ball sequence
     private List<String> detectedBallSequence;
