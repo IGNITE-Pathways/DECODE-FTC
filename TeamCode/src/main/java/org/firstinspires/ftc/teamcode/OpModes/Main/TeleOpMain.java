@@ -37,8 +37,6 @@ public class TeleOpMain extends LinearOpMode {
 
     @Override
     public void runOpMode() {
-        telemetry.addData("Distance",robot.getDistance());
-
         // Safety check: Warn if running TeleOpMain directly instead of through Blue/Red subclass
         // This shouldn't happen since @TeleOp annotation was removed, but defensive check
         String className = this.getClass().getSimpleName();
