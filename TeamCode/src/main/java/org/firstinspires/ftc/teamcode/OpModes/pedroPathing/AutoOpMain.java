@@ -22,12 +22,16 @@ public class AutoOpMain extends OpMode {
 
     private int pathState;
     private boolean isWaiting = false;
+    private double customWaitTime = 1.5; // Custom wait time for current wait state (default to WAIT_TIME_SECONDS)
     private static final double WAIT_TIME_SECONDS = 1.5; // Wait 1.5 seconds after each path
     private static final double BALL_WAIT_TIME_SECONDS = 2.0; // Longer wait for ball collection paths
+    private static final double FLYWHEEL_SPINUP_TIME = 1.5; // Time for flywheel to spin up
+    private static final double KICKER_WAIT_TIME = 0.8; // Time to wait for kicker sequence
     
     // Ball preloading state tracking
     private boolean intakeStarted = false; // Track if intake has been started
     private boolean ballsLoaded = false; // Track if 3 balls have been loaded
+    private boolean path2Started = false; // Track if Path2 has been started
     
     // Alliance color: BLUE or RED
     protected AllianceColor allianceColor = null;
@@ -139,6 +143,11 @@ public class AutoOpMain extends OpMode {
             robot.detectObeliskSequence();
         }
         
+        // Update turret during shooting states (cases 15-19) to maintain alignment
+        if (pathState >= 15 && pathState <= 19) {
+            robot.updateTurret();
+        }
+        
         autonomousPathUpdate();
 
         // Feedback to Driver Hub for debugging
@@ -155,6 +164,28 @@ public class AutoOpMain extends OpMode {
         } else {
             telemetry.addData("Obelisk Sequence", "Not detected yet");
         }
+        
+        // Display shooting progress and status
+        if (pathState >= 15 && pathState <= 19) {
+            telemetry.addLine("");
+            telemetry.addLine("=== SHOOTING SEQUENCE ===");
+            telemetry.addData("Flywheel Status", robot.isFlywheelSpinning() ? "Running" : "Stopped");
+            telemetry.addData("Launch Index", robot.getLaunchIndex() + "/3");
+            
+            if (pathState == 15) {
+                telemetry.addData("Status", "Preparing to shoot (flywheel spin-up)");
+            } else if (pathState >= 16 && pathState <= 18) {
+                int ballNumber = pathState - 15;
+                telemetry.addData("Status", "Shooting ball " + ballNumber + "/3");
+                if (robot.getDetectedBallSequence() != null && robot.getLaunchIndex() > 0) {
+                    String currentBall = robot.getDetectedBallSequence().get(robot.getLaunchIndex() - 1);
+                    telemetry.addData("Current Ball", currentBall);
+                }
+            } else if (pathState == 19) {
+                telemetry.addData("Status", "Shooting complete!");
+            }
+        }
+        
         telemetry.addData("x", follower.getPose().getX());
         telemetry.addData("y", follower.getPose().getY());
         telemetry.addData("heading", Math.toDegrees(follower.getPose().getHeading()));
@@ -167,13 +198,13 @@ public class AutoOpMain extends OpMode {
     public void autonomousPathUpdate() {
         // Handle waiting state
         if (isWaiting) {
-            // Use longer wait time for ball collection paths (states 2-4 and 7-9)
-            double currentWaitTime = (pathState >= 2 && pathState <= 4) || (pathState >= 7 && pathState <= 9) 
-                    ? BALL_WAIT_TIME_SECONDS : WAIT_TIME_SECONDS;
+            // Use custom wait time if set, otherwise use default logic
+            double currentWaitTime = customWaitTime;
             
             if (waitTimer.getElapsedTimeSeconds() >= currentWaitTime) {
                 isWaiting = false;
                 waitTimer.resetTimer();
+                customWaitTime = WAIT_TIME_SECONDS; // Reset to default
             } else {
                 return; // Still waiting, don't process path states
             }
@@ -184,15 +215,68 @@ public class AutoOpMain extends OpMode {
                 follower.followPath(Path1);
                 setPathState(1);
                 break;
-            /*case 1:
-                if(!follower.isBusy()) {
+            case 1:
+                if (!path2Started) {
+                    // Start Path2
                     robot.startIntake(); // Start intake before aligning with set 1
                     robot.startColorSensing(); // Start color sensing for ball detection
                     startWait();
                     follower.followPath(Path2);
-                    setPathState(2);
+                    path2Started = true;
+                } else if (!follower.isBusy()) {
+                    // Path2 complete, start shooting sequence
+                    robot.startFlywheel(); // Start flywheel early
+                    robot.resetLaunchIndex(); // Reset to shoot first ball
+                    setPathState(15); // Transition to shooting prep
                 }
                 break;
+            
+            case 15: // Shooting preparation
+                // Keep turret aligned during preparation
+                robot.updateTurret();
+                // Wait for flywheel spin-up
+                if (pathTimer.getElapsedTimeSeconds() >= FLYWHEEL_SPINUP_TIME) {
+                    setPathState(16); // Start shooting ball 1
+                }
+                break;
+            
+            case 16: // Shoot ball 1
+                if (!isWaiting) {
+                    robot.updateTurret(); // Keep turret aligned
+                    robot.launchOne(telemetry); // Position ball 1
+                    robot.kickSpoon(); // Fire kicker (blocks ~800ms)
+                    startWait(KICKER_WAIT_TIME); // Wait for kicker sequence
+                    setPathState(17); // Move to ball 2
+                }
+                break;
+            
+            case 17: // Shoot ball 2
+                if (!isWaiting) {
+                    robot.updateTurret(); // Keep turret aligned
+                    robot.launchOne(telemetry); // Position ball 2
+                    robot.kickSpoon(); // Fire kicker
+                    startWait(KICKER_WAIT_TIME);
+                    setPathState(18); // Move to ball 3
+                }
+                break;
+            
+            case 18: // Shoot ball 3
+                if (!isWaiting) {
+                    robot.updateTurret(); // Keep turret aligned
+                    robot.launchOne(telemetry); // Position ball 3
+                    robot.kickSpoon(); // Fire kicker
+                    startWait(KICKER_WAIT_TIME);
+                    setPathState(19); // Move to completion
+                }
+                break;
+            
+            case 19: // Shooting complete
+                if (!isWaiting) {
+                    robot.stopFlywheel();
+                    setPathState(2); // Continue to case 2 (or whatever comes next)
+                }
+                break;
+            /*
             case 2:
                 if(!follower.isBusy()) {
                     startWait();
@@ -285,9 +369,8 @@ public class AutoOpMain extends OpMode {
     
     private void startWait(double waitTime) {
         isWaiting = true;
+        customWaitTime = waitTime;
         waitTimer.resetTimer();
-        // Store custom wait time - we'll check against WAIT_TIME_SECONDS for now
-        // For ball collection, we'll use longer waits
     }
 
     /** These change the states of the paths and actions. It will also reset the timers of the individual switches **/
