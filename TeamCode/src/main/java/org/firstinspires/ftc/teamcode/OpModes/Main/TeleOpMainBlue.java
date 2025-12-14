@@ -8,7 +8,7 @@ import org.firstinspires.ftc.teamcode.Constants.AllianceColor;
  * This op mode provides the same functionality as TeleOpMain but is specifically
  * labeled for BLUE alliance use in the driver station.
  */
-@TeleOp(name = "TeleOpMain BLUE", group = "Linear OpMode")
+@TeleOp(name = "BLUE: TeleOp Main", group = "Linear OpMode")
 public class TeleOpMainBlue extends TeleOpMain {
     @Override
     public void runOpMode() {

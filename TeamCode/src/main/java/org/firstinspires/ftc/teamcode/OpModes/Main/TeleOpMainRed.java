@@ -8,7 +8,7 @@ import org.firstinspires.ftc.teamcode.Constants.AllianceColor;
  * This op mode provides the same functionality as TeleOpMain but is specifically
  * labeled for RED alliance use in the driver station.
  */
-@TeleOp(name = "TeleOpMain RED", group = "Linear OpMode")
+@TeleOp(name = "RED: TeleOp Main", group = "Linear OpMode")
 public class TeleOpMainRed extends TeleOpMain {
     @Override
     public void runOpMode() {

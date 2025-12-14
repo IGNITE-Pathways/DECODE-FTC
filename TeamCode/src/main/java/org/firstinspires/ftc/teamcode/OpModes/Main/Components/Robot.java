@@ -28,12 +28,9 @@ public class Robot {
     private static final int LAUNCH_SLOT = 1;   // Fixed launch position
     private static final int LAST_SLOT = 2;     // Fixed middle position
     
-    // Desired launch order: PPG (Purple, Purple, Green)
-    private static final String[] DESIRED_LAUNCH_ORDER = {"purple", "purple", "green"};
-    
     // Ball slot tracking - tracks which ball is in which slot position
     private Map<Integer, String> ballSlots = new HashMap<>();
-    private int launchIndex = 0;  // Current index in DESIRED_LAUNCH_ORDER (0-2)
+    private int launchIndex = 0;  // Current index in detectedBallSequence (0-2)
     private float lastHueDetected = -1f;  // Hue value of the last detected ball
     
     // Obelisk detection - detected ball sequence from AprilTag
@@ -691,14 +688,20 @@ public class Robot {
     }
     
     /**
-     * Pseudo launch method that launches one ball at a time in the desired launch order (PPG).
+     * Pseudo launch method that launches one ball at a time in the desired launch order.
      * Each call launches the next ball in sequence.
      * Rotates the spindexer to ensure the correct color ball is in the launch slot, then clears it.
      * @param telemetry Telemetry instance for displaying status messages
      */
     public void launchOne(Telemetry telemetry) {
+        // Check if obelisk sequence has been detected
+        if (detectedBallSequence == null || detectedBallSequence.isEmpty()) {
+            telemetry.addLine("Obelisk sequence not detected yet! Cannot launch.");
+            return;
+        }
+        
         // Check if we've already launched all balls
-        if (launchIndex >= DESIRED_LAUNCH_ORDER.length) {
+        if (launchIndex >= detectedBallSequence.size()) {
             telemetry.addLine("All balls launched! Load 3 more balls using Intake to launch again.");
             return;
         }
@@ -710,7 +713,7 @@ public class Robot {
         }
         
         // Get the desired color for this launch
-        String desiredColor = DESIRED_LAUNCH_ORDER[launchIndex];
+        String desiredColor = detectedBallSequence.get(launchIndex);
         telemetry.addLine("Launching ball " + (launchIndex+1) + "/3: " + desiredColor);
         
         // Find which slot contains the desired color ball
@@ -809,7 +812,11 @@ public class Robot {
         telemetry.addLine("=== SLOT POSITIONS ===");
         telemetry.addData("Balls Detected", getBallCount());
         telemetry.addData("Current Balls Loaded", getCurrentBallCount());
-        telemetry.addData("Launch Index", launchIndex + "/" + DESIRED_LAUNCH_ORDER.length);
+        if (detectedBallSequence != null && !detectedBallSequence.isEmpty()) {
+            telemetry.addData("Launch Index", launchIndex + "/" + detectedBallSequence.size());
+        } else {
+            telemetry.addData("Launch Index", launchIndex + "/? (sequence not detected)");
+        }
         String intakeSlotColor = getSlotColor(INTAKE_SLOT);
         String intakeDisplay = intakeSlotColor.equals("none") ? "EMPTY" : "●" + intakeSlotColor.toUpperCase();
         telemetry.addData("Slot 0 (INTAKE)", intakeDisplay);

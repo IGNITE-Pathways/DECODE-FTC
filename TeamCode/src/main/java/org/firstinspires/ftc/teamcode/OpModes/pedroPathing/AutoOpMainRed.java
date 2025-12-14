@@ -1,0 +1,20 @@
+package org.firstinspires.ftc.teamcode.OpModes.pedroPathing;
+
+import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
+import org.firstinspires.ftc.teamcode.Constants.AllianceColor;
+
+/**
+ * RED Alliance wrapper for AutoOpMain
+ * This op mode provides the same functionality as AutoOpMain but is specifically
+ * labeled for RED alliance use in the driver station.
+ */
+@Autonomous(name = "RED: Auto Op Mode", group = "Autonomous")
+public class AutoOpMainRed extends AutoOpMain {
+    @Override
+    public void init() {
+        // Set alliance color to RED before initialization
+        setAllianceColor(AllianceColor.RED);
+        // Call AutoOpMain's init implementation
+        super.init();
+    }
+}

@@ -8,10 +8,14 @@ import com.pedropathing.paths.PathChain;
 import com.pedropathing.util.Timer;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import org.firstinspires.ftc.teamcode.Constants.AllianceColor;
 import org.firstinspires.ftc.teamcode.OpModes.Main.Components.Robot;
 
-@Autonomous(name = "Autonomous - Ball Collection", group = "Autonomous")
-public class AutonPedroDocumentation extends OpMode {
+/**
+ * Base Autonomous class - DO NOT RUN DIRECTLY
+ * Use AutoOpMainBlue or AutoOpMainRed instead
+ */
+public class AutoOpMain extends OpMode {
     private Follower follower;
     private Robot robot;
     private Timer pathTimer, opmodeTimer, waitTimer;
@@ -20,6 +24,21 @@ public class AutonPedroDocumentation extends OpMode {
     private boolean isWaiting = false;
     private static final double WAIT_TIME_SECONDS = 1.5; // Wait 1.5 seconds after each path
     private static final double BALL_WAIT_TIME_SECONDS = 2.0; // Longer wait for ball collection paths
+    
+    // Ball preloading state tracking
+    private boolean intakeStarted = false; // Track if intake has been started
+    private boolean ballsLoaded = false; // Track if 3 balls have been loaded
+    
+    // Alliance color: BLUE or RED
+    protected AllianceColor allianceColor = null;
+    
+    /**
+     * Set the alliance color for this op mode
+     * @param color AllianceColor.BLUE or AllianceColor.RED
+     */
+    protected void setAllianceColor(AllianceColor color) {
+        this.allianceColor = color;
+    }
 
     // Starting position of the robot from trajectory (8).pp
     private final Pose startPose = new Pose(56, 8, Math.toRadians(90));
@@ -47,15 +66,55 @@ public class AutonPedroDocumentation extends OpMode {
 
         follower = Constants.createFollower(hardwareMap);
         robot = new Robot();
-        robot.initialize(hardwareMap, telemetry, null); // OpMode is null since we're using OpMode, not LinearOpMode
+        // Note: Passing null for LinearOpMode since we're using OpMode, not LinearOpMode
+        // Alliance color is passed for turret tag detection
+        robot.initialize(hardwareMap, telemetry, null, allianceColor);
         buildPaths();
         follower.setStartingPose(startPose);
     }
 
     @Override
     public void init_loop() {
-        // You can add initialization feedback here
+        // First call: reset ball tracking and start intake
+        if (!intakeStarted) {
+            robot.resetBallTracking();
+            robot.startIntake();
+            robot.startColorSensing();
+            intakeStarted = true;
+        }
+        
+        // Update intake and color sensing every loop iteration
+        robot.updateIntake();
+        robot.updateSpindexerSensing();
+        
+        // Check if 3 balls have been loaded
+        // Note: onBallDetected callback already resets launchIndex when ballCount >= 3
+        if (!ballsLoaded && robot.getCurrentBallCount() >= 3) {
+            robot.stopIntake();
+            robot.stopColorSensing();
+            ballsLoaded = true;
+        }
+        
+        // Display telemetry
         telemetry.addData("Status", "Initialized");
+        if (allianceColor != null) {
+            telemetry.addData("Alliance", allianceColor.name());
+        }
+        telemetry.addLine("");
+        telemetry.addLine("=== BALL PRELOADING ===");
+        telemetry.addData("Intake Status", robot.isIntakeRunning() ? "Running" : "Stopped");
+        telemetry.addData("Color Sensing", robot.isColorSensingActive() ? "Active" : "Inactive");
+        telemetry.addData("Balls Loaded", robot.getCurrentBallCount() + "/3");
+        telemetry.addData("Ball Sequence", robot.getBallSequence());
+        
+        if (ballsLoaded) {
+            telemetry.addLine("");
+            telemetry.addLine("✓ READY TO PLAY - 3 balls loaded!");
+        } else {
+            telemetry.addLine("");
+            telemetry.addLine("Waiting for player to provide 3 balls...");
+        }
+        
         telemetry.update();
     }
 
