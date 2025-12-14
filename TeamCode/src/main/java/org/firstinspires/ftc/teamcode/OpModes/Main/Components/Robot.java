@@ -668,7 +668,7 @@ public class Robot {
      * Rotates the spindexer to ensure the correct color ball is in the launch slot, then clears it.
      * @param telemetry Telemetry instance for displaying status messages
      */
-    public void pseudoLaunch(Telemetry telemetry) {
+    public void launchOne(Telemetry telemetry) {
         // Check if we've already launched all balls
         if (launchIndex >= DESIRED_LAUNCH_ORDER.length) {
             telemetry.addLine("All balls launched! Load 3 more balls using Intake to launch again.");
@@ -745,6 +745,9 @@ public class Robot {
         return lastHueDetected;
     }
     
+    public void resetSpindexer() {
+        spindexer.reset();
+    }
     /**
      * Add comprehensive intake, spindexer, and slot position telemetry
      * @param telemetry Telemetry instance to add data to
