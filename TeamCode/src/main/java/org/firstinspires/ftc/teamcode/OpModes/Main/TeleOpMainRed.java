@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode.OpModes.Main;
 
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import org.firstinspires.ftc.teamcode.Constants.AllianceColor;
 
 /**
  * RED Alliance wrapper for TeleOpMain
@@ -12,7 +13,7 @@ public class TeleOpMainRed extends TeleOpMain {
     @Override
     public void runOpMode() {
         // Set alliance color to RED before running
-        setAllianceColor("RED");
+        setAllianceColor(AllianceColor.RED);
         // Call TeleOpMain's runOpMode implementation
         super.runOpMode();
     }

@@ -3,6 +3,7 @@ package org.firstinspires.ftc.teamcode.OpModes.Main.Components;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
+import org.firstinspires.ftc.teamcode.Constants.AllianceColor;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -39,9 +40,20 @@ public class Robot {
      * @param opMode LinearOpMode instance (needed for Spindexer)
      */
     public void initialize(HardwareMap hardwareMap, Telemetry telemetry, LinearOpMode opMode) {
+        initialize(hardwareMap, telemetry, opMode, null);
+    }
+    
+    /**
+     * Initialize all robot components with alliance color
+     * @param hardwareMap Hardware map from OpMode
+     * @param telemetry Telemetry from OpMode
+     * @param opMode LinearOpMode instance (needed for Spindexer)
+     * @param allianceColor Alliance color (BLUE or RED) for turret tag detection
+     */
+    public void initialize(HardwareMap hardwareMap, Telemetry telemetry, LinearOpMode opMode, AllianceColor allianceColor) {
         // Initialize all components
         turret = new Turret();
-        turret.initialize(hardwareMap, telemetry);
+        turret.initialize(hardwareMap, telemetry, allianceColor);
 
         launcher = new Launcher();
         launcher.initialize(hardwareMap, telemetry);

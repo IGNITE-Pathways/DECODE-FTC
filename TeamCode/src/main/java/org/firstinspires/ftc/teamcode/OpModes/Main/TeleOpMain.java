@@ -4,6 +4,7 @@ package org.firstinspires.ftc.teamcode.OpModes.Main;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import org.firstinspires.ftc.teamcode.Constants.AllianceColor;
 import org.firstinspires.ftc.teamcode.OpModes.Main.Components.Robot;
 
 @TeleOp(name = "TeleOpMain", group = "Linear OpMode")
@@ -11,8 +12,8 @@ public class TeleOpMain extends LinearOpMode {
     // Robot instance containing all components
     private Robot robot;
     
-    // Alliance color: "BLUE" or "RED"
-    protected String allianceColor = null;
+    // Alliance color: BLUE or RED
+    protected AllianceColor allianceColor = null;
     
     // Button state tracking for edge detection
     private boolean prevRightBumper = false;
@@ -24,9 +25,9 @@ public class TeleOpMain extends LinearOpMode {
 
     /**
      * Set the alliance color for this op mode
-     * @param color "BLUE" or "RED"
+     * @param color AllianceColor.BLUE or AllianceColor.RED
      */
-    protected void setAllianceColor(String color) {
+    protected void setAllianceColor(AllianceColor color) {
         this.allianceColor = color;
     }
 
@@ -34,11 +35,11 @@ public class TeleOpMain extends LinearOpMode {
     public void runOpMode() {
         // Initialize robot (all components initialized within)
         robot = new Robot();
-        robot.initialize(hardwareMap, telemetry, this);
+        robot.initialize(hardwareMap, telemetry, this, allianceColor);
 
         telemetry.addData("Status", "Initialized");
         if (allianceColor != null) {
-            telemetry.addData("Alliance", allianceColor);
+            telemetry.addData("Alliance", allianceColor.name());
         }
         telemetry.update();
         waitForStart();

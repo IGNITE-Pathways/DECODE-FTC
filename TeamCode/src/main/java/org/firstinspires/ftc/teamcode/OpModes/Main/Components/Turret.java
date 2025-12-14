@@ -6,6 +6,7 @@ import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
+import org.firstinspires.ftc.teamcode.Constants.AllianceColor;
 import org.firstinspires.ftc.teamcode.Constants.HardwareConfig;
 
 import java.util.List;
@@ -60,11 +61,25 @@ public class Turret {
     // Lock flag to prevent update() from running when turret is locked
     private boolean isLocked = false;
     private double lockedPosition = 0.5;
+    
+    // Target AprilTag ID based on alliance color (20 for BLUE, 24 for RED)
+    private int targetTagId = 24; // Default to RED for backward compatibility
 
     public void initialize(HardwareMap hardwareMap, Telemetry telemetry) {
+        initialize(hardwareMap, telemetry, null);
+    }
+    
+    public void initialize(HardwareMap hardwareMap, Telemetry telemetry, AllianceColor allianceColor) {
         this.telemetry = telemetry;
         limelight = hardwareMap.get(Limelight3A.class, HardwareConfig.LIMELIGHT);
         turretServo = hardwareMap.get(Servo.class, HardwareConfig.TURRET_SERVO);
+        
+        // Set target tag ID based on alliance color (default to RED/24 if null)
+        if (allianceColor == AllianceColor.BLUE) {
+            targetTagId = 20;
+        } else {
+            targetTagId = 24; // RED or default
+        }
 
         if (limelight != null) {
             limelight.setPollRateHz(100);
@@ -90,21 +105,21 @@ public class Turret {
 
         LLResult result = limelight.getLatestResult();
         double tx = 0;
-        boolean tag24Detected = false;
+        boolean tagDetected = false;
 
-        // Detect only Tag 24
+        // Detect target tag based on alliance color (20 for BLUE, 24 for RED)
         if (result != null && result.isValid()) {
             List<LLResultTypes.FiducialResult> fiducialResults = result.getFiducialResults();
             for (LLResultTypes.FiducialResult fr : fiducialResults) {
-                if (fr.getFiducialId() == 24) {
+                if (fr.getFiducialId() == targetTagId) {
                     tx = fr.getTargetXDegrees();
-                    tag24Detected = true;
+                    tagDetected = true;
                     break;
                 }
             }
         }
 
-        if (tag24Detected) {
+        if (tagDetected) {
             framesSinceSeen = 0;
             double error = tx - TARGET_TX;
 
