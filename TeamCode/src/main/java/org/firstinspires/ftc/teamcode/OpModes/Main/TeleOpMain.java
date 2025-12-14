@@ -24,6 +24,7 @@ public class TeleOpMain extends LinearOpMode {
     private boolean prevB = false;
     private boolean prevX = false;
 
+    private boolean doTurret = false;
     private boolean prevY = false;
     private boolean hasTriggeredThreeBalls = false;  // Track if we've already handled 3 balls case
 
@@ -93,8 +94,10 @@ public class TeleOpMain extends LinearOpMode {
             if (y && !prevY){
                 robot.reverseIntake();
             }
-            robot.updateTurret();
-            
+            if (doTurret) {
+                robot.updateTurret();
+            }
+
             // Detect obelisk ball sequence if not yet detected
             if (robot.needsObeliskDetection()) {
                 robot.detectObeliskSequence();
@@ -121,7 +124,7 @@ public class TeleOpMain extends LinearOpMode {
                 // Stop intake and color sensing
                 robot.stopIntake();
                 robot.stopColorSensing();
-
+                doTurret = true;
                 robot.getSpindexer().needPut = true;
                 // Set flywheel power and hood position
 
@@ -164,6 +167,7 @@ public class TeleOpMain extends LinearOpMode {
             if (robot.getLaunchIndex() >= 3) {
                 // All three balls have been launched
                 telemetry.addLine("All balls launched!");
+                doTurret = false;
                 robot.resetSpindexer();
             }
 

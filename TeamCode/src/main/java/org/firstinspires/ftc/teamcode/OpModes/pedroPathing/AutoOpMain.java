@@ -26,6 +26,7 @@ public class AutoOpMain extends OpMode {
     private static final double WAIT_TIME_SECONDS = 1.5; // Wait 1.5 seconds after each path
     private static final double BALL_WAIT_TIME_SECONDS = 2.0; // Longer wait for ball collection paths
     private static final double FLYWHEEL_SPINUP_TIME = 1.5; // Time for flywheel to spin up
+    private static final double SPINDEXER_ROTATION_WAIT_TIME = 0.5; // Time to wait for spindexer rotation to complete
     private static final double KICKER_WAIT_TIME = 0.8; // Time to wait for kicker sequence
     
     // Ball preloading state tracking
@@ -157,8 +158,8 @@ public class AutoOpMain extends OpMode {
             robot.detectObeliskSequence();
         }
         
-        // Update turret during shooting states (cases 15-19) to maintain alignment
-        if (pathState >= 15 && pathState <= 19) {
+        // Update turret during shooting states (cases 15-19, 160, 170, 180) to maintain alignment
+        if ((pathState >= 15 && pathState <= 19) || pathState == 160 || pathState == 170 || pathState == 180) {
             robot.updateTurret();
         }
         
@@ -180,7 +181,7 @@ public class AutoOpMain extends OpMode {
         }
         
         // Display shooting progress and status
-        if (pathState >= 15 && pathState <= 19) {
+        if ((pathState >= 15 && pathState <= 19) || pathState == 160 || pathState == 170 || pathState == 180) {
             telemetry.addLine("");
             telemetry.addLine("=== SHOOTING SEQUENCE ===");
             telemetry.addData("Flywheel Status", robot.isFlywheelSpinning() ? "Running" : "Stopped");
@@ -188,13 +189,16 @@ public class AutoOpMain extends OpMode {
             
             if (pathState == 15) {
                 telemetry.addData("Status", "Preparing to shoot (flywheel spin-up)");
-            } else if (pathState >= 16 && pathState <= 18) {
-                int ballNumber = pathState - 15;
-                telemetry.addData("Status", "Shooting ball " + ballNumber + "/3");
+            } else if (pathState == 16 || pathState == 17 || pathState == 18) {
+                int ballNumber = (pathState == 16) ? 1 : (pathState == 17) ? 2 : 3;
+                telemetry.addData("Status", "Positioning ball " + ballNumber + "/3");
                 if (robot.getDetectedBallSequence() != null && robot.getLaunchIndex() > 0) {
                     String currentBall = robot.getDetectedBallSequence().get(robot.getLaunchIndex() - 1);
                     telemetry.addData("Current Ball", currentBall);
                 }
+            } else if (pathState == 160 || pathState == 170 || pathState == 180) {
+                int ballNumber = (pathState == 160) ? 1 : (pathState == 170) ? 2 : 3;
+                telemetry.addData("Status", "Kicking ball " + ballNumber + "/3");
             } else if (pathState == 19) {
                 telemetry.addData("Status", "Shooting complete!");
             }
@@ -247,32 +251,53 @@ public class AutoOpMain extends OpMode {
                 }
                 break;
             
-            case 16: // Shoot ball 1
+            case 16: // Position ball 1 for shooting
                 if (!isWaiting) {
                     robot.getTurret().setPositionDirect(0.6);
-                    robot.launchOne(telemetry); // Position ball 1
-                    robot.kickSpoon(); // Fire kicker (blocks ~800ms)
+                    robot.launchOne(telemetry); // Rotate spindexer to position ball 1
+                    startWait(SPINDEXER_ROTATION_WAIT_TIME); // Wait for rotation to complete
+                    setPathState(160); // Move to kick phase
+                }
+                break;
+            
+            case 160: // Kick ball 1
+                if (!isWaiting) {
+                    robot.kickSpoon(); // Fire kicker
                     startWait(KICKER_WAIT_TIME); // Wait for kicker sequence
-                    setPathState(17); // Move to ball 2
+                    setPathState(17); // Move to ball 2 positioning
                 }
                 break;
             
-            case 17: // Shoot ball 2
+            case 17: // Position ball 2 for shooting
                 if (!isWaiting) {
                     robot.getTurret().setPositionDirect(0.6);
-                    robot.launchOne(telemetry); // Position ball 2
-                    robot.kickSpoon(); // Fire kicker
-                    startWait(KICKER_WAIT_TIME);
-                    setPathState(18); // Move to ball 3
+                    robot.launchOne(telemetry); // Rotate spindexer to position ball 2
+                    startWait(SPINDEXER_ROTATION_WAIT_TIME); // Wait for rotation to complete
+                    setPathState(170); // Move to kick phase
                 }
                 break;
             
-            case 18: // Shoot ball 3
+            case 170: // Kick ball 2
+                if (!isWaiting) {
+                    robot.kickSpoon(); // Fire kicker
+                    startWait(KICKER_WAIT_TIME); // Wait for kicker sequence
+                    setPathState(18); // Move to ball 3 positioning
+                }
+                break;
+            
+            case 18: // Position ball 3 for shooting
                 if (!isWaiting) {
                     robot.getTurret().setPositionDirect(0.6);
-                    robot.launchOne(telemetry); // Position ball 3
+                    robot.launchOne(telemetry); // Rotate spindexer to position ball 3
+                    startWait(SPINDEXER_ROTATION_WAIT_TIME); // Wait for rotation to complete
+                    setPathState(180); // Move to kick phase
+                }
+                break;
+            
+            case 180: // Kick ball 3
+                if (!isWaiting) {
                     robot.kickSpoon(); // Fire kicker
-                    startWait(KICKER_WAIT_TIME);
+                    startWait(KICKER_WAIT_TIME); // Wait for kicker sequence
                     setPathState(19); // Move to completion
                 }
                 break;
