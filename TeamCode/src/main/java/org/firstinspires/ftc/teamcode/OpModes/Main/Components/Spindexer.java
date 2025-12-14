@@ -22,7 +22,10 @@ public class Spindexer {
     public interface BallDetectionCallback {
         void onBallDetected(String color);
     }
+<<<<<<< Updated upstream
 
+=======
+>>>>>>> Stashed changes
     private LinearOpMode opMode;
     private Telemetry telemetry;
 
@@ -45,6 +48,13 @@ public class Spindexer {
     private double targetDegrees = 0.0;
     private boolean intakeOn = false;
     private boolean allBallsIntaked = false;  // Track if all three balls are intaked
+    
+    // Color sensing state
+    private boolean isSensing = false;
+    private BallDetectionCallback ballDetectionCallback = null;
+    private boolean lastBallDetected = false;  // For debouncing
+    private long lastDetectionTime = 0;  // For debouncing
+    private static final long DEBOUNCE_TIME_MS = 500;  // Minimum time between detections
 
     // Color sensing state
     private boolean isSensing = false;
@@ -384,8 +394,21 @@ public class Spindexer {
 
         for (int i = 1; i <= steps; i++) {
             double interpDeg = startDeg + distance * (i / (double) steps);
+<<<<<<< Updated upstream
             indexer.setPosition(posFromDeg(interpDeg));
             opMode.sleep(10);
+=======
+            indexServo.setPosition(posFromDeg(interpDeg));
+            if (opMode != null) {
+                opMode.sleep(10);
+            } else {
+                try {
+                    Thread.sleep(10);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+>>>>>>> Stashed changes
         }
 
         indexer.setPosition(posFromDeg(newTargetDeg));
@@ -408,7 +431,11 @@ public class Spindexer {
                 try {
                     Thread.sleep(150);
                 } catch (InterruptedException e) {
+<<<<<<< Updated upstream
                     e.printStackTrace();
+=======
+                    Thread.currentThread().interrupt();
+>>>>>>> Stashed changes
                 }
             }
         }
@@ -481,7 +508,11 @@ public class Spindexer {
     }
     
     // ---------------- COLOR SENSING METHODS ---------------------
+<<<<<<< Updated upstream
 
+=======
+    
+>>>>>>> Stashed changes
     /**
      * Start color sensing with a callback function
      * @param callback Callback function to be called when a ball is detected
@@ -492,7 +523,11 @@ public class Spindexer {
         lastBallDetected = false;
         lastDetectionTime = 0;
     }
+<<<<<<< Updated upstream
 
+=======
+    
+>>>>>>> Stashed changes
     /**
      * Stop color sensing
      */
@@ -501,7 +536,11 @@ public class Spindexer {
         ballDetectionCallback = null;
         lastBallDetected = false;
     }
+<<<<<<< Updated upstream
 
+=======
+    
+>>>>>>> Stashed changes
     /**
      * Check if sensing is currently active
      * @return true if sensing is active
@@ -509,7 +548,11 @@ public class Spindexer {
     public boolean isSensing() {
         return isSensing;
     }
+<<<<<<< Updated upstream
 
+=======
+    
+>>>>>>> Stashed changes
     /**
      * Update color sensing - should be called every loop iteration when sensing is active
      * This method handles continuous color detection and callback invocation
@@ -519,6 +562,7 @@ public class Spindexer {
         if (!isSensing || intakeColorSensor == null) {
             return;
         }
+<<<<<<< Updated upstream
 
         // Read color sensor
         NormalizedRGBA colors = intakeColorSensor.getNormalizedColors();
@@ -536,6 +580,25 @@ public class Spindexer {
             found = true;
         }
 
+=======
+        
+        // Read color sensor
+        NormalizedRGBA colors = intakeColorSensor.getNormalizedColors();
+        float hue = JavaUtil.colorToHue(colors.toColor());
+        
+        boolean found = false;
+        String detectedColor = "unknown";
+        
+        // Detect purple (hue 160-350) or green (hue 100-160)
+        if (hue > 160 && hue < 350) {
+            detectedColor = "purple";
+            found = true;
+        } else if (hue >= 100 && hue <= 160) {
+            detectedColor = "green";
+            found = true;
+        }
+        
+>>>>>>> Stashed changes
         // Debouncing: prevent duplicate detections
         long currentTime = System.currentTimeMillis();
         if (found) {
@@ -545,7 +608,11 @@ public class Spindexer {
                 indexColors.put(currentDivision, detectedColor);
                 lastBallDetected = true;
                 lastDetectionTime = currentTime;
+<<<<<<< Updated upstream
 
+=======
+                
+>>>>>>> Stashed changes
                 // Check if all three balls are intaked
                 int ballCount = 0;
                 for (int i = 0; i < 3; i++) {
@@ -554,12 +621,20 @@ public class Spindexer {
                     }
                 }
                 allBallsIntaked = (ballCount >= 3);
+<<<<<<< Updated upstream
 
+=======
+                
+>>>>>>> Stashed changes
                 // Invoke callback if provided (rotation should be handled in callback)
                 if (ballDetectionCallback != null) {
                     ballDetectionCallback.onBallDetected(detectedColor);
                 }
+<<<<<<< Updated upstream
 
+=======
+                
+>>>>>>> Stashed changes
                 if (telemetry != null) {
                     telemetry.addData("Detected ball:", detectedColor);
                 }
@@ -571,6 +646,7 @@ public class Spindexer {
             }
         }
     }
+<<<<<<< Updated upstream
 
     /**
      * Get the current hue value from the color sensor
@@ -616,5 +692,7 @@ public class Spindexer {
         telemetry.addLine("Preloaded balls set: Div0=" + div0Color + ", Div1=" + div1Color + ", Div2=" + div2Color);
     }
 
+=======
+>>>>>>> Stashed changes
 }
 
