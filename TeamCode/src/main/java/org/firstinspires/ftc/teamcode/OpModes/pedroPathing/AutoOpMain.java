@@ -137,7 +137,6 @@ public class AutoOpMain extends OpMode {
         follower.update();
         robot.updateIntake(); // Update intake to keep it running
         robot.updateSpindexerSensing(); // Update color sensing for ball detection
-<<<<<<< Updated upstream:TeamCode/src/main/java/org/firstinspires/ftc/teamcode/OpModes/pedroPathing/AutoOpMain.java
         
         // Keep trying to detect obelisk sequence until successful
         if (robot.needsObeliskDetection()) {
@@ -149,8 +148,6 @@ public class AutoOpMain extends OpMode {
             robot.updateTurret();
         }
         
-=======
->>>>>>> Stashed changes:TeamCode/src/main/java/org/firstinspires/ftc/teamcode/OpModes/pedroPathing/AutonPedroDocumentation.java
         autonomousPathUpdate();
 
         // Feedback to Driver Hub for debugging
@@ -160,7 +157,6 @@ public class AutoOpMain extends OpMode {
         telemetry.addData("intake running", robot.isIntakeRunning());
         telemetry.addData("ball count", robot.getBallCount());
         telemetry.addData("ball sequence", robot.getBallSequence());
-<<<<<<< Updated upstream:TeamCode/src/main/java/org/firstinspires/ftc/teamcode/OpModes/pedroPathing/AutoOpMain.java
         
         // Display obelisk detection status
         if (robot.getDetectedBallSequence() != null) {
@@ -190,8 +186,6 @@ public class AutoOpMain extends OpMode {
             }
         }
         
-=======
->>>>>>> Stashed changes:TeamCode/src/main/java/org/firstinspires/ftc/teamcode/OpModes/pedroPathing/AutonPedroDocumentation.java
         telemetry.addData("x", follower.getPose().getX());
         telemetry.addData("y", follower.getPose().getY());
         telemetry.addData("heading", Math.toDegrees(follower.getPose().getHeading()));

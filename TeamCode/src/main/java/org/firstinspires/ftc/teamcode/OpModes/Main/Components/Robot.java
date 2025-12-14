@@ -22,7 +22,6 @@ public class Robot {
     // Ball order tracking (for use in both TeleOp and AutoOp)
     private String[] ballOrder = new String[3];  // Max 3 balls: PPG, PGP, or GPP
     private int ballCount = 0;  // Current number of balls tracked (0-3)
-<<<<<<< Updated upstream
     
     // Ball slot tracking constants
     private static final int INTAKE_SLOT = 0;   // Fixed intake position
@@ -42,8 +41,6 @@ public class Robot {
     private static final int APRILTAG_ID_PPG = 23;  // Purple - Purple - Green
     private static final int APRILTAG_ID_PGP = 22;  // Purple - Green - Purple
     private static final int APRILTAG_ID_GPP = 21;  // Green - Purple - Purple
-=======
->>>>>>> Stashed changes
 
     /**
      * Initialize all robot components
@@ -512,7 +509,6 @@ public class Robot {
         if (ballCount < 3) {
             ballOrder[ballCount] = color;
             ballCount++;
-<<<<<<< Updated upstream
             // Capture the hue value when ball is detected
             lastHueDetected = spindexer.getCurrentHue();
             // Assign detected ball to LAST_SLOT (slot 2)
@@ -527,11 +523,9 @@ public class Robot {
         if (ballCount >= 3) {
             launchIndex = 0;
         }
-=======
-        }
+
         // Rotate spindexer by one cycle when ball is detected
         spindexer.rotateOneDivision();
->>>>>>> Stashed changes
     }
     
     /**
@@ -557,19 +551,11 @@ public class Robot {
         spindexer.updateSensing();
     }
     
-    /**
-<<<<<<< Updated upstream
-     * Reset ball tracking - clears the ball order array and slot tracking
-=======
-     * Reset ball tracking - clears the ball order array
->>>>>>> Stashed changes
-     */
     public void resetBallTracking() {
         ballOrder[0] = null;
         ballOrder[1] = null;
         ballOrder[2] = null;
         ballCount = 0;
-<<<<<<< Updated upstream
         
         // Initialize ball slot tracking
         ballSlots.put(INTAKE_SLOT, "none");
@@ -577,8 +563,7 @@ public class Robot {
         ballSlots.put(LAUNCH_SLOT, "none");
         launchIndex = 0;
         lastHueDetected = -1f;
-=======
->>>>>>> Stashed changes
+
     }
     
     /**
@@ -614,7 +599,6 @@ public class Robot {
         }
         return sequence.toString();
     }
-<<<<<<< Updated upstream
     
     // ==================== BALL SLOT TRACKING METHODS ====================
     
@@ -925,6 +909,4 @@ public class Robot {
     public boolean needsObeliskDetection() {
         return detectedBallSequence == null;
     }
-=======
->>>>>>> Stashed changes
 }
