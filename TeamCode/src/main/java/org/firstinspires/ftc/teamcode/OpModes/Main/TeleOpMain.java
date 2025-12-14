@@ -71,6 +71,7 @@ public class TeleOpMain extends LinearOpMode {
 
             // Read gamepad inputs with edge detection
             boolean rightBumper = gamepad1.right_bumper;
+            boolean leftBumper = gamepad1.left_bumper;
             boolean rightTrigger = gamepad1.right_trigger > 0.2;
             boolean leftTrigger = gamepad1.right_trigger > 0.2;// Threshold for trigger press
             boolean a = gamepad1.a;
@@ -90,7 +91,9 @@ public class TeleOpMain extends LinearOpMode {
                     robot.updateLauncher();
 
             }
-
+            if (leftBumper) {
+                robot.setPositionDirect(0.6); //change
+            }
             if (y && !prevY){
                 robot.reverseIntake();
             }

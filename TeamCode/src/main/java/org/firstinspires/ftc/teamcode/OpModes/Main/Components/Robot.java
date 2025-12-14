@@ -384,6 +384,10 @@ public class Robot {
         return turret != null; // Placeholder - would need Turret to expose alignment state
     }
 
+    public void setPositionDirect(double position) {
+        turret.setPositionDirect(position);
+    }
+
     // ==================== LIFT/PARKING DIRECT ACCESS ====================
 
     /**
@@ -752,6 +756,31 @@ public class Robot {
     public String getSlotColor(int slot) {
         String color = ballSlots.get(slot);
         return color != null ? color : "none";
+    }
+    
+    /**
+     * Set preloaded balls in the spindexer slots
+     * @param intakeSlotColor Color of ball in INTAKE_SLOT (slot 0)
+     * @param launchSlotColor Color of ball in LAUNCH_SLOT (slot 1)
+     * @param lastSlotColor Color of ball in LAST_SLOT (slot 2)
+     */
+    public void setPreloadedBalls(String intakeSlotColor, String launchSlotColor, String lastSlotColor) {
+        // Reset tracking first
+        resetBallTracking();
+        
+        // Set ball slots
+        ballSlots.put(INTAKE_SLOT, intakeSlotColor != null ? intakeSlotColor : "none");
+        ballSlots.put(LAUNCH_SLOT, launchSlotColor != null ? launchSlotColor : "none");
+        ballSlots.put(LAST_SLOT, lastSlotColor != null ? lastSlotColor : "none");
+        
+        // Set ball order array to match slot order
+        ballOrder[0] = intakeSlotColor;
+        ballOrder[1] = launchSlotColor;
+        ballOrder[2] = lastSlotColor;
+        ballCount = 3;
+        
+        // Reset launch index for shooting sequence
+        launchIndex = 0;
     }
     
     /**

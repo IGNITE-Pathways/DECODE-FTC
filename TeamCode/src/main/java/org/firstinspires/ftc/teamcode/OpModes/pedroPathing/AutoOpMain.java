@@ -30,9 +30,8 @@ public class AutoOpMain extends OpMode {
     private static final double KICKER_WAIT_TIME = 0.8; // Time to wait for kicker sequence
     
     // Ball preloading state tracking
-    private boolean intakeStarted = false; // Track if intake has been started
-    private boolean ballsLoaded = false; // Track if 3 balls have been loaded
-    
+    private boolean ballsPreloaded = false; // Track if balls have been preloaded
+
     // Alliance color: BLUE or RED
     protected AllianceColor allianceColor = null;
     
@@ -79,24 +78,20 @@ public class AutoOpMain extends OpMode {
 
     @Override
     public void init_loop() {
-        // First call: reset ball tracking and start intake
-        if (!intakeStarted) {
+        // First call: set preloaded balls (assumed configuration)
+        if (!ballsPreloaded) {
             robot.resetBallTracking();
-            robot.startIntake();
-            robot.startColorSensing();
-            intakeStarted = true;
-        }
-        
-        // Update intake and color sensing every loop iteration
-        robot.updateIntake();
-        robot.updateSpindexerSensing();
-        
-        // Check if 3 balls have been loaded
-        // Note: onBallDetected callback already resets launchIndex when ballCount >= 3
-        if (!ballsLoaded && robot.getCurrentBallCount() >= 3) {
-            robot.stopIntake();
-            robot.stopColorSensing();
-            ballsLoaded = true;
+            
+            // Set preloaded balls according to assumed configuration:
+            // LAST_SLOT (slot 2) = green
+            // INTAKE_SLOT (slot 0) = purple
+            // LAUNCH_SLOT (slot 1) = purple
+            robot.setPreloadedBalls("purple", "purple", "green");
+            
+            // Also update Spindexer to match (divisions: 0=front/intake, 1=middle/launch, 2=back/last)
+            robot.getSpindexer().setPreloadedBalls("purple", "purple", "green");
+            
+            ballsPreloaded = true;
         }
         
         // Display telemetry
@@ -106,33 +101,27 @@ public class AutoOpMain extends OpMode {
         }
         telemetry.addLine("");
         telemetry.addLine("=== BALL PRELOADING ===");
-        telemetry.addData("Intake Status", robot.isIntakeRunning() ? "Running" : "Stopped");
-        telemetry.addData("Color Sensing", robot.isColorSensingActive() ? "Active" : "Inactive");
+        telemetry.addData("Balls Preloaded", "Yes (Assumed Configuration)");
         telemetry.addData("Balls Loaded", robot.getCurrentBallCount() + "/3");
         telemetry.addData("Ball Sequence", robot.getBallSequence());
         
-        if (ballsLoaded) {
-            telemetry.addLine("");
-            telemetry.addLine("✓ READY TO PLAY - 3 balls loaded!");
-            telemetry.addLine("");
-            telemetry.addLine("=== SLOT POSITIONS ===");
-            
-            // Display all three slots and their ball colors
-            String intakeSlotColor = robot.getSlotColor(0); // INTAKE_SLOT
-            String intakeDisplay = intakeSlotColor.equals("none") ? "EMPTY" : intakeSlotColor.toUpperCase();
-            telemetry.addData("Slot 0 (INTAKE)", intakeDisplay);
-            
-            String launchSlotColor = robot.getSlotColor(1); // LAUNCH_SLOT
-            String launchDisplay = launchSlotColor.equals("none") ? "EMPTY" : launchSlotColor.toUpperCase();
-            telemetry.addData("Slot 1 (LAUNCH)", launchDisplay);
-            
-            String lastSlotColor = robot.getSlotColor(2); // LAST_SLOT
-            String lastDisplay = lastSlotColor.equals("none") ? "EMPTY" : lastSlotColor.toUpperCase();
-            telemetry.addData("Slot 2 (MIDDLE)", lastDisplay);
-        } else {
-            telemetry.addLine("");
-            telemetry.addLine("Waiting for player to provide 3 balls...");
-        }
+        telemetry.addLine("");
+        telemetry.addLine("✓ READY TO PLAY - 3 balls preloaded!");
+        telemetry.addLine("");
+        telemetry.addLine("=== SLOT POSITIONS ===");
+        
+        // Display all three slots and their ball colors
+        String intakeSlotColor = robot.getSlotColor(0); // INTAKE_SLOT
+        String intakeDisplay = intakeSlotColor.equals("none") ? "EMPTY" : intakeSlotColor.toUpperCase();
+        telemetry.addData("Slot 0 (INTAKE)", intakeDisplay);
+        
+        String launchSlotColor = robot.getSlotColor(1); // LAUNCH_SLOT
+        String launchDisplay = launchSlotColor.equals("none") ? "EMPTY" : launchSlotColor.toUpperCase();
+        telemetry.addData("Slot 1 (LAUNCH)", launchDisplay);
+        
+        String lastSlotColor = robot.getSlotColor(2); // LAST_SLOT
+        String lastDisplay = lastSlotColor.equals("none") ? "EMPTY" : lastSlotColor.toUpperCase();
+        telemetry.addData("Slot 2 (LAST)", lastDisplay);
         
         telemetry.update();
     }
@@ -236,7 +225,9 @@ public class AutoOpMain extends OpMode {
             case 1:
                 // Path1 complete, start shooting sequence immediately
                 if (!follower.isBusy()) {
-                    robot.startFlywheel(); // Start flywheel early
+                    robot.setFlywheelPower(0.84);
+                    // Start flywheel early
+                    robot.setHoodPosition(0.75);
                     robot.resetLaunchIndex(); // Reset to shoot first ball
                     setPathState(15); // Transition to shooting prep
                 }
@@ -245,6 +236,7 @@ public class AutoOpMain extends OpMode {
             case 15: // Shooting preparation
                 // Keep turret aligned during preparation
                 robot.getTurret().setPositionDirect(0.6); //We should lock turret straight
+                robot.setHoodPosition(0.75); //incase pop
                 // Wait for flywheel spin-up
                 if (pathTimer.getElapsedTimeSeconds() >= FLYWHEEL_SPINUP_TIME) {
                     setPathState(16); // Start shooting ball 1
@@ -254,6 +246,7 @@ public class AutoOpMain extends OpMode {
             case 16: // Position ball 1 for shooting
                 if (!isWaiting) {
                     robot.getTurret().setPositionDirect(0.6);
+                    robot.setHoodPosition(0.75);
                     robot.launchOne(telemetry); // Rotate spindexer to position ball 1
                     startWait(SPINDEXER_ROTATION_WAIT_TIME); // Wait for rotation to complete
                     setPathState(160); // Move to kick phase
@@ -312,7 +305,6 @@ public class AutoOpMain extends OpMode {
             case 2: // Follow Path2 after shooting all 3 balls
                 // Start Path2 on first entry (follower not busy yet)
                 if (!follower.isBusy()) {
-                    startWait();
                     follower.followPath(Path2);
                     setPathState(3); // Move to waiting state
                 }
