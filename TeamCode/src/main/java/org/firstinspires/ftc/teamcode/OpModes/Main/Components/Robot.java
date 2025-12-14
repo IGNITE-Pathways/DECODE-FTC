@@ -83,8 +83,8 @@ public class Robot {
     }
 
     public void updateSpindexer(boolean gamepadA, boolean gamepadB, boolean gamepadX, 
-                                boolean gamepadY, boolean gamepadLeftBumper) {
-        spindexer.update(gamepadA, gamepadB, gamepadX, gamepadY, gamepadLeftBumper);
+                                boolean gamepadY) {
+        spindexer.update(gamepadA, gamepadB, gamepadX, gamepadY);
     }
 
     public void updateIntake() {

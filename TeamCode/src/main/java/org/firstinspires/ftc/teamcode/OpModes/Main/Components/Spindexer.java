@@ -42,10 +42,8 @@ public class Spindexer {
     private boolean prevB = false;
     private boolean prevX = false;
     private boolean prevY = false;
-    private boolean prevLeftBumper = false;
     private double targetDegrees = 0.0;
     private boolean intakeOn = false;
-    private boolean rapidFireMode = true;  // Start in rapid fire mode
     private boolean allBallsIntaked = false;  // Track if all three balls are intaked
 
     // Color sensing state
@@ -86,15 +84,57 @@ public class Spindexer {
         telemetry.update();
         Spoon.setPosition(KICKER_RESET_POSITION);
     }
-
-    public void update(boolean gamepadA, boolean gamepadB, boolean gamepadX, boolean gamepadY, boolean gamepadLeftBumper) {
-        // ---------------- MODE TOGGLE (LEFT BUMPER) -----------------
-        if (gamepadLeftBumper && !prevLeftBumper) {
-            rapidFireMode = !rapidFireMode;
-            telemetry.addLine("Mode switched to: " + (rapidFireMode ? "RAPID FIRE" : "INDEXING"));
+    
+    /**
+     * Reset Spindexer to initial state
+     * Resets all state variables, servos, and counters to their initial values
+     */
+    public void reset() {
+        // Reset indexColors HashMap
+        indexColors.put(0, "none");
+        indexColors.put(1, "none");
+        indexColors.put(2, "none");
+        
+        // Reset servo positions
+        targetDegrees = 26.84;
+        if (indexer != null) {
+            indexer.setPosition(posFromDeg(targetDegrees));
         }
-        prevLeftBumper = gamepadLeftBumper;
+        if (Spoon != null) {
+            Spoon.setPosition(KICKER_RESET_POSITION);
+        }
+        
+        // Reset intake servo
+        intakeOn = false;
+        if (intakeServo != null) {
+            intakeServo.setPower(0);
+        }
+        
+        // Reset counters and flags
+        currentDivision = 0;
+        xPressCount = 0;
+        flag = 0;
+        allBallsIntaked = false;
+        
+        // Reset button state tracking
+        prevA = false;
+        prevB = false;
+        prevX = false;
+        prevY = false;
+        
+        // Reset color sensing state
+        isSensing = false;
+        ballDetectionCallback = null;
+        lastBallDetected = false;
+        lastDetectionTime = 0;
+        
+        
+        if (telemetry != null) {
+            telemetry.addLine("Spindexer reset to initial state");
+        }
+    }
 
+    public void update(boolean gamepadA, boolean gamepadB, boolean gamepadX, boolean gamepadY) {
         // ---------------- COLOR DETECTION -----------------
         NormalizedRGBA colors = intakeColorSensor.getNormalizedColors();
         float hue = JavaUtil.colorToHue(colors.toColor());
@@ -123,23 +163,13 @@ public class Spindexer {
             }
             allBallsIntaked = (ballCount >= 3);
 
-            if (rapidFireMode) {
-                // Rapid fire mode: go to closest ball (next division)
-                try {
-                    Thread.sleep(750);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-                rotateOneDivision();
-            } else {
-                // Indexing mode: original behavior
-                try {
-                    Thread.sleep(750);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-                rotateOneDivision();
+            // Rotate to next division after ball detection
+            try {
+                Thread.sleep(750);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
             }
+            rotateOneDivision();
         }
 
         // ---------------- BUTTON Y -------------------------
@@ -172,13 +202,8 @@ public class Spindexer {
 
         // ---------------- BUTTON X -------------------------
         if (gamepadX && !prevX) {
-            if (rapidFireMode) {
-                // Rapid fire mode shooting sequence
-                shootBallRapidFire();
-            } else {
-                // Indexing mode shooting sequence (original)
-                shootBall();
-            }
+            // Rapid fire shooting sequence
+            shootBallRapidFire();
         }
         prevX = gamepadX;
 
@@ -332,7 +357,6 @@ public class Spindexer {
 
     // Telemetry helper
     public void addTelemetry() {
-        telemetry.addData("Mode", rapidFireMode ? "RAPID FIRE" : "INDEXING");
         telemetry.addData("Target°", "%.1f", targetDegrees);
         telemetry.addData("Servo Pos", "%.3f", indexer.getPosition());
         telemetry.addData("Division", currentDivision);
@@ -345,7 +369,6 @@ public class Spindexer {
 
         telemetry.addLine("A = Move 1 division");
         telemetry.addLine("B = Reset");
-        telemetry.addLine("Left Bumper = Toggle Mode");
     }
 
     // ---------------- SMOOTH SERVO MOVEMENT (FIXED) -------------------

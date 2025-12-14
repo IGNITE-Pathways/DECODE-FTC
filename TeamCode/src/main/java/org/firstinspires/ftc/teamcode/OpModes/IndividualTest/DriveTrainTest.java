@@ -29,7 +29,7 @@ public class DriveTrainTest extends OpMode {
         boolean crossPressed = gamepad1.cross;
 
         // Update drive train
-        driveTrain.update(forward, right, rotate, crossPressed);
+        driveTrain.update(forward, right, rotate);
 
         // Telemetry
         telemetry.addData("Forward", "%.2f", forward);
