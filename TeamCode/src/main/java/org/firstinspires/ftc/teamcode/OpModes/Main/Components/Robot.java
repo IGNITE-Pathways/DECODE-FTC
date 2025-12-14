@@ -90,6 +90,10 @@ public class Robot {
         return turret.update();
     }
 
+    public double getDistance() {
+        return turret.getDistance();
+    }
+
     public void updateDriveTrain(double forward, double right, double rotate) {
         driveTrain.update(forward, right, rotate);
     }

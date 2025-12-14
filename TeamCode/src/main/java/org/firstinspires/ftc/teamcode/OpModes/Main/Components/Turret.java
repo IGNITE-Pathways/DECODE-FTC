@@ -61,19 +61,25 @@ public class Turret {
     // Lock flag to prevent update() from running when turret is locked
     private boolean isLocked = false;
     private double lockedPosition = 0.5;
-    
+
     // Target AprilTag ID based on alliance color (20 for BLUE, 24 for RED)
     private int targetTagId = 24; // Default to RED for backward compatibility
+
+    // Limelight constants for distance calculation
+    private static final double APRILTAG_REAL_HEIGHT_METERS = 0.2032;
+    private static final double CAMERA_VERTICAL_FOV_DEGREES = 49.5;   // Limelight 3A vertical FOV
+    private static final int IMAGE_WIDTH_PIXELS = 1280;
+    private static final int IMAGE_HEIGHT_PIXELS = 720;
 
     public void initialize(HardwareMap hardwareMap, Telemetry telemetry) {
         initialize(hardwareMap, telemetry, null);
     }
-    
+
     public void initialize(HardwareMap hardwareMap, Telemetry telemetry, AllianceColor allianceColor) {
         this.telemetry = telemetry;
         limelight = hardwareMap.get(Limelight3A.class, HardwareConfig.LIMELIGHT);
         turretServo = hardwareMap.get(Servo.class, HardwareConfig.TURRET_SERVO);
-        
+
         // Set target tag ID based on alliance color (default to RED/24 if null)
         if (allianceColor == AllianceColor.BLUE) {
             targetTagId = 20;
@@ -424,6 +430,31 @@ public class Turret {
      */
     public void unlock() {
         isLocked = false;
+    }
+
+    /**
+     * Calculate distance to AprilTag target using TA (Target Area) method
+     * @return Distance in feet, or -1.0 if no valid target detected
+     */
+    public double getDistance() {
+        if (limelight == null || !limelight.isConnected()) {
+            return -1.0;
+        }
+
+        LLResult result = limelight.getLatestResult();
+        if (result != null && result.isValid()) {
+            double taPercent = result.getTa();
+            if (taPercent > 0.0) {
+                double pixelArea = (taPercent / 100.0) * (IMAGE_WIDTH_PIXELS * IMAGE_HEIGHT_PIXELS);
+                double tagPixelHeight = Math.sqrt(pixelArea);
+                double focalPx = (IMAGE_HEIGHT_PIXELS / 2.0)
+                        / Math.tan(Math.toRadians(CAMERA_VERTICAL_FOV_DEGREES / 2.0));
+
+                double distanceMeters = (APRILTAG_REAL_HEIGHT_METERS * focalPx) / tagPixelHeight;
+                return distanceMeters * 3.28084; // Convert to feet
+            }
+        }
+        return -1.0;
     }
 }
 
