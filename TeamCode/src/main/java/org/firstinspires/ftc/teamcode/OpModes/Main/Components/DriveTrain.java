@@ -31,7 +31,7 @@ public class DriveTrain {
         telemetry.update();
     }
 
-    public void update(double forward, double right, double rotate, boolean crossPressed) {
+    public void update(double forward, double right, double rotate) {
         // Mecanum wheel math
         double frontLeftPower = forward + right + rotate;
         double frontRightPower = forward - right - rotate;

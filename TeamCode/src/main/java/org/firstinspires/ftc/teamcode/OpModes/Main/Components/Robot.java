@@ -3,6 +3,8 @@ package org.firstinspires.ftc.teamcode.OpModes.Main.Components;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
+import java.util.HashMap;
+import java.util.Map;
 
 public class Robot {
     // All components
@@ -16,6 +18,19 @@ public class Robot {
     // Ball order tracking (for use in both TeleOp and AutoOp)
     private String[] ballOrder = new String[3];  // Max 3 balls: PPG, PGP, or GPP
     private int ballCount = 0;  // Current number of balls tracked (0-3)
+    
+    // Ball slot tracking constants
+    private static final int INTAKE_SLOT = 0;   // Fixed intake position
+    private static final int LAUNCH_SLOT = 1;   // Fixed launch position
+    private static final int LAST_SLOT = 2;     // Fixed middle position
+    
+    // Desired launch order: PPG (Purple, Purple, Green)
+    private static final String[] DESIRED_LAUNCH_ORDER = {"purple", "purple", "green"};
+    
+    // Ball slot tracking - tracks which ball is in which slot position
+    private Map<Integer, String> ballSlots = new HashMap<>();
+    private int launchIndex = 0;  // Current index in DESIRED_LAUNCH_ORDER (0-2)
+    private float lastHueDetected = -1f;  // Hue value of the last detected ball
 
     /**
      * Initialize all robot components
@@ -63,8 +78,8 @@ public class Robot {
         return turret.update();
     }
 
-    public void updateDriveTrain(double forward, double right, double rotate, boolean crossPressed) {
-        driveTrain.update(forward, right, rotate, crossPressed);
+    public void updateDriveTrain(double forward, double right, double rotate) {
+        driveTrain.update(forward, right, rotate);
     }
 
     public void updateSpindexer(boolean gamepadA, boolean gamepadB, boolean gamepadX, 
@@ -202,6 +217,38 @@ public class Robot {
         return intake.getPower();
     }
 
+    /**
+     * Get intake target power
+     * @return Target power level (-1.0 to 1.0)
+     */
+    public double getIntakeTargetPower() {
+        return intake.getTargetPower();
+    }
+
+    /**
+     * Get intake state
+     * @return Current intake state enum
+     */
+    public Intake.State getIntakeState() {
+        return intake.getState();
+    }
+
+    /**
+     * Check if intake ramping is enabled
+     * @return true if ramping is enabled
+     */
+    public boolean isIntakeRampingEnabled() {
+        return intake.isRampingEnabled();
+    }
+
+    /**
+     * Get intake ramp rate
+     * @return Ramp rate (power change per update)
+     */
+    public double getIntakeRampRate() {
+        return intake.getRampRate();
+    }
+
     // ==================== SPINDEXER DIRECT ACCESS ====================
 
     /**
@@ -232,6 +279,45 @@ public class Robot {
      */
     public void rotateSpindexer() {
         spindexer.rotateOneDivision();
+    }
+
+    /**
+     * Kick spoon (faster kicker sequence)
+     */
+    public void kickSpoon() {
+        spindexer.kick();
+    }
+
+    /**
+     * Get spindexer ball count
+     * @return Number of balls detected by spindexer (0-3)
+     */
+    public int getSpindexerBallCount() {
+        return spindexer.getBallCount();
+    }
+
+    /**
+     * Check if all balls are intaked
+     * @return true if all 3 balls are intaked
+     */
+    public boolean areAllBallsIntaked() {
+        return spindexer.areAllBallsIntaked();
+    }
+
+    /**
+     * Check if color sensing is currently active
+     * @return true if color sensing is active
+     */
+    public boolean isColorSensingActive() {
+        return spindexer.isSensing();
+    }
+
+    /**
+     * Get current hue value from color sensor
+     * @return Current hue value, or -1 if not available
+     */
+    public float getCurrentHue() {
+        return spindexer.getCurrentHue();
     }
 
 
@@ -398,9 +484,20 @@ public class Robot {
         if (ballCount < 3) {
             ballOrder[ballCount] = color;
             ballCount++;
+            // Capture the hue value when ball is detected
+            lastHueDetected = spindexer.getCurrentHue();
+            // Assign detected ball to LAST_SLOT (slot 2)
+            ballSlots.put(LAST_SLOT, color);
         }
         // Rotate spindexer by one cycle when ball is detected
         spindexer.rotateOneDivision();
+        // Shift balls between slots after rotation
+        shiftBallsBetweenSlots();
+        
+        // Reset launch index when we have 3 balls again
+        if (ballCount >= 3) {
+            launchIndex = 0;
+        }
     }
     
     /**
@@ -427,13 +524,20 @@ public class Robot {
     }
     
     /**
-     * Reset ball tracking - clears the ball order array
+     * Reset ball tracking - clears the ball order array and slot tracking
      */
     public void resetBallTracking() {
         ballOrder[0] = null;
         ballOrder[1] = null;
         ballOrder[2] = null;
         ballCount = 0;
+        
+        // Initialize ball slot tracking
+        ballSlots.put(INTAKE_SLOT, "none");
+        ballSlots.put(LAST_SLOT, "none");
+        ballSlots.put(LAUNCH_SLOT, "none");
+        launchIndex = 0;
+        lastHueDetected = -1f;
     }
     
     /**
@@ -468,5 +572,229 @@ public class Robot {
             }
         }
         return sequence.toString();
+    }
+    
+    // ==================== BALL SLOT TRACKING METHODS ====================
+    
+    /**
+     * Shifts balls between slots when spindexer rotates one division.
+     * Rotation pattern (clockwise): INTAKE_SLOT -> LAST_SLOT -> LAUNCH_SLOT -> INTAKE_SLOT
+     */
+    public void shiftBallsBetweenSlots() {
+        // Save current state
+        String launchSlotBall = ballSlots.get(LAUNCH_SLOT);
+        String lastSlotBall = ballSlots.get(LAST_SLOT);
+        String intakeSlotBall = ballSlots.get(INTAKE_SLOT);
+
+        // Rotate clockwise: LAUNCH -> INTAKE, INTAKE -> MIDDLE, MIDDLE -> LAUNCH
+        ballSlots.put(INTAKE_SLOT, lastSlotBall != null ? lastSlotBall : "none");
+        ballSlots.put(LAUNCH_SLOT, intakeSlotBall != null ? intakeSlotBall : "none");
+        ballSlots.put(LAST_SLOT, launchSlotBall != null ? launchSlotBall : "none");
+    }
+    
+    /**
+     * Counts how many balls are currently in the slots (not "none").
+     * @return Number of balls currently loaded (0-3)
+     */
+    public int getCurrentBallCount() {
+        int count = 0;
+        for (int slot : new int[]{INTAKE_SLOT, LAST_SLOT, LAUNCH_SLOT}) {
+            String slotColor = ballSlots.get(slot);
+            if (slotColor != null && !slotColor.equals("none")) {
+                count++;
+            }
+        }
+        return count;
+    }
+    
+    /**
+     * Finds which slot contains a ball of the specified color.
+     * @param color The color to search for ("purple" or "green")
+     * @return The slot number (INTAKE_SLOT, LAST_SLOT, or LAUNCH_SLOT), or -1 if not found
+     */
+    public int findSlotWithColor(String color) {
+        if (color == null) {
+            return -1;
+        }
+        for (int slot : new int[]{LAUNCH_SLOT, INTAKE_SLOT, LAST_SLOT}) {
+            String slotColor = ballSlots.get(slot);
+            if (slotColor != null && slotColor.equalsIgnoreCase(color)) {
+                return slot;
+            }
+        }
+        return -1;
+    }
+    
+    /**
+     * Rotates the spindexer to move a ball from the specified slot to LAUNCH_SLOT.
+     * Rotation pattern: INTAKE_SLOT -> LAUNCH_SLOT -> LAST_SLOT -> INTAKE_SLOT (clockwise)
+     * 
+     * NOTE: This method performs blocking rotations. Each rotation blocks for ~150ms,
+     * so calling this method will freeze the OpMode loop for up to 300ms (for 2 rotations).
+     * The robot will be unresponsive to gamepad inputs during this time.
+     * 
+     * @param sourceSlot The slot containing the ball to move (INTAKE_SLOT, LAST_SLOT, or LAUNCH_SLOT)
+     */
+    public void rotateBallToLaunchSlot(int sourceSlot) {
+        if (sourceSlot == LAUNCH_SLOT) {
+            // Ball is already in launch slot, no rotation needed
+            return;
+        }
+        
+        int rotationsNeeded;
+        if (sourceSlot == INTAKE_SLOT) {
+            // From INTAKE_SLOT to LAUNCH_SLOT: need 1 rotation
+            // INTAKE -> LAUNCH (clockwise rotation)
+            rotationsNeeded = 1;
+        } else if (sourceSlot == LAST_SLOT) {
+            // From LAST_SLOT to LAUNCH_SLOT: need 2 rotations
+            // LAST -> INTAKE -> LAUNCH (clockwise rotation)
+            rotationsNeeded = 2;
+        } else {
+            // Unknown slot, no rotation
+            return;
+        }
+        
+        // Perform the rotations (without blocking sleep - rotations are fast enough)
+        for (int i = 0; i < rotationsNeeded; i++) {
+            spindexer.rotateOneDivision();
+            shiftBallsBetweenSlots();
+        }
+    }
+    
+    /**
+     * Pseudo launch method that launches one ball at a time in the desired launch order (PPG).
+     * Each call launches the next ball in sequence.
+     * Rotates the spindexer to ensure the correct color ball is in the launch slot, then clears it.
+     * @param telemetry Telemetry instance for displaying status messages
+     */
+    public void pseudoLaunch(Telemetry telemetry) {
+        // Check if we've already launched all balls
+        if (launchIndex >= DESIRED_LAUNCH_ORDER.length) {
+            telemetry.addLine("All balls launched! Load 3 more balls using Intake to launch again.");
+            return;
+        }
+        
+        // Guard clause: check if no balls loaded
+        if (getCurrentBallCount() == 0) {
+            telemetry.addLine("No balls loaded! Cannot launch.");
+            return;
+        }
+        
+        // Get the desired color for this launch
+        String desiredColor = DESIRED_LAUNCH_ORDER[launchIndex];
+        telemetry.addLine("Launching ball " + (launchIndex+1) + "/3: " + desiredColor);
+        
+        // Find which slot contains the desired color ball
+        int ballSlot = findSlotWithColor(desiredColor);
+        
+        if (ballSlot == -1) {
+            telemetry.addLine("WARNING: " + desiredColor + " ball not found! Skipping...");
+            launchIndex++; // Still increment to avoid getting stuck
+            return;
+        }
+        
+        // Rotate spindexer to move the ball to LAUNCH_SLOT
+        rotateBallToLaunchSlot(ballSlot);
+        
+        // Simulate launch by clearing the launch slot
+        ballSlots.put(LAUNCH_SLOT, "none");
+        telemetry.addLine("Launched " + desiredColor + " ball!");
+        
+        // Move to next ball in launch order
+        launchIndex++;
+    }
+    
+    /**
+     * Reset launch index to 0 (called when 3 balls loaded)
+     */
+    public void resetLaunchIndex() {
+        launchIndex = 0;
+    }
+    
+    /**
+     * Get color in specified slot
+     * @param slot Slot number (INTAKE_SLOT, LAUNCH_SLOT, or LAST_SLOT)
+     * @return Color string, or "none" if empty, or null if invalid slot
+     */
+    public String getSlotColor(int slot) {
+        String color = ballSlots.get(slot);
+        return color != null ? color : "none";
+    }
+    
+    /**
+     * Clear launch slot after kick
+     */
+    public void clearLaunchSlot() {
+        ballSlots.put(LAUNCH_SLOT, "none");
+    }
+    
+    /**
+     * Get current launch index
+     * @return Current launch index (0-2)
+     */
+    public int getLaunchIndex() {
+        return launchIndex;
+    }
+    
+    /**
+     * Get last detected hue value
+     * @return Last detected hue, or -1 if none detected
+     */
+    public float getLastHueDetected() {
+        return lastHueDetected;
+    }
+    
+    /**
+     * Add comprehensive intake, spindexer, and slot position telemetry
+     * @param telemetry Telemetry instance to add data to
+     */
+    public void addIntakeTelemetry(Telemetry telemetry) {
+        // Add intake-specific telemetry
+        telemetry.addLine("");
+        telemetry.addLine("=== INTAKE STATUS ===");
+        telemetry.addData("Intake Power", "%.2f", getIntakePower());
+        telemetry.addData("Intake Target", "%.2f", getIntakeTargetPower());
+        telemetry.addData("Intake Status", isIntakeRunning() ? "Running" : "Stopped");
+        telemetry.addData("Intake State", getIntakeState().toString());
+        if (isIntakeRampingEnabled()) {
+            telemetry.addData("Intake Ramping", "Yes (%.3f/update)", getIntakeRampRate());
+        }
+        
+        telemetry.addLine("");
+        telemetry.addLine("=== ADDITIONAL SPINDEXER INFO ===");
+        telemetry.addData("Ball Count", getSpindexerBallCount());
+        telemetry.addData("All Balls Intaked", areAllBallsIntaked() ? "Yes" : "No");
+        telemetry.addData("Color Sensing Active", isColorSensingActive() ? "Yes" : "No");
+        float currentHue = getCurrentHue();
+        if (currentHue >= 0) {
+            telemetry.addData("Color Sensor Hue", "%.2f", currentHue);
+        } else {
+            telemetry.addData("Color Sensor Hue", "N/A");
+        }
+
+        telemetry.addLine("");
+        telemetry.addLine("=== SLOT POSITIONS ===");
+        telemetry.addData("Balls Detected", getBallCount());
+        telemetry.addData("Current Balls Loaded", getCurrentBallCount());
+        telemetry.addData("Launch Index", launchIndex + "/" + DESIRED_LAUNCH_ORDER.length);
+        String intakeSlotColor = getSlotColor(INTAKE_SLOT);
+        String intakeDisplay = intakeSlotColor.equals("none") ? "EMPTY" : "●" + intakeSlotColor.toUpperCase();
+        telemetry.addData("Slot 0 (INTAKE)", intakeDisplay);
+        
+        String launchSlotColor = getSlotColor(LAUNCH_SLOT);
+        String launchDisplay = launchSlotColor.equals("none") ? "EMPTY" : "●" + launchSlotColor.toUpperCase();
+        telemetry.addData("Slot 1 (LAUNCH)", launchDisplay);
+        
+        String lastSlotColor = getSlotColor(LAST_SLOT);
+        String middleDisplay = lastSlotColor.equals("none") ? "EMPTY" : "●" + lastSlotColor.toUpperCase();
+        telemetry.addData("Slot 2 (MIDDLE)", middleDisplay);
+        
+        // Display hue of last detected ball
+        if (lastHueDetected >= 0) {
+            telemetry.addData("Last Ball Hue", "%.2f", lastHueDetected);
+        } else {
+            telemetry.addData("Last Ball Hue", "N/A");
+        }
     }
 }
