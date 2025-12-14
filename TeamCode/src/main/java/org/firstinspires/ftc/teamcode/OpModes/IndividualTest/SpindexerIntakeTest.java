@@ -245,11 +245,11 @@ public class SpindexerIntakeTest extends LinearOpMode {
         if (sourceSlot == INTAKE_SLOT) {
             // From INTAKE_SLOT to LAUNCH_SLOT: need 2 rotations
             // INTAKE -> LAST -> LAUNCH
-            rotationsNeeded = 2;
+            rotationsNeeded = 1;
         } else if (sourceSlot == LAST_SLOT) {
             // From LAST_SLOT to LAUNCH_SLOT: need 1 rotation
             // LAST -> LAUNCH
-            rotationsNeeded = 1;
+            rotationsNeeded = 2;
         } else {
             // Unknown slot, no rotation
             return;

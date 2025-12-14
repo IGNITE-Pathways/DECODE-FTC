@@ -77,7 +77,7 @@ public class Spindexer {
         indexColors.put(2, "none");
 
         // Initialize exactly as you needed earlier:
-        targetDegrees = 53;
+        targetDegrees = 26.84;
         indexer.setPosition(posFromDeg(targetDegrees));
 
         telemetry.addLine("Ready. Press A to move 60°.");
@@ -163,8 +163,8 @@ public class Spindexer {
 
         // ---------------- BUTTON B -------------------------
         if (gamepadB && !prevB) {
-            targetDegrees = 53;
-            smoothMoveTo(53);
+            targetDegrees = 26.84;
+            smoothMoveTo(26.84);
             currentDivision = 0;
         }
         prevB = gamepadB;
@@ -238,7 +238,7 @@ public class Spindexer {
             indexColors.put(2, "none");
 
             // Reset servo
-            targetDegrees = 54;
+            targetDegrees = 26.84;
             smoothMoveTo(targetDegrees);
 
             // Reset counters
@@ -502,10 +502,10 @@ public class Spindexer {
         String detectedColor = "unknown";
 
         // Detect purple (hue 160-350) or green (hue 100-160)
-        if (hue > 160 && hue < 350) {
+        if (hue > 200 && hue < 300) {
             detectedColor = "purple";
             found = true;
-        } else if (hue >= 100 && hue <= 160) {
+        } else if (hue >= 100 && hue <= 190) {
             detectedColor = "green";
             found = true;
         }
