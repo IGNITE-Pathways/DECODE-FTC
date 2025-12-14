@@ -17,6 +17,8 @@ public class TeleOpMain extends LinearOpMode {
     private boolean prevA = false;
     private boolean prevB = false;
     private boolean prevX = false;
+
+    private boolean prevY = false;
     private boolean hasTriggeredThreeBalls = false;  // Track if we've already handled 3 balls case
 
     @Override
@@ -43,7 +45,12 @@ public class TeleOpMain extends LinearOpMode {
             boolean a = gamepad1.a;
             boolean b = gamepad1.b;
             boolean x = gamepad1.x;
-            
+            boolean y = gamepad1.y;
+
+            if (y && !prevY){
+                robot.reverseIntake();
+            }
+            robot.updateTurret();
             // Handle intake start/stop controls
             if (rightBumper && !prevRightBumper) {
                 // Start intake and color sensing
@@ -69,7 +76,10 @@ public class TeleOpMain extends LinearOpMode {
                 // Set flywheel power and hood position
                 robot.setHoodPosition(0.75);
                 robot.startFlywheel();
-                
+
+                //insert turret code
+
+
                 // Reset launch index when we have 3 balls loaded via Intake
                 if (robot.getCurrentBallCount() >= 3) {
                     robot.resetLaunchIndex();

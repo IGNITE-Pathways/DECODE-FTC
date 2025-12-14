@@ -128,7 +128,6 @@ public class Spindexer {
         lastBallDetected = false;
         lastDetectionTime = 0;
         
-        
         if (telemetry != null) {
             telemetry.addLine("Spindexer reset to initial state");
         }

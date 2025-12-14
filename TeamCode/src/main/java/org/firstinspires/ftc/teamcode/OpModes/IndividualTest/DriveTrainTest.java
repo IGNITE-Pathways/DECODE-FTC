@@ -26,7 +26,6 @@ public class DriveTrainTest extends OpMode {
         double forward = -gamepad1.left_stick_y;
         double right = gamepad1.left_stick_x;
         double rotate = gamepad1.right_stick_x;
-        boolean crossPressed = gamepad1.cross;
 
         // Update drive train
         driveTrain.update(forward, right, rotate);
@@ -35,7 +34,6 @@ public class DriveTrainTest extends OpMode {
         telemetry.addData("Forward", "%.2f", forward);
         telemetry.addData("Right", "%.2f", right);
         telemetry.addData("Rotate", "%.2f", rotate);
-        telemetry.addData("Precision Mode", crossPressed ? "ON" : "OFF");
         telemetry.update();
     }
 
