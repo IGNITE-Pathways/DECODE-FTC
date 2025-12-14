@@ -4,7 +4,10 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.Constants.AllianceColor;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class Robot {
@@ -32,6 +35,15 @@ public class Robot {
     private Map<Integer, String> ballSlots = new HashMap<>();
     private int launchIndex = 0;  // Current index in DESIRED_LAUNCH_ORDER (0-2)
     private float lastHueDetected = -1f;  // Hue value of the last detected ball
+    
+    // Obelisk detection - detected ball sequence from AprilTag
+    private List<String> detectedBallSequence = null;  // null = not yet detected, populated = detected
+    private int lastDetectedObeliskTagId = -1;  // Track last detected tag to prevent duplicates
+    
+    // AprilTag ID to ball sequence mapping (obelisk tags)
+    private static final int APRILTAG_ID_PPG = 23;  // Purple - Purple - Green
+    private static final int APRILTAG_ID_PGP = 22;  // Purple - Green - Purple
+    private static final int APRILTAG_ID_GPP = 21;  // Green - Purple - Purple
 
     /**
      * Initialize all robot components
@@ -816,5 +828,77 @@ public class Robot {
         } else {
             telemetry.addData("Last Ball Hue", "N/A");
         }
+    }
+    
+    // ==================== OBELISK DETECTION METHODS ====================
+    
+    /**
+     * Maps AprilTag ID to corresponding ball sequence
+     * @param tagId The AprilTag ID detected (21, 22, or 23)
+     * @return List of ball colors in sequence, or null if tag ID is not recognized
+     */
+    private List<String> mapTagIdToSequence(int tagId) {
+        switch (tagId) {
+            case APRILTAG_ID_PPG:
+                // Purple - Purple - Green
+                return Arrays.asList("purple", "purple", "green");
+            
+            case APRILTAG_ID_PGP:
+                // Purple - Green - Purple
+                return Arrays.asList("purple", "green", "purple");
+            
+            case APRILTAG_ID_GPP:
+                // Green - Purple - Purple
+                return Arrays.asList("green", "purple", "purple");
+            
+            default:
+                // Unknown tag ID
+                return null;
+        }
+    }
+    
+    /**
+     * Detects obelisk AprilTag and updates detectedBallSequence
+     * Only updates when a new/different AprilTag is detected
+     */
+    public void detectObeliskSequence() {
+        if (turret == null) {
+            return;
+        }
+        
+        // Detect obelisk AprilTag using turret's limelight
+        int tagId = turret.detectObeliskAprilTag();
+        
+        // Only process if this is a new detection (different from last detected)
+        if (tagId != -1 && tagId != lastDetectedObeliskTagId) {
+            lastDetectedObeliskTagId = tagId;
+            
+            // Map AprilTag ID to ball sequence
+            List<String> sequence = mapTagIdToSequence(tagId);
+            
+            if (sequence != null && !sequence.isEmpty()) {
+                detectedBallSequence = new ArrayList<>(sequence);
+            }
+        } else if (tagId == -1 && detectedBallSequence == null) {
+            // No tag detected and we haven't detected sequence yet - reset last detected tag
+            // This allows re-detection if we temporarily lose sight of the tag
+            lastDetectedObeliskTagId = -1;
+        }
+    }
+    
+    /**
+     * Get the detected ball sequence from obelisk
+     * @return List of ball colors in sequence, or null if not yet detected
+     */
+    public List<String> getDetectedBallSequence() {
+        return detectedBallSequence;
+    }
+    
+    /**
+     * Check if obelisk detection is still needed
+     * @return true if detectedBallSequence is null (detection needed), false if already detected
+     */
+    public boolean needsObeliskDetection() {
+        return detectedBallSequence == null;
     }
 }

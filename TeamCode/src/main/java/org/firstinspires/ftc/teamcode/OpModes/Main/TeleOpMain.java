@@ -80,6 +80,12 @@ public class TeleOpMain extends LinearOpMode {
                 robot.reverseIntake();
             }
             robot.updateTurret();
+            
+            // Detect obelisk ball sequence if not yet detected
+            if (robot.needsObeliskDetection()) {
+                robot.detectObeliskSequence();
+            }
+            
             // Handle intake start/stop controls
             if (rightBumper && !prevRightBumper) {
                 // Start intake and color sensing

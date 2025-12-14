@@ -456,5 +456,43 @@ public class Turret {
         }
         return -1.0;
     }
+
+    /**
+     * Detects obelisk AprilTag IDs (21, 22, 23) on the obelisk
+     * @return The detected AprilTag ID (21, 22, or 23), or -1 if none detected
+     */
+    public int detectObeliskAprilTag() {
+        if (limelight == null || !limelight.isConnected()) {
+            return -1;
+        }
+
+        try {
+            // Get latest detection results from Limelight
+            LLResult result = limelight.getLatestResult();
+
+            // Verify result is valid and not null
+            if (result != null && result.isValid()) {
+                // Get all detected fiducials (AprilTags)
+                List<LLResultTypes.FiducialResult> fiducialResults = result.getFiducialResults();
+
+                if (fiducialResults != null && !fiducialResults.isEmpty()) {
+                    // Check each detected fiducial for obelisk tags
+                    for (LLResultTypes.FiducialResult fiducial : fiducialResults) {
+                        int tagId = fiducial.getFiducialId();
+                        
+                        // Check if this is an obelisk tag (21, 22, or 23)
+                        if (tagId == 21 || tagId == 22 || tagId == 23) {
+                            return tagId;
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            // Handle any errors gracefully
+            return -1;
+        }
+        
+        return -1;
+    }
 }
 
