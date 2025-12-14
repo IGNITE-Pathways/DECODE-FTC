@@ -47,7 +47,8 @@ public class AutoOpMain extends OpMode {
     private final Pose startPose = new Pose(56, 8, Math.toRadians(90));
 
     // Path declarations - trajectory path segments (removing duplicates)
-    private PathChain Path1; // align: (56,8) to (56,12)
+    private PathChain Path1; // align: (56,8) to (56,12) - BLUE alliance
+    private PathChain Path1Red; // align: (88,8) to (88,12) - RED alliance (mirrored from Path1)
     private PathChain Path2; // align with set 1: (56,12) to (40,39)
     private PathChain Path3; // get ball 1: (40,39) to (35,39)
     private PathChain Path4; // get ball 2: (35,39) to (29,39)
@@ -219,7 +220,12 @@ public class AutoOpMain extends OpMode {
         
         switch (pathState) {
             case 0:
-                follower.followPath(Path1);
+                // Use Path1Red for RED alliance, Path1 for BLUE alliance
+                if (allianceColor == AllianceColor.RED) {
+                    follower.followPath(Path1Red);
+                } else {
+                    follower.followPath(Path1);
+                }
                 setPathState(1);
                 break;
             case 1:
@@ -421,11 +427,19 @@ public class AutoOpMain extends OpMode {
     }
 
     public void buildPaths() {
-        // Path 1: align - (56,8) to (56,12), linear heading 90→115
+        // Path 1: align - (56,8) to (56,12), linear heading 90→115 (BLUE alliance)
         Path1 = follower.pathBuilder()
                 .setGlobalDeceleration(2.0) // Higher deceleration slows paths down significantly
                 .addPath(new BezierLine(new Pose(56, 8, Math.toRadians(90)), new Pose(56, 12, Math.toRadians(115))))
                 .setLinearHeadingInterpolation(Math.toRadians(90), Math.toRadians(115))
+                .build();
+
+        // Path 1Red: align - (88,8) to (88,12), linear heading 90→65 (RED alliance, mirrored from Path1)
+        // Mirroring left-to-right: x -> 144 - x, heading -> 180° - heading
+        Path1Red = follower.pathBuilder()
+                .setGlobalDeceleration(2.0)
+                .addPath(new BezierLine(new Pose(88, 8, Math.toRadians(90)), new Pose(88, 12, Math.toRadians(65))))
+                .setLinearHeadingInterpolation(Math.toRadians(90), Math.toRadians(65))
                 .build();
 
         // Path 2: align with set 1 - (56,12) to (40,39), linear heading 115→180
