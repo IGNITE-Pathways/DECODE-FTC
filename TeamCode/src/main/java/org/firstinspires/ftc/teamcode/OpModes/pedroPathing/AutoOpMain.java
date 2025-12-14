@@ -226,6 +226,7 @@ public class AutoOpMain extends OpMode {
                 // Path1 complete, start shooting sequence immediately
                 if (!follower.isBusy()) {
                     robot.setFlywheelPower(0.84);
+                    robot.startFlywheel();
                     // Start flywheel early
                     robot.setHoodPosition(0.75);
                     robot.resetLaunchIndex(); // Reset to shoot first ball
