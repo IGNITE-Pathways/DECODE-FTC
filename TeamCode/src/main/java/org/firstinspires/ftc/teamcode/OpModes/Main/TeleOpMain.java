@@ -3,11 +3,13 @@
 package org.firstinspires.ftc.teamcode.OpModes.Main;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import org.firstinspires.ftc.teamcode.Constants.AllianceColor;
 import org.firstinspires.ftc.teamcode.OpModes.Main.Components.Robot;
 
-@TeleOp(name = "TeleOpMain", group = "Linear OpMode")
+/**
+ * Base TeleOp class - DO NOT RUN DIRECTLY
+ * Use TeleOpMainBlue or TeleOpMainRed instead
+ */
 public class TeleOpMain extends LinearOpMode {
     // Robot instance containing all components
     private Robot robot;
@@ -33,6 +35,18 @@ public class TeleOpMain extends LinearOpMode {
 
     @Override
     public void runOpMode() {
+        // Safety check: Warn if running TeleOpMain directly instead of through Blue/Red subclass
+        // This shouldn't happen since @TeleOp annotation was removed, but defensive check
+        String className = this.getClass().getSimpleName();
+        if ("TeleOpMain".equals(className)) {
+            telemetry.addLine("⚠️ WARNING: Running TeleOpMain directly!");
+            telemetry.addLine("Please use TeleOpMainBlue or TeleOpMainRed instead");
+            telemetry.addLine("Defaulting to BLUE alliance");
+            telemetry.update();
+            // Small delay to ensure message is visible
+            sleep(2000);
+        }
+        
         // Initialize robot (all components initialized within)
         robot = new Robot();
         robot.initialize(hardwareMap, telemetry, this, allianceColor);
