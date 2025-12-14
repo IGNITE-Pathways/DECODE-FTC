@@ -27,6 +27,7 @@ public class SpindexerIntakeTest extends LinearOpMode {
     
     private int ballCount = 0;  // Current number of balls detected (0-3)
     private int launchIndex = 0;  // Current index in DESIRED_LAUNCH_ORDER (0-2)
+    private float lastHueDetected = -1f;  // Hue value of the last detected ball
     // Button state tracking for edge detection
     private boolean prevRightBumper = false;
     private boolean prevRightTrigger = false;
@@ -127,6 +128,8 @@ public class SpindexerIntakeTest extends LinearOpMode {
     private void onBallDetected(String color) {
         if (ballCount < 3) {
             ballCount++;
+            // Capture the hue value when ball is detected
+            lastHueDetected = spindexer.getCurrentHue();
             // Assign detected ball to INTAKE_SLOT (slot 0)
             ballSlots.put(LAST_SLOT, color);
         }
@@ -222,7 +225,7 @@ public class SpindexerIntakeTest extends LinearOpMode {
     private int findSlotWithColor(String color) {
         for (int slot : new int[]{LAUNCH_SLOT, INTAKE_SLOT, LAST_SLOT}) {
             String slotColor = ballSlots.get(slot);
-            if (slotColor != null && slotColor.equals(color)) {
+            if (slotColor != null && slotColor.equalsIgnoreCase(color)) {
                 return slot;
             }
         }
@@ -303,6 +306,13 @@ public class SpindexerIntakeTest extends LinearOpMode {
         String lastSlotColor = ballSlots.get(LAST_SLOT);
         String middleDisplay = lastSlotColor.equals("none") ? "EMPTY" : "●" + lastSlotColor.toUpperCase();
         telemetry.addData("Slot 2 (MIDDLE)", middleDisplay);
+        
+        // Display hue of last detected ball
+        if (lastHueDetected >= 0) {
+            telemetry.addData("Last Ball Hue", "%.2f", lastHueDetected);
+        } else {
+            telemetry.addData("Last Ball Hue", "N/A");
+        }
     }
 }
 
