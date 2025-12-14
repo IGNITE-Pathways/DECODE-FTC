@@ -79,6 +79,7 @@ public class TeleOpMain extends LinearOpMode {
             if (rightTrigger) {
                     robot.setHoodPosition(0.78);
                     robot.setFlywheelPower(0.6);
+                    robot.startFlywheel();
                     robot.updateLauncher();
                 }
 
