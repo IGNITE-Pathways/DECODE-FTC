@@ -11,15 +11,24 @@ public class TeleOpMain extends LinearOpMode {
     // Robot instance containing all components
     private Robot robot;
     
+    // Alliance color: "BLUE" or "RED"
+    protected String allianceColor = null;
+    
     // Button state tracking for edge detection
     private boolean prevRightBumper = false;
     private boolean prevRightTrigger = false;
     private boolean prevA = false;
     private boolean prevB = false;
     private boolean prevX = false;
-
-    private boolean prevY = false;
     private boolean hasTriggeredThreeBalls = false;  // Track if we've already handled 3 balls case
+
+    /**
+     * Set the alliance color for this op mode
+     * @param color "BLUE" or "RED"
+     */
+    protected void setAllianceColor(String color) {
+        this.allianceColor = color;
+    }
 
     @Override
     public void runOpMode() {
@@ -28,6 +37,9 @@ public class TeleOpMain extends LinearOpMode {
         robot.initialize(hardwareMap, telemetry, this);
 
         telemetry.addData("Status", "Initialized");
+        if (allianceColor != null) {
+            telemetry.addData("Alliance", allianceColor);
+        }
         telemetry.update();
         waitForStart();
 
@@ -45,12 +57,7 @@ public class TeleOpMain extends LinearOpMode {
             boolean a = gamepad1.a;
             boolean b = gamepad1.b;
             boolean x = gamepad1.x;
-            boolean y = gamepad1.y;
-
-            if (y && !prevY){
-                robot.reverseIntake();
-            }
-            robot.updateTurret();
+            
             // Handle intake start/stop controls
             if (rightBumper && !prevRightBumper) {
                 // Start intake and color sensing
@@ -76,10 +83,7 @@ public class TeleOpMain extends LinearOpMode {
                 // Set flywheel power and hood position
                 robot.setHoodPosition(0.75);
                 robot.startFlywheel();
-
-                //insert turret code
-
-
+                
                 // Reset launch index when we have 3 balls loaded via Intake
                 if (robot.getCurrentBallCount() >= 3) {
                     robot.resetLaunchIndex();
@@ -116,7 +120,6 @@ public class TeleOpMain extends LinearOpMode {
                 // All three balls have been launched
                 telemetry.addLine("All balls launched!");
                 robot.resetSpindexer();
-                robot.resetBallTracking();
             }
 
             // Update color sensing (needs to be called every loop iteration when active)

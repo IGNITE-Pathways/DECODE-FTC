@@ -1,0 +1,19 @@
+package org.firstinspires.ftc.teamcode.OpModes.Main;
+
+import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+
+/**
+ * BLUE Alliance wrapper for TeleOpMain
+ * This op mode provides the same functionality as TeleOpMain but is specifically
+ * labeled for BLUE alliance use in the driver station.
+ */
+@TeleOp(name = "TeleOpMain BLUE", group = "Linear OpMode")
+public class TeleOpMainBlue extends TeleOpMain {
+    @Override
+    public void runOpMode() {
+        // Set alliance color to BLUE before running
+        setAllianceColor("BLUE");
+        // Call TeleOpMain's runOpMode implementation
+        super.runOpMode();
+    }
+}
