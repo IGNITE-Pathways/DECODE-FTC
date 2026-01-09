@@ -4,6 +4,10 @@ import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.Constants.AllianceColor;
+import org.firstinspires.ftc.teamcode.OpModes.Main.Components.OldComponents.Intake;
+import org.firstinspires.ftc.teamcode.OpModes.Main.Components.OldComponents.Lift;
+import org.firstinspires.ftc.teamcode.OpModes.Main.Components.OldComponents.Spindexer;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;

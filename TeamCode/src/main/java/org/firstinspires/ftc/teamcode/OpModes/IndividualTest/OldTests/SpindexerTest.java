@@ -1,10 +1,9 @@
-package org.firstinspires.ftc.teamcode.OpModes.IndividualTest;
+package org.firstinspires.ftc.teamcode.OpModes.IndividualTest.OldTests;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.hardware.Servo;
 
-import org.firstinspires.ftc.teamcode.OpModes.Main.Components.Spindexer;
+import org.firstinspires.ftc.teamcode.OpModes.Main.Components.OldComponents.Spindexer;
 
 @TeleOp(name = "Test: Spindexer", group = "Test")
 public class SpindexerTest extends LinearOpMode {

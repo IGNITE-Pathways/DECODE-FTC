@@ -2,7 +2,7 @@ package org.firstinspires.ftc.teamcode.OpModes.IndividualTest;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import org.firstinspires.ftc.teamcode.OpModes.Main.Components.Intake;
+import org.firstinspires.ftc.teamcode.OpModes.Main.Components.OldComponents.Intake;
 
 @TeleOp(name = "Test: Intake", group = "Test")
 public class IntakeTest extends LinearOpMode {

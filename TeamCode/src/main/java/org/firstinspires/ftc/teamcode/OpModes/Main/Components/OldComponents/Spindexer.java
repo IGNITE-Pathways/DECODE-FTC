@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.OpModes.Main.Components;
+package org.firstinspires.ftc.teamcode.OpModes.Main.Components.OldComponents;
 
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.HardwareMap;

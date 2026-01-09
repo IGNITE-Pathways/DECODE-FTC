@@ -1,8 +1,8 @@
-package org.firstinspires.ftc.teamcode.OpModes.IndividualTest;
+package org.firstinspires.ftc.teamcode.OpModes.IndividualTest.OldTests;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import org.firstinspires.ftc.teamcode.OpModes.Main.Components.Lift;
+import org.firstinspires.ftc.teamcode.OpModes.Main.Components.OldComponents.Lift;
 
 @TeleOp(name="Test: Parking", group="Test")
 public class ParkingTest extends OpMode {

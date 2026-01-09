@@ -2,8 +2,8 @@ package org.firstinspires.ftc.teamcode.OpModes.IndividualTest;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import org.firstinspires.ftc.teamcode.OpModes.Main.Components.Intake;
-import org.firstinspires.ftc.teamcode.OpModes.Main.Components.Spindexer;
+import org.firstinspires.ftc.teamcode.OpModes.Main.Components.OldComponents.Intake;
+import org.firstinspires.ftc.teamcode.OpModes.Main.Components.OldComponents.Spindexer;
 import org.firstinspires.ftc.teamcode.OpModes.Main.Components.Launcher;
 import java.util.HashMap;
 import java.util.Map;
