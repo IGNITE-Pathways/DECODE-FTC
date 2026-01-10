@@ -5,19 +5,25 @@ import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
+import org.firstinspires.ftc.robotcore.external.navigation.YawPitchRollAngles;
+
 @TeleOp(name="Test: Limelight Individual Test", group="Main")
 public class LimelightTest extends OpMode {
     private Limelight3A limelight;
 
     @Override
     public void init() {
-        limelight = hardwareMap.get(Limelight3A.class, "Limelight");
+        limelight = hardwareMap.get(Limelight3A.class, "limelight");
+        limelight.pipelineSwitch(8);
         if (limelight != null) {
             limelight.setPollRateHz(100);
             limelight.start();
         }
     }
-
+    @Override
+    public void start(){
+        limelight.start();
+    }
     @Override
     public void loop() {
         if (limelight == null || !limelight.isConnected()) {

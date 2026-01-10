@@ -433,6 +433,21 @@ public class Turret {
     }
 
     /**
+     * Lock turret at current position
+     */
+    public void lock() {
+        lockedPosition = servoPos;
+        isLocked = true;
+    }
+
+    /**
+     * Check if turret is aligned with target
+     */
+    public boolean isAligned() {
+        return aligned;
+    }
+
+    /**
      * Calculate distance to AprilTag target using TA (Target Area) method
      * @return Distance in feet, or -1.0 if no valid target detected
      */
