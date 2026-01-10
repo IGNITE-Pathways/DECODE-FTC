@@ -40,7 +40,7 @@ import org.firstinspires.ftc.teamcode.OpModes.Main.Components.TurretLockOptimize
 public class TurretLockOptimizedTest extends LinearOpMode {
 
     private TurretLockOptimized turret;
-    private AllianceColor alliance = AllianceColor.RED;
+    private AllianceColor alliance = AllianceColor.BLUE;
 
     // Test metrics
     private ElapsedTime testTimer = new ElapsedTime();
@@ -209,9 +209,9 @@ public class TurretLockOptimizedTest extends LinearOpMode {
 
     private void toggleLock() {
         if (turret.isInLockMode()) {
-            turret.lock();
+            turret.unlock(); // if locked, unlock
         } else {
-            turret.unlock();
+            turret.lock();   // if unlocked, lock
         }
     }
 

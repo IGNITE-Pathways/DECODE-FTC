@@ -1,193 +1,188 @@
-//NEED TO UPDATE FLYWHEEL SYNC AFTER KICKER MOVEMENT
-
 package org.firstinspires.ftc.teamcode.OpModes.Main;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import org.firstinspires.ftc.teamcode.Constants.AllianceColor;
+import org.firstinspires.ftc.teamcode.Constants.ShooterConstants;
 import org.firstinspires.ftc.teamcode.OpModes.Main.Components.Robot;
 
 /**
  * Base TeleOp class - DO NOT RUN DIRECTLY
  * Use TeleOpMainBlue or TeleOpMainRed instead
+ *
+ * ============== DRIVER CONTROLS ==============
+ *
+ * DRIVING:
+ *   Left Stick  = Drive (forward/back/strafe)
+ *   Right Stick = Rotate
+ *
+ * SPEED (TOGGLE - click once ON, click again OFF):
+ *   Left Bumper  = Toggle SLOW mode
+ *   Right Bumper = Toggle TURBO mode
+ *   (Both off = NORMAL mode)
+ *
+ * INTAKE & SHOOTING:
+ *   Left Trigger (hold)  = INTAKE balls
+ *   Right Trigger (hold) = SHOOT (automated)
+ *
+ * =============================================
  */
 public class TeleOpMain extends LinearOpMode {
-    // Robot instance containing all components
+    // Robot instance
     private Robot robot;
-    
-    // Alliance color: BLUE or RED
+
+    // Alliance color
     protected AllianceColor allianceColor = null;
 
-    // Button state tracking for edge detection
+    // ==================== STATE MACHINE ====================
+    public enum RobotState {
+        IDLE,       // Ready - nothing running
+        INTAKING,   // Collecting balls
+        SHOOTING    // Launching balls (automated)
+    }
+
+    private RobotState state = RobotState.IDLE;
+
+    // Distance-based shooting (auto-adjusts hood based on target distance)
+    private boolean useDistanceBasedHood = true;
+
+    // Edge detection for toggle buttons
+    private boolean prevLeftBumper = false;
     private boolean prevRightBumper = false;
-    private boolean prevRightTrigger = false;
-    private boolean prevA = false;
-    private boolean prevB = false;
-    private boolean prevX = false;
 
-    private boolean doTurret = false;
-    private boolean prevY = false;
-    private boolean hasTriggeredThreeBalls = false;  // Track if we've already handled 3 balls case
-
-    /**
-     * Set the alliance color for this op mode
-     * @param color AllianceColor.BLUE or AllianceColor.RED
-     */
     protected void setAllianceColor(AllianceColor color) {
         this.allianceColor = color;
     }
 
     @Override
     public void runOpMode() {
-        // Safety check: Warn if running TeleOpMain directly instead of through Blue/Red subclass
-        // This shouldn't happen since @TeleOp annotation was removed, but defensive check
+        // Safety check
         String className = this.getClass().getSimpleName();
         if ("TeleOpMain".equals(className)) {
-            telemetry.addLine("⚠️ WARNING: Running TeleOpMain directly!");
-            telemetry.addLine("Please use TeleOpMainBlue or TeleOpMainRed instead");
-            telemetry.addLine("Defaulting to BLUE alliance");
+            telemetry.addLine("WARNING: Use TeleOpMainBlue or TeleOpMainRed");
             telemetry.update();
-            // Small delay to ensure message is visible
             sleep(2000);
         }
-        
-        // Initialize robot (all components initialized within)
+
+        // Initialize
         robot = new Robot();
         robot.initialize(hardwareMap, telemetry, this, allianceColor);
+        state = RobotState.IDLE;
 
-        telemetry.addData("Status", "Initialized");
-        if (allianceColor != null) {
-            telemetry.addData("Alliance", allianceColor.name());
-        }
+        // Show controls during init
+        telemetry.addLine("========== CONTROLS ==========");
+        telemetry.addLine("");
+        telemetry.addLine("LEFT STICK  = Drive");
+        telemetry.addLine("RIGHT STICK = Rotate");
+        telemetry.addLine("");
+        telemetry.addLine("LEFT TRIGGER  = Intake");
+        telemetry.addLine("RIGHT TRIGGER = Shoot");
+        telemetry.addLine("");
+        telemetry.addLine("LEFT BUMPER  = Slow Mode");
+        telemetry.addLine("RIGHT BUMPER = Turbo Mode");
+        telemetry.addLine("");
+        telemetry.addLine("==============================");
         telemetry.update();
+
         waitForStart();
 
         while (opModeIsActive()) {
 
-            // Update drive train
+            // ==================== DRIVING ====================
             double forward = -gamepad1.left_stick_y;
-            double right = gamepad1.left_stick_x;
+            double strafe = gamepad1.left_stick_x;
             double rotate = gamepad1.right_stick_x;
-            robot.updateDriveTrain(forward, right, rotate);
+            robot.updateDriveTrain(forward, strafe, rotate);
 
-            // Read gamepad inputs with edge detection
-            boolean rightBumper = gamepad1.right_bumper;
-            boolean leftBumper = gamepad1.left_bumper;
-            boolean rightTrigger = gamepad1.right_trigger > 0.2;
-            boolean leftTrigger = gamepad1.right_trigger > 0.2;// Threshold for trigger press
-            boolean a = gamepad1.a;
-            boolean b = gamepad1.b;
-            boolean x = gamepad1.x;
-            boolean y = gamepad1.y;
-            if (rightTrigger) {
-                    robot.setHoodPosition(0.78);
-                    robot.setFlywheelPower(0.6);
+            // ==================== SPEED CONTROL (TOGGLE) ====================
+            // Left Bumper = Toggle Slow, Right Bumper = Toggle Turbo
+            if (gamepad1.left_bumper && !prevLeftBumper) {
+                robot.getDriveTrain().toggleSlowMode();
+            }
+            if (gamepad1.right_bumper && !prevRightBumper) {
+                robot.getDriveTrain().toggleTurboMode();
+            }
+            prevLeftBumper = gamepad1.left_bumper;
+            prevRightBumper = gamepad1.right_bumper;
+
+            // ==================== INTAKE / SHOOT ====================
+            boolean intakePressed = gamepad1.left_trigger > 0.2;
+            boolean shootPressed = gamepad1.right_trigger > 0.2;
+
+            // Determine state based on trigger inputs
+            if (shootPressed) {
+                state = RobotState.SHOOTING;
+            } else if (intakePressed) {
+                state = RobotState.INTAKING;
+            } else {
+                state = RobotState.IDLE;
+            }
+
+            // Execute state actions
+            switch (state) {
+                case IDLE:
+                    robot.getIntakeTransfer().stopIntake();
+                    robot.getIntakeTransfer().transferDown();
+                    robot.stopFlywheel();
+                    break;
+
+                case INTAKING:
+                    robot.getIntakeTransfer().startIntake(gamepad1.left_trigger);
+                    robot.getIntakeTransfer().transferDown();
+                    robot.stopFlywheel();
+                    break;
+
+                case SHOOTING:
+                    // Automated shooting sequence
+                    robot.getIntakeTransfer().startIntake(ShooterConstants.INTAKE_SHOOTING_POWER);
+                    robot.getIntakeTransfer().transferUp();
+
+                    // Distance-based hood adjustment
+                    if (useDistanceBasedHood) {
+                        double distance = robot.getTurret().getDistance();
+                        if (distance > 0) {
+                            // Auto-adjust hood and power based on distance
+                            robot.getLauncher().updateForDistance(distance);
+                        } else {
+                            // No valid distance - use defaults
+                            robot.setFlywheelPower(ShooterConstants.FLYWHEEL_SHOOTING_POWER);
+                            robot.setHoodPosition(ShooterConstants.HOOD_DEFAULT_POSITION);
+                        }
+                    } else {
+                        // Manual mode - use default values
+                        robot.setFlywheelPower(ShooterConstants.FLYWHEEL_SHOOTING_POWER);
+                        robot.setHoodPosition(ShooterConstants.HOOD_DEFAULT_POSITION);
+                    }
+
                     robot.startFlywheel();
-                    robot.updateLauncher();
-                }
-
-            if (leftTrigger) {
-                    robot.setHoodPosition(0.75);
-                    robot.setFlywheelPower(0.84);
-                    robot.updateLauncher();
-
-            }
-            if (leftBumper) {
-                robot.setPositionDirect(0.6); //change
-            }
-            if (y && !prevY){
-                robot.reverseIntake();
-            }
-            if (doTurret) {
-                robot.updateTurret();
+                    break;
             }
 
-            // Detect obelisk ball sequence if not yet detected
-            if (robot.needsObeliskDetection()) {
-                robot.detectObeliskSequence();
-            }
-            
-            // Handle intake start/stop controls
-            if (rightBumper && !prevRightBumper) {
-                // Start intake and color sensing
-                robot.startIntake();
-                robot.startColorSensing();
-            }
-            prevRightBumper = rightBumper;
-            
-            // Handle right trigger (edge) OR when ball count reaches 3 (only once)
-            boolean shouldStopIntake = false;
-            if (rightTrigger && !prevRightTrigger) {
-                shouldStopIntake = true;
-            } else if (robot.getCurrentBallCount() >= 3 && !hasTriggeredThreeBalls) {
-                shouldStopIntake = true;
-                hasTriggeredThreeBalls = true;
-            }
-            
-            if (shouldStopIntake) {
-                // Stop intake and color sensing
-                robot.stopIntake();
-                robot.stopColorSensing();
-                doTurret = true;
-                robot.getSpindexer().needPut = true;
-                // Set flywheel power and hood position
-
-
-                //insert turret code
-
-
-                // Reset launch index when we have 3 balls loaded via Intake
-                if (robot.getCurrentBallCount() >= 3) {
-                    robot.resetLaunchIndex();
-                }
-            }
-            
-            // Reset flag when ball count drops below 3 (allows re-triggering)
-            if (robot.getCurrentBallCount() < 3) {
-                hasTriggeredThreeBalls = false;
-            }
-            
-            // Handle spindexer controls
-            if (a && !prevA) {
-                robot.rotateSpindexer();
-                // Shift balls between slots when rotating
-                robot.shiftBallsBetweenSlots();
-            }
-            prevA = a;
-            
-            if (b && !prevB) {
-                robot.kickSpoon();
-                // Clear launch slot after kick
-                robot.clearLaunchSlot();
-            }
-            prevB = b;
-            
-            if (x && !prevX) {
-
-                robot.launchOne(telemetry);
-            }
-            prevX = x;
-
-            if (robot.getLaunchIndex() >= 3) {
-                // All three balls have been launched
-                telemetry.addLine("All balls launched!");
-                doTurret = false;
-                robot.resetSpindexer();
-            }
-
-            // Update color sensing (needs to be called every loop iteration when active)
-            robot.updateSpindexerSensing();
-            
-            // Update intake (handles power ramping if enabled)
-            robot.updateIntake();
-            
             // Update launcher
             robot.updateLauncher();
 
-            // Update parking (uses Lift component)
-            robot.updateParking(gamepad1.dpad_up, gamepad1.dpad_down);
-            
-            // Add comprehensive telemetry
-            robot.addIntakeTelemetry(telemetry);
+            // ==================== TELEMETRY ====================
+            telemetry.addLine("====== STATUS ======");
+            telemetry.addData("State", state.name());
+            telemetry.addData("Speed", robot.getDriveTrain().getSpeedMode().name());
+
+            // Show shooting info when shooting
+            if (state == RobotState.SHOOTING) {
+                double dist = robot.getTurret().getDistance();
+                telemetry.addData("Distance", "%.1f ft", dist);
+                telemetry.addData("Hood", "%.2f", robot.getLauncher().getHoodPosition());
+                telemetry.addData("Power", "%.0f%%", robot.getLauncher().getPower() * 100);
+                telemetry.addData("Auto Hood", useDistanceBasedHood ? "ON" : "OFF");
+            }
+            telemetry.addLine("");
+
+            telemetry.addLine("====== CONTROLS ======");
+            telemetry.addLine("LT=Intake  RT=Shoot");
+            String slowStatus = robot.getDriveTrain().isSlowModeActive() ? "[ON]" : "[off]";
+            String turboStatus = robot.getDriveTrain().isTurboModeActive() ? "[ON]" : "[off]";
+            telemetry.addLine("LB=Slow" + slowStatus + "  RB=Turbo" + turboStatus);
+            telemetry.addLine("");
+
+            robot.getDriveTrain().addTelemetry();
 
             telemetry.update();
             idle();

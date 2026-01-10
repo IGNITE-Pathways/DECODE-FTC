@@ -9,8 +9,8 @@ import org.firstinspires.ftc.teamcode.OpModes.Main.Components.IntakeTransfer;
  * Test OpMode for the IntakeTransfer mechanism.
  *
  * CONTROLS:
- * - RT (Right Trigger): Run intake motor (variable speed)
- * - LT (Left Trigger): Reverse intake / eject balls
+ * - LT (Left Trigger): Run intake motor (variable speed)
+ * - RT (Right Trigger): Reverse intake / eject balls
  * - B: Move transfer ramp UP (transfer to shooter)
  * - X: Move transfer ramp DOWN (ready position)
  *
@@ -20,6 +20,17 @@ import org.firstinspires.ftc.teamcode.OpModes.Main.Components.IntakeTransfer;
 public class IntakeTransferTest extends LinearOpMode {
 
     private IntakeTransfer intakeTransfer;
+
+    // State machine
+    private enum IntakeState { IDLE, INTAKING, EJECTING }
+    private enum TransferState { DOWN, UP }
+
+    private IntakeState intakeState = IntakeState.IDLE;
+    private TransferState transferState = TransferState.DOWN;
+
+    // Edge detection
+    private boolean prevB = false;
+    private boolean prevX = false;
 
     @Override
     public void runOpMode() {
@@ -31,8 +42,8 @@ public class IntakeTransferTest extends LinearOpMode {
         telemetry.addLine("=== IntakeTransfer Test ===");
         telemetry.addLine("");
         telemetry.addLine("INTAKE MOTOR:");
-        telemetry.addLine("  RT = Run intake");
-        telemetry.addLine("  LT = Eject / reverse");
+        telemetry.addLine("  LT = Run intake");
+        telemetry.addLine("  RT = Eject / reverse");
         telemetry.addLine("");
         telemetry.addLine("TRANSFER RAMP:");
         telemetry.addLine("  B = Ramp UP (transfer)");
@@ -44,13 +55,70 @@ public class IntakeTransferTest extends LinearOpMode {
         waitForStart();
 
         while (opModeIsActive()) {
-            // Update component with gamepad input
-            intakeTransfer.update(gamepad1);
+            // Read inputs
+            boolean leftTriggerPressed = gamepad1.left_trigger > 0.05;
+            boolean rightTriggerPressed = gamepad1.right_trigger > 0.05;
+
+            // ==================== INTAKE STATE MACHINE ====================
+            switch (intakeState) {
+                case IDLE:
+                    intakeTransfer.stopIntake();
+                    if (leftTriggerPressed) {
+                        intakeState = IntakeState.INTAKING;
+                    } else if (rightTriggerPressed) {
+                        intakeState = IntakeState.EJECTING;
+                    }
+                    break;
+
+                case INTAKING:
+                    intakeTransfer.startIntake(gamepad1.left_trigger);
+                    if (!leftTriggerPressed) {
+                        intakeState = IntakeState.IDLE;
+                    } else if (rightTriggerPressed) {
+                        intakeState = IntakeState.EJECTING;
+                    }
+                    break;
+
+                case EJECTING:
+                    intakeTransfer.startEject(gamepad1.right_trigger);
+                    if (!rightTriggerPressed) {
+                        intakeState = IntakeState.IDLE;
+                    } else if (leftTriggerPressed && !rightTriggerPressed) {
+                        intakeState = IntakeState.INTAKING;
+                    }
+                    break;
+            }
+
+            // ==================== TRANSFER STATE MACHINE ====================
+            switch (transferState) {
+                case DOWN:
+                    if (gamepad1.b && !prevB) {
+                        transferState = TransferState.UP;
+                        intakeTransfer.transferUp();
+                    }
+                    break;
+
+                case UP:
+                    if (gamepad1.x && !prevX) {
+                        transferState = TransferState.DOWN;
+                        intakeTransfer.transferDown();
+                    }
+                    break;
+            }
+
+            // Update edge detection
+            prevB = gamepad1.b;
+            prevX = gamepad1.x;
 
             // Display status
             telemetry.addLine("=== IntakeTransfer Status ===");
             telemetry.addLine("");
-            telemetry.addLine("Controls: RT/LT = motor, B/X = ramp");
+            telemetry.addData("Intake State", intakeState.name());
+            telemetry.addData("Transfer State", transferState.name());
+            telemetry.addData("Motor Power", "%.2f", intakeTransfer.getIntakePower());
+            telemetry.addData("Transfer Up", intakeTransfer.isTransferUp() ? "YES" : "NO");
+            telemetry.addLine("");
+            telemetry.addLine("Controls: LT=intake, RT=eject, B/X=ramp");
             telemetry.update();
         }
     }

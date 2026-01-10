@@ -25,7 +25,7 @@ public class Turret {
     private double lastError = 0;
     private double secondLastError = 0; // Track error history for oscillation detection
     private int oscillationCount = 0; // Count oscillations (PID active = oscillation)
-    
+
     // Data tracking for range adjustment
     private int pidActiveCycles = 0; // Count of PID active cycles
     private double minErrorDuringPID = Double.MAX_VALUE; // Minimum error seen during PID
@@ -57,7 +57,7 @@ public class Turret {
 
     // Servo direction multiplier
     private double servoDirection = 1.0;
-    
+
     // Lock flag to prevent update() from running when turret is locked
     private boolean isLocked = false;
     private double lockedPosition = 0.5;
@@ -102,7 +102,7 @@ public class Turret {
             turretServo.setPosition(lockedPosition);
             return true;
         }
-        
+
         if (limelight == null || !limelight.isConnected()) {
             telemetry.addLine("❌ Limelight not connected");
             telemetry.update();
@@ -138,7 +138,7 @@ public class Turret {
                 expansionFactor = Math.min(expansionFactor, 3.0); // Cap at 3x
                 dynamicRange = IDEAL_RANGE * expansionFactor;
             }
-            
+
             // Always check if we're in the dynamic range (continuous monitoring)
             boolean inIdealRange = Math.abs(error) <= dynamicRange;
 
@@ -181,7 +181,7 @@ public class Turret {
                 if (errorMagnitude > maxErrorDuringPID) {
                     maxErrorDuringPID = errorMagnitude;
                 }
-                
+
                 // Count samples that are close to ideal range but not in it
                 if (errorMagnitude > IDEAL_RANGE && errorMagnitude <= IDEAL_RANGE * NEAR_RANGE_THRESHOLD) {
                     samplesNearRange++;
@@ -189,7 +189,7 @@ public class Turret {
 
                 // Detect error direction changes for additional damping
                 boolean errorDirectionChanged = (error > 0 && lastError < 0) || (error < 0 && lastError > 0);
-                
+
                 // Calculate oscillation damping based on current cycle count
                 // Will be updated after we determine if we're making a correction
                 double oscillationDamping = 1.0;
@@ -204,10 +204,10 @@ public class Turret {
                 // Limit integral to prevent windup
                 double maxIntegral = 50.0;
                 integral = Math.max(-maxIntegral, Math.min(maxIntegral, integral));
-                
+
                 double derivative = error - lastError;
                 double rawOutput = (kP * error) + (kI * integral) + (kD * derivative);
-                
+
                 // Scale speed based on error magnitude (MUCH slower when closer)
                 // Use cubic/quartic scaling for extremely aggressive slowdown near target
                 errorMagnitude = Math.abs(error);
@@ -220,7 +220,7 @@ public class Turret {
                 double maxErrorForScaling = 20.0; // Scale based on this max error
                 double normalizedError = Math.min(1.0, errorMagnitude / maxErrorForScaling);
 
-                // Quartic scaling (4th power): 
+                // Quartic scaling (4th power):
                 // when error is 0.5, speed is 0.0625 (6.25%)
                 // when error is 0.2, speed is 0.0016 (0.16%)
                 // when error is 0.1, speed is 0.0001 (0.01%)
@@ -232,7 +232,7 @@ public class Turret {
 
                 // Apply speed scaling and clamp output
                 double scaledOutput = rawOutput * speedScale;
-                
+
                 double output = Math.max(-MAX_OUTPUT, Math.min(MAX_OUTPUT, scaledOutput));
 
                 // Determine direction: negative error = move left (decrease servo), positive error = move right (increase servo)
@@ -255,7 +255,7 @@ public class Turret {
                 // 1. Count when there's any movement (lower threshold)
                 // 2. Count when error direction changes (oscillating back and forth)
                 boolean shouldCountOscillation = false;
-                
+
                 if (Math.abs(step) > 0.0001) {
                     // Any movement counts
                     shouldCountOscillation = true;
@@ -263,32 +263,32 @@ public class Turret {
                     // Error direction change also counts (oscillating behavior)
                     shouldCountOscillation = true;
                 }
-                
+
                 if (shouldCountOscillation) {
                     // COUNT THIS AS AN OSCILLATION CYCLE
                     pidActiveCycles++;
                     oscillationCount = pidActiveCycles;
-                    
+
                     // Cap oscillation count to prevent overflow
                     if (oscillationCount > 20) {
                         oscillationCount = 20;
                         pidActiveCycles = 20;
                     }
                 }
-                
+
                 // Apply oscillation damping - HALVE SPEED each cycle
                 // Cycle 1: 100%, Cycle 2: 50%, Cycle 3: 25%, Cycle 4: 12.5%, etc.
                 if (pidActiveCycles > 0) {
                     oscillationDamping = Math.pow(0.5, pidActiveCycles - 1);
-                    
+
                     // Set minimum damping to prevent it from going too slow
                     double minDamping = 0.05; // Minimum 5% speed
                     oscillationDamping = Math.max(minDamping, oscillationDamping);
-                    
+
                     // Apply damping to step before moving
                     step *= oscillationDamping;
                 }
-                
+
                 servoPos += step;
                 servoPos = Math.max(SERVO_MIN, Math.min(SERVO_MAX, servoPos));
                 turretServo.setPosition(servoPos);
@@ -304,7 +304,7 @@ public class Turret {
                     currentDynamicRange = IDEAL_RANGE * expansionFactor;
                 }
                 boolean nowInRange = Math.abs(newError) <= currentDynamicRange;
-                
+
                 if (nowInRange) {
                     // We've entered the ideal range! Lock immediately
                     aligned = true;
@@ -318,7 +318,7 @@ public class Turret {
                     samplesNearRange = 0;
                     lastFrameLocked = true;
                     CHECK = true;
-                    
+
                     telemetry.addLine("🎯 Entered Range! Locking position");
                     telemetry.addData("tx", tx);
                     telemetry.addData("Error", newError);
@@ -330,7 +330,7 @@ public class Turret {
                     // Still correcting, continue PID
                     // Update direction tracking
                     lastDirection = step > 0 ? 1 : -1;
-                    
+
                     // Update error history for oscillation detection
                     secondLastError = lastError;
                     lastError = error;
@@ -345,7 +345,7 @@ public class Turret {
                     telemetry.addData("Dynamic Range", "%.2f (Base: %.2f)", dynamicRange, IDEAL_RANGE);
                     telemetry.addData("Servo Pos", servoPos);
                     telemetry.addData("In Range", "NO");
-                    
+
                     // Display range analysis data
                     telemetry.addLine("");
                     telemetry.addLine("=== RANGE ANALYSIS ===");
@@ -353,7 +353,7 @@ public class Turret {
                     telemetry.addData("Max Error During PID", "%.2f", maxErrorDuringPID);
                     telemetry.addData("Current Ideal Range", "%.2f", IDEAL_RANGE);
                     telemetry.addData("Samples Near Range", samplesNearRange);
-                    
+
                     // Suggest range expansion if oscillating around a value close to current range
                     if (pidActiveCycles > 10 && samplesNearRange > pidActiveCycles * 0.3) {
                         // If 30%+ of samples are near range, suggest expanding
@@ -375,7 +375,7 @@ public class Turret {
             minErrorDuringPID = Double.MAX_VALUE;
             maxErrorDuringPID = Double.MIN_VALUE;
             samplesNearRange = 0;
-            
+
             framesSinceSeen++;
             integral = 0;
             aligned = false;
@@ -410,7 +410,7 @@ public class Turret {
         }
         return true; // Continue OpMode
     }
-    
+
     /**
      * Set turret to a fixed position directly (bypasses scanning/alignment)
      * Locks the turret at this position and prevents update() from changing it
@@ -424,7 +424,7 @@ public class Turret {
         isLocked = true; // Lock turret to prevent update() from changing position
         turretServo.setPosition(servoPos);
     }
-    
+
     /**
      * Unlock turret to allow update() method to control it again
      */
@@ -479,7 +479,7 @@ public class Turret {
                     // Check each detected fiducial for obelisk tags
                     for (LLResultTypes.FiducialResult fiducial : fiducialResults) {
                         int tagId = fiducial.getFiducialId();
-                        
+
                         // Check if this is an obelisk tag (21, 22, or 23)
                         if (tagId == 21 || tagId == 22 || tagId == 23) {
                             return tagId;
@@ -491,8 +491,7 @@ public class Turret {
             // Handle any errors gracefully
             return -1;
         }
-        
+
         return -1;
     }
 }
-

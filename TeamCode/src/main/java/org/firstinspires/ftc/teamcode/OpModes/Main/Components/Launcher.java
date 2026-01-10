@@ -4,8 +4,8 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
-// import org.firstinspires.ftc.teamcode.ProgrammingBoard.ProgrammingBoardOTHER;
 import org.firstinspires.ftc.teamcode.Constants.HardwareConfig;
+import org.firstinspires.ftc.teamcode.Constants.ShooterConstants;
 
 public class Launcher {
     // private ProgrammingBoardOTHER board;
@@ -14,9 +14,11 @@ public class Launcher {
     public DcMotor flyWheelMotor = null;
     public DcMotor flyWheelMotor2 = null;
 
-    private double flywheelPower = 1.0; // starting power
-    private boolean spinning = false;   // flywheel state
-    private double hoodPosition = 0.8;  // hood servo position
+    private double flywheelPower = ShooterConstants.FLYWHEEL_DEFAULT_POWER;
+    private boolean spinning = false;
+    private double hoodPosition = ShooterConstants.HOOD_DEFAULT_POSITION;
+    private boolean autoHoodEnabled = false;  // Enable distance-based hood adjustment
+    private double lastDistance = -1;         // Last known distance for auto-hood
 
     public void initialize(HardwareMap hardwareMap, Telemetry telemetry) {
         this.telemetry = telemetry;
@@ -36,8 +38,13 @@ public class Launcher {
     }
 
     public void update() {
-        flyWheelMotor.setPower(spinning ? flywheelPower : 0);
-        flyWheelMotor2.setPower(spinning ? flywheelPower : 0);
+        double power = spinning ? flywheelPower : 0;
+        if (flyWheelMotor != null) {
+            flyWheelMotor.setPower(power);
+        }
+        if (flyWheelMotor2 != null) {
+            flyWheelMotor2.setPower(power);
+        }
     }
 
     // Flywheel methods
@@ -78,7 +85,66 @@ public class Launcher {
     }
 
     public void decrementHood() {
-        adjustHoodPosition(-0.05);
+        adjustHoodPosition(-ShooterConstants.HOOD_INCREMENT);
+    }
+
+    // ==================== DISTANCE-BASED HOOD ADJUSTMENT ====================
+
+    /**
+     * Enable or disable automatic hood adjustment based on distance.
+     * When enabled, updateHoodForDistance() will automatically set hood position.
+     */
+    public void setAutoHoodEnabled(boolean enabled) {
+        this.autoHoodEnabled = enabled;
+    }
+
+    public boolean isAutoHoodEnabled() {
+        return autoHoodEnabled;
+    }
+
+    /**
+     * Update hood position based on distance to target.
+     * Uses lookup table from ShooterConstants for optimal angle.
+     *
+     * @param distanceFeet Distance to target in feet (from turret/limelight)
+     */
+    public void updateHoodForDistance(double distanceFeet) {
+        if (!autoHoodEnabled || distanceFeet <= 0) {
+            return;
+        }
+
+        lastDistance = distanceFeet;
+        double optimalPosition = ShooterConstants.getHoodPositionForDistance(distanceFeet);
+        setHoodPosition(optimalPosition);
+    }
+
+    /**
+     * Update both hood and flywheel power based on distance.
+     * Use this for fully automatic shooting adjustments.
+     *
+     * @param distanceFeet Distance to target in feet
+     */
+    public void updateForDistance(double distanceFeet) {
+        if (distanceFeet <= 0) {
+            return;
+        }
+
+        lastDistance = distanceFeet;
+
+        if (autoHoodEnabled) {
+            double optimalHood = ShooterConstants.getHoodPositionForDistance(distanceFeet);
+            setHoodPosition(optimalHood);
+        }
+
+        double optimalPower = ShooterConstants.getFlywheelPowerForDistance(distanceFeet);
+        setPower(optimalPower);
+    }
+
+    /**
+     * Get the last known distance used for auto-adjustment.
+     */
+    public double getLastDistance() {
+        return lastDistance;
     }
 }
 

@@ -76,7 +76,12 @@ public class TurretLockOptimized {
         TRACKING,   // Actively following tag - IMU + vision
         HOLDING     // Locked on target - minimal power, tight deadband
     }
+    private static final double MIN_HOLD_TIME_SEC = 0.3;    // minimum time to stay in HOLDING
+    private static final int REQUIRED_ALIGNED_FRAMES = 3;   // number of frames to confirm alignment
+    private static final double HOLD_EXIT_MULTIPLIER = 1.5; // expand deadband slightly for leaving HOLDING
 
+    private int alignedFrames = 0;
+    private double alignedStartTime = 0;
     private TurretState currentState = TurretState.SCANNING;
     private TurretState previousState = TurretState.SCANNING;
     private double stateEntryTime = 0;
@@ -90,7 +95,7 @@ public class TurretLockOptimized {
     // ==================== APRILTAG CONFIG ====================
     private static final int BLUE_ALLIANCE_TAG = 20;
     private static final int RED_ALLIANCE_TAG = 24;
-    private int targetTagId = RED_ALLIANCE_TAG;
+    private int targetTagId = BLUE_ALLIANCE_TAG;
 
     // ==================== SERVO CONFIG ====================
     private static final double SERVO_MIN = 0.375;
@@ -104,45 +109,45 @@ public class TurretLockOptimized {
     private static final double SOFT_LIMIT_MAX = SERVO_MAX - SOFT_LIMIT_ZONE;
 
     // ==================== LATENCY COMPENSATION ====================
-    // Camera + processing latency (calibrate for your system)
-    private static final double CAMERA_LATENCY_MS = 50.0;  // Typical Limelight latency
-    private static final double LATENCY_COMPENSATION_GAIN = 1.0;  // 1.0 = full compensation
+    // Minimal latency compensation to prevent overshoot
+    private static final double CAMERA_LATENCY_MS = 50.0;
+    private static final double LATENCY_COMPENSATION_GAIN = 0.3;  // Very conservative
 
     // ==================== IMU COUNTER-ROTATION ====================
-    // Primary control - turret counters robot rotation
-    // TUNE THIS: If turret moves wrong direction, flip sign to +0.002
-    private static final double IMU_FEEDFORWARD_GAIN = -0.002;
-    private static final double MAX_IMU_OUTPUT = 0.015;
+    // Very gentle IMU assist - let vision do most work
+    private static final double IMU_FEEDFORWARD_GAIN = -0.0005;  // Halved again
+    private static final double MAX_IMU_OUTPUT = 0.004;          // Halved again
 
-    // IMU rate filtering (smooth out noise)
-    private static final double IMU_RATE_SMOOTHING = 0.25;  // Lower = smoother
+    // Heavy smoothing on IMU rate
+    private static final double IMU_RATE_SMOOTHING = 0.15;       // Much more smoothing
 
     // ==================== VISION TRIM PID ====================
-    // Secondary control - small corrections to center tag
-    private static final double TRIM_kP = 0.0018;
-    private static final double TRIM_kI = 0.00002;
-    private static final double TRIM_kD = 0.0004;
-    private static final double MAX_TRIM_OUTPUT = 0.008;
-    private static final double INTEGRAL_MAX = 30.0;
+    // Very soft gains - prioritize stability over speed
+    private static final double TRIM_kP = 0.0006;                // Halved - very gentle
+    private static final double TRIM_kI = 0.000005;              // Halved
+    private static final double TRIM_kD = 0.001;                 // Increased for more damping
+    private static final double MAX_TRIM_OUTPUT = 0.003;         // Reduced max output
+    private static final double INTEGRAL_MAX = 15.0;             // Reduced
 
     // ==================== STATE-SPECIFIC PARAMETERS ====================
 
-    // SCANNING state
-    private static final double SCAN_SPEED = 0.008;
-    private static final double SEARCH_RANGE = 0.25;
+    // SCANNING state (slow sweep)
+    private static final double SCAN_SPEED = 0.003;              // Slower scanning
+    private static final double SEARCH_RANGE = 0.20;
 
-    // ACQUIRING state - fast, aggressive movement
-    private static final double ACQUIRE_kP = 0.0035;
-    private static final double ACQUIRE_MAX_OUTPUT = 0.035;
-    private static final double ACQUIRE_TIMEOUT_SEC = 2.5;
+    // ACQUIRING state - gentle approach
+    private static final double ACQUIRE_kP = 0.0012;             // Much gentler
+    private static final double ACQUIRE_MAX_OUTPUT = 0.012;      // Reduced
+    private static final double ACQUIRE_TIMEOUT_SEC = 3.0;       // More time allowed
 
-    // TRACKING state - responsive with IMU assist
-    private static final double TRACK_DEADBAND = 0.5;  // degrees - tight centering
+    // TRACKING state - wide deadband for stability
+    private static final double TRACK_DEADBAND = 3.0;            // Very wide - let it settle
 
-    // HOLDING state - minimal power, tight deadband
-    private static final double HOLD_DEADBAND = 0.75;  // degrees - keep tag centered
-    private static final double HOLD_MAX_OUTPUT = 0.004;
-    private static final double HOLD_ENTRY_TIME_SEC = 0.25;  // Must be aligned this long to enter HOLDING
+    // HOLDING state - wide deadband, minimal corrections
+    private static final double HOLD_DEADBAND = 4.0;             // Very wide for stability
+    private static final double HOLD_MAX_OUTPUT = 0.002;         // Minimal corrections
+    private static final double HOLD_ENTRY_TIME_SEC = 0.3;       // Enter holding faster
+
 
     // ==================== CONFIDENCE THRESHOLDS ====================
     private static final double CONFIDENCE_HIGH = 0.65;   // Full tracking authority
@@ -159,7 +164,7 @@ public class TurretLockOptimized {
     private static final double MAX_TARGET_AREA = 25.0;
 
     // ==================== FAIL-SAFE TIMING ====================
-    private static final int FRAMES_TO_FAILSAFE = 20;   // ~0.4s - enter fail-safe hold
+    private static final int FRAMES_TO_FAILSAFE = 35;   // ~0.4s - enter fail-safe hold
     private static final int FRAMES_TO_DROP_LOCK = 75;  // ~1.5s - drop to scanning (more forgiving)
 
     // ==================== DISTANCE-BASED SCALING ====================
@@ -215,7 +220,6 @@ public class TurretLockOptimized {
     // State tracking
     private boolean tagDetected = false;
     private boolean aligned = false;
-    private double alignedStartTime = 0;
     private boolean inFailSafe = false;
 
     // Fail-safe - last known good position
@@ -291,18 +295,23 @@ public class TurretLockOptimized {
 
     // ==================== MAIN UPDATE LOOP ====================
 
+
     public boolean update() {
         // Calculate timing
         double currentTime = frameTimer.seconds();
         deltaTime = currentTime - lastFrameTime;
         lastFrameTime = currentTime;
         loopTimeMs = deltaTime * 1000;
-        deltaTime = Math.min(deltaTime, 0.1);  // Clamp to prevent huge jumps
+        deltaTime = Math.min(deltaTime, 0.1);
 
-        // Manual lock override
+        // **MANUAL LOCK OVERRIDE**
         if (isManuallyLocked) {
             turretServo.setPosition(manualLockPosition);
-            return true;
+            // Keep servo and internal state consistent
+            servoPos = manualLockPosition;
+            trimOutput = 0;
+            imuOutput = 0;
+            return true; // skip the rest of the loop
         }
 
         // Check hardware
@@ -550,53 +559,30 @@ public class TurretLockOptimized {
                 break;
 
             case TRACKING:
-                // Check alignment
-                double effectiveDeadband = getDistanceScaledDeadband(TRACK_DEADBAND);
-                boolean nowAligned = vision.isValid && Math.abs(compensatedTx) <= effectiveDeadband;
+                // Count aligned frames
+                if (Math.abs(compensatedTx) <= TRACK_DEADBAND) alignedFrames++;
+                else alignedFrames = 0;
 
-                if (nowAligned && !aligned) {
-                    alignedStartTime = currentTime;
-                }
-                aligned = nowAligned;
-
-                // Transition: aligned for sufficient time -> HOLDING
-                if (aligned && (currentTime - alignedStartTime) >= HOLD_ENTRY_TIME_SEC) {
+                // Enter HOLDING only if stable for REQUIRED_ALIGNED_FRAMES AND minimum hold entry time passed
+                if (alignedFrames >= REQUIRED_ALIGNED_FRAMES &&
+                        (frameTimer.seconds() - stateEntryTime) >= HOLD_ENTRY_TIME_SEC) {
                     transitionTo(TurretState.HOLDING);
-                }
-                // Transition: lost tag briefly -> FAIL-SAFE
-                else if (framesSinceSeen >= FRAMES_TO_FAILSAFE && framesSinceSeen < FRAMES_TO_DROP_LOCK) {
-                    inFailSafe = true;
-                }
-                // Transition: lost tag for too long -> SCANNING
-                else if (framesSinceSeen >= FRAMES_TO_DROP_LOCK) {
-                    transitionTo(TurretState.SCANNING);
-                }
-                else {
-                    inFailSafe = false;
+                    alignedStartTime = frameTimer.seconds();
                 }
                 break;
 
             case HOLDING:
-                // In HOLDING, we maintain position with minimal power
-                effectiveDeadband = getDistanceScaledDeadband(HOLD_DEADBAND);
-                aligned = !vision.isValid || Math.abs(compensatedTx) <= effectiveDeadband;
+                double holdDeadband = TRACK_DEADBAND; // or your original hold deadband
+                double exitDeadband = holdDeadband * HOLD_EXIT_MULTIPLIER;
 
-                // Transition: drifted too far -> back to TRACKING
-                if (vision.isValid && Math.abs(compensatedTx) > effectiveDeadband * 1.5) {
-                    transitionTo(TurretState.TRACKING);
-                }
-                // Transition: lost tag briefly -> FAIL-SAFE hold
-                else if (framesSinceSeen >= FRAMES_TO_FAILSAFE && framesSinceSeen < FRAMES_TO_DROP_LOCK) {
-                    inFailSafe = true;
-                }
-                // Transition: lost tag for too long -> SCANNING
-                else if (framesSinceSeen >= FRAMES_TO_DROP_LOCK) {
-                    transitionTo(TurretState.SCANNING);
-                }
-                else {
-                    inFailSafe = false;
+                // Stay at least MIN_HOLD_TIME_SEC
+                if ((frameTimer.seconds() - stateEntryTime) >= MIN_HOLD_TIME_SEC) {
+                    if (Math.abs(compensatedTx) > exitDeadband) {
+                        transitionTo(TurretState.TRACKING);
+                    }
                 }
                 break;
+
         }
     }
 
@@ -909,11 +895,12 @@ public class TurretLockOptimized {
 
     public void lock() {
         isManuallyLocked = true;
-        manualLockPosition = servoPos;
+        manualLockPosition = servoPos; // freeze current position
     }
 
     public void unlock() {
         isManuallyLocked = false;
+        // Do NOT reset servoPos; state machine will now take control
     }
 
     public void setPositionDirect(double position) {
