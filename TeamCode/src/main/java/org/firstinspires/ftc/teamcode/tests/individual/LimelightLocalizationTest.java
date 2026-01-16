@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.tests.individual;
 
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
@@ -23,6 +24,7 @@ import org.firstinspires.ftc.teamcode.core.components.LimelightLocalization;
  * - 24: Red Alliance
  * - 21, 22, 23: Obelisk
  */
+@Disabled
 @TeleOp(name = "Test: Limelight Localization", group = "Test")
 public class LimelightLocalizationTest extends LinearOpMode {
 

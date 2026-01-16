@@ -27,8 +27,8 @@ public class ShooterConstants {
     public static final double INTAKE_SHOOTING_POWER = 1.0;
 
     // ==================== TRANSFER POSITIONS ====================
-    public static final double TRANSFER_UP_POSITION = 0.75;
-    public static final double TRANSFER_DOWN_POSITION = 0.6;
+    public static final double TRANSFER_UP_POSITION = 0.65;
+    public static final double TRANSFER_DOWN_POSITION = 0.5;
 
     // ==================== DISTANCE-BASED HOOD LOOKUP TABLE ====================
     // Distance in feet -> Hood position

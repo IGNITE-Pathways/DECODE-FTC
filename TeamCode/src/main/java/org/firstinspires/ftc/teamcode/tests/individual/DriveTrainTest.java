@@ -1,9 +1,10 @@
 package org.firstinspires.ftc.teamcode.tests.individual;
 
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import org.firstinspires.ftc.teamcode.core.components.DriveTrain;
-
+@Disabled
 @TeleOp(name="Test: DriveTrain", group="Test")
 public class DriveTrainTest extends OpMode {
 

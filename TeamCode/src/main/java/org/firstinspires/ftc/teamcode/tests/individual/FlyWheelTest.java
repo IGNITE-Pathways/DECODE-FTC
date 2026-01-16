@@ -1,10 +1,11 @@
 package org.firstinspires.ftc.teamcode.tests.individual;
 
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.teamcode.core.components.Flywheel;
-
+@Disabled
 @TeleOp(name="Test: FlyWheelTest", group="Test")
 public class FlyWheelTest extends OpMode {
 

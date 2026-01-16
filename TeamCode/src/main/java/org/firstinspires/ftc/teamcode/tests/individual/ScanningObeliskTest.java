@@ -8,6 +8,7 @@ package org.firstinspires.ftc.teamcode.tests.individual;
 import com.qualcomm.hardware.limelightvision.LLResult;
 import com.qualcomm.hardware.limelightvision.LLResultTypes;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
@@ -31,6 +32,7 @@ import java.util.List;
  * Press A button to start Limelight and begin scanning.
  * Configure the AprilTag IDs below to match your obelisk setup.
  */
+@Disabled
 @TeleOp(name = "Obelisk Ball Detection", group = "Into The Deep")
 public class ScanningObeliskTest extends LinearOpMode {
 
