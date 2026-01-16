@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nBackup before major refactoring - PRE-REFACTOR SNAPSHOT\n\nThis commit preserves the current state before systematic refactoring to address:\n- Critical null pointer bugs\n- Code duplication across 20+ locations\n- Contradictory constants and PID values\n- Three redundant turret implementations\n- Three different distance calculation methods\n- Minimal error handling \\(only 29% coverage\\)\n\nSee analysis for full details of issues to be fixed.\n\nCo-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git branch:*)",
+      "Bash(git checkout:*)",
+      "Bash(dir:*)"
+    ]
+  }
+}
