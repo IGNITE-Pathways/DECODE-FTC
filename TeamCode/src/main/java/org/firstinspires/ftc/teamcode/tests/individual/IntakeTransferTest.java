@@ -116,4 +116,54 @@ public class IntakeTransferTest extends LinearOpMode {
             telemetry.update();
         }
     }
+
+    // ==================== STATIC HELPER METHODS FOR AUTONOMOUS ====================
+    /**
+     * Turns on the intake motor in eject mode (as if right trigger is held).
+     * This method mimics the behavior when the right trigger is pressed in the test OpMode.
+     * 
+     * @param intakeTransfer The IntakeTransfer instance to control
+     */
+    public static void startRightTriggerEject(IntakeTransfer intakeTransfer) {
+        if (intakeTransfer != null) {
+            intakeTransfer.startEject(1.0); // Full power, as if trigger is fully pressed
+        }
+    }
+
+    /**
+     * Turns off the intake motor (as if right trigger is released).
+     * This method mimics the behavior when the right trigger is released in the test OpMode.
+     * 
+     * @param intakeTransfer The IntakeTransfer instance to control
+     */
+    public static void stopRightTriggerEject(IntakeTransfer intakeTransfer) {
+        if (intakeTransfer != null) {
+            intakeTransfer.stopIntake();
+        }
+    }
+
+    /**
+     * Turns on the intake motor in intake mode (as if left trigger is held).
+     * This method mimics the behavior when the left trigger is pressed in the test OpMode.
+     * Note: Left trigger runs the intake motor forward (intake), not eject.
+     * 
+     * @param intakeTransfer The IntakeTransfer instance to control
+     */
+    public static void startLeftTriggerIntake(IntakeTransfer intakeTransfer) {
+        if (intakeTransfer != null) {
+            intakeTransfer.startIntake(1.0); // Full power, as if trigger is fully pressed
+        }
+    }
+
+    /**
+     * Turns off the intake motor (as if left trigger is released).
+     * This method mimics the behavior when the left trigger is released in the test OpMode.
+     * 
+     * @param intakeTransfer The IntakeTransfer instance to control
+     */
+    public static void stopLeftTriggerIntake(IntakeTransfer intakeTransfer) {
+        if (intakeTransfer != null) {
+            intakeTransfer.stopIntake();
+        }
+    }
 }

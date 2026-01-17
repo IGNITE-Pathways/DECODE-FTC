@@ -22,8 +22,8 @@ public class Constants {
     public static FollowerConstants followerConstants = new FollowerConstants()
 
             .mass(17)
-            .forwardZeroPowerAcceleration(-48.66597466319878)
-            .lateralZeroPowerAcceleration(-88.17458306285822)
+            .forwardZeroPowerAcceleration(-41.92219776577201)
+            .lateralZeroPowerAcceleration(-72.95656401089053)
 
             .translationalPIDFCoefficients(new PIDFCoefficients(0.055, 0, 0.0001, 0.01))
             .headingPIDFCoefficients(new PIDFCoefficients(2.5, 0, 0.06, 0.01))
@@ -32,6 +32,9 @@ public class Constants {
 
 // breaking start is 1.0
 // breaking strength is 1.2
+
+
+    // forward velocity 69.1272885780635
 
     public static PathConstraints pathConstraints = new PathConstraints(0.99, 100, 1.2, 1);
 
@@ -46,8 +49,8 @@ public class Constants {
 
     public static MecanumConstants driveConstants = new MecanumConstants()
             .maxPower(1)
-            .xVelocity(67.96614278958539)
-            .yVelocity(47.51044037586122)
+            .xVelocity(69.1272885780635)
+            .yVelocity(49.48530013917939)
             .rightFrontMotorName("rightfrontmotor")
             .rightRearMotorName("rightbackmotor")
             .leftRearMotorName("leftbackmotor")
