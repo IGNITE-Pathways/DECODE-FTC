@@ -14,7 +14,7 @@ import org.firstinspires.ftc.teamcode.core.components.Launcher;
 import org.firstinspires.ftc.teamcode.tests.individual.IntakeTransferTest;
 
 @Autonomous(name = "Blue Back Auto", group = "Auto")
-public class BlueBack extends OpMode {
+public class BlueFar extends OpMode {
 
     // ==================== SHOOTING CONSTANTS (ADJUST THESE) ====================
     // ALL SHOOTING HAPPENS AT STARTING POSITION - Adjust these based on distance to goal

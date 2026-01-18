@@ -23,11 +23,11 @@ public class ShooterConstants {
     public static final double HOOD_INCREMENT = 0.05;
 
     // ==================== INTAKE POWER ====================
-    public static final double INTAKE_DEFAULT_POWER = 1.0;
+    public static final double INTAKE_DEFAULT_POWER = -1;
     public static final double INTAKE_SHOOTING_POWER = 1.0;
 
     // ==================== TRANSFER POSITIONS ====================
-    public static final double TRANSFER_UP_POSITION = 0.65;
+    public static final double TRANSFER_UP_POSITION = 0.67;
     public static final double TRANSFER_DOWN_POSITION = 0.5;
 
     // ==================== DISTANCE-BASED HOOD LOOKUP TABLE ====================

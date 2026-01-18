@@ -33,12 +33,10 @@ public class Launcher {
         // board = new ProgrammingBoardOTHER();
         // board.initializeComponents(hardwareMap);
 
-        // Hood servo is optional
+        // Hood servo is optional - don't move it at init, let it stay where it is
         try {
             hoodServo = hardwareMap.get(Servo.class, HardwareConfig.HOOD_SERVO);
-            if (hoodServo != null) {
-                hoodServo.setPosition(hoodPosition);
-            }
+            // Don't set position at init - manual control only
         } catch (Exception e) {
             hoodServo = null;  // No hood servo configured - that's OK
         }

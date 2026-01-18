@@ -12,8 +12,8 @@ import org.firstinspires.ftc.teamcode.core.constants.ShooterConstants;
 public class IntakeTransfer {
 
     // Motor settings
-    public static final double INTAKE_POWER = ShooterConstants.INTAKE_DEFAULT_POWER;
-    public static final double EJECT_POWER = -0.7;
+    public static final double EJECT_POWER = ShooterConstants.INTAKE_DEFAULT_POWER;
+    public static final double INTAKE_POWER = 1.0;
 
     // Hardware
     private DcMotor intakeMotor;
@@ -25,7 +25,7 @@ public class IntakeTransfer {
 
         try {
             intakeMotor = hardwareMap.get(DcMotor.class, HardwareConfig.INTAKE_MOTOR);
-            intakeMotor.setDirection(DcMotorSimple.Direction.FORWARD);
+            intakeMotor.setDirection(DcMotorSimple.Direction.REVERSE);
             intakeMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
             intakeMotor.setPower(0);
             telemetry.addLine("Intake Motor: OK");
@@ -64,7 +64,8 @@ public class IntakeTransfer {
     }
 
     public void startEject(double power) {
-        intakeMotor.setPower(-Math.abs(power) * Math.abs(EJECT_POWER));
+        // EJECT_POWER is negative, so this runs opposite to intake
+        intakeMotor.setPower(Math.abs(power) * EJECT_POWER);
     }
 
     public void stopIntake() {

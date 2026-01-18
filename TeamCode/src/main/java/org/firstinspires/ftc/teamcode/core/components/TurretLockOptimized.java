@@ -15,6 +15,7 @@ import java.util.List;
 
 /**
  * Auto-aiming turret for servo - based on AutoAimingTurret pattern
+ * Now with robot rotation assist for faster lock-on
  */
 public class TurretLockOptimized {
 
@@ -23,10 +24,11 @@ public class TurretLockOptimized {
     private Limelight3A limelight;
     private Telemetry telemetry;
 
-    // PID Controller variables - TUNE THESE
+    // PID Controller variables for SERVO - TUNE THESE
     private double kP = 0.0005;    // Proportional gain - START LOW and increase
     private double kI = 0.0001;   // Integral gain - usually keep small
     private double kD = 0.002;    // Derivative gain - helps reduce overshoot
+
 
     private double targetX = 0.0; // Target is centered (tx = 0)
     private double integral = 0.0;
@@ -39,6 +41,7 @@ public class TurretLockOptimized {
     private static final double MIN_ADJUSTMENT = 0.001;   // Minimum servo move to overcome deadzone
     private static final double MAX_ADJUSTMENT = 0.03;    // Maximum servo move per cycle
     private static final double TARGET_LOST_TIMEOUT = 0.5; // seconds before scanning
+
 
     // Servo limits
     private static final double SERVO_MIN = 0.0;
@@ -71,6 +74,8 @@ public class TurretLockOptimized {
     private String debugState = "INIT";
     private String detectedTagIds = "none";
     private int detectedTagCount = 0;
+
+    private double currentTY = 0.0;            // Current vertical offset
 
     public void initialize(HardwareMap hardwareMap, Telemetry telemetry) {
         initialize(hardwareMap, telemetry, AllianceColor.BLUE);
@@ -137,9 +142,11 @@ public class TurretLockOptimized {
                         targetWasVisible = true;
                         targetLostTimer.reset();
 
-                        // Get horizontal offset from center (tx)
+                        // Get horizontal offset from center (tx) and vertical offset (ty)
                         double tx = targetFiducial.getTargetXDegrees();
+                        double ty = targetFiducial.getTargetYDegrees();
                         currentTX = tx;
+                        currentTY = ty;
 
                         // Calculate time since last update
                         double dt = timer.seconds();
@@ -153,28 +160,24 @@ public class TurretLockOptimized {
                         double error = tx - targetX;
                         currentError = error;
 
-                        // PID calculations
+                        // ========== SERVO CONTROL ==========
+                        // PID calculations for servo
                         integral += error * dt;
-
-                        // Anti-windup: prevent integral from getting too large
                         integral = Math.max(-50, Math.min(50, integral));
-
                         double derivative = (error - lastError) / dt;
-
-                        // Calculate PID output
                         pidOutput = (kP * error) + (kI * integral) + (kD * derivative);
 
-                        // Apply deadband - stop if close enough
+                        // Apply deadband for servo
                         if (Math.abs(error) < POSITION_TOLERANCE) {
                             pidOutput = 0;
-                            integral = 0; // Reset integral when on target
+                            integral = 0;
                             isLocked = true;
                             debugState = "LOCKED ON";
                         } else {
                             isLocked = false;
-                            debugState = "TRACKING";
+                            debugState = "TRACKING tx=" + String.format("%.1f", tx);
 
-                            // Apply minimum adjustment if not zero (overcome servo deadzone)
+                            // Apply minimum adjustment for servo
                             if (pidOutput != 0) {
                                 if (Math.abs(pidOutput) < MIN_ADJUSTMENT) {
                                     pidOutput = MIN_ADJUSTMENT * Math.signum(pidOutput);
@@ -314,7 +317,7 @@ public class TurretLockOptimized {
     // Compatibility
     public boolean isAligned() { return isLocked; }
     public boolean isTagDetected() { return tagVisible; }
-    public double getTy() { return 0; }
+    public double getTy() { return currentTY; }
     public double getTargetArea() { return 0; }
     public double getTxVelocity() { return 0; }
     public double getPredictedTx() { return currentTX; }
@@ -340,6 +343,7 @@ public class TurretLockOptimized {
         telemetry.addLine("");
 
         telemetry.addData("TX (degrees)", "%.2f", currentTX);
+        telemetry.addData("TY (degrees)", "%.2f", currentTY);
         telemetry.addData("Target Position", currentTX > 0 ? "RIGHT" : (currentTX < 0 ? "LEFT" : "CENTER"));
         telemetry.addData("Error", "%.2f", currentError);
         telemetry.addData("PID Output", "%.4f", pidOutput);
@@ -354,10 +358,9 @@ public class TurretLockOptimized {
         telemetry.addData("Looking For", "Tag " + targetTagId);
         telemetry.addLine("");
 
-        telemetry.addLine("--- PID Tuning ---");
+        telemetry.addLine("--- Servo PID ---");
         telemetry.addData("kP", kP);
         telemetry.addData("kI", kI);
         telemetry.addData("kD", kD);
-        telemetry.addData("Inverted", INVERT_DIRECTION);
     }
 }
