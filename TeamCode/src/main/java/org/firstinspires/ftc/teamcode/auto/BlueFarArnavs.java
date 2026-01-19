@@ -19,9 +19,14 @@ public class BlueFarArnavs extends OpMode {
 
     // ==================== SHOOTING CONSTANTS ====================
     // 10ft preset for preload shooting
-    private static final double PRELOAD_FLYWHEEL_POWER = 0.67;
-    private static final double PRELOAD_HOOD_POSITION = 0.70;
-    private static final double PRELOAD_SHOOT_TIME_SECONDS = 6.0;
+    private static final double PRELOAD_FLYWHEEL_POWER = 0.75;
+    private static final double PRELOAD_HOOD_POSITION = 0.60;
+    private static final double PRELOAD_SHOOT_TIME_SECONDS = 7.0;
+
+    // Intake cycling timing
+    private static final double SPINUP_TIME_SECONDS = 1.5;
+    private static final double INTAKE_ON_TIME_SECONDS = 0.7;
+    private static final double INTAKE_OFF_TIME_SECONDS = 0.7;
 
     // Turret locked position
     private static final double TURRET_LOCKED_POSITION = 0.47;
@@ -45,6 +50,9 @@ public class BlueFarArnavs extends OpMode {
 
     // Paths
     private Paths paths;
+
+    // Turret control flag
+    private boolean turretEnabled = true;
 
     // Starting pose
     private final Pose startPose = new Pose(60.000, 12.364, Math.toRadians(180));
@@ -109,8 +117,8 @@ public class BlueFarArnavs extends OpMode {
         follower.update();
         launcher.update();
 
-        // Keep turret locked
-        if (turretServo != null) {
+        // Keep turret locked only when enabled (off during intaking)
+        if (turretServo != null && turretEnabled) {
             turretServo.setPosition(TURRET_LOCKED_POSITION);
         }
 
@@ -145,15 +153,13 @@ public class BlueFarArnavs extends OpMode {
     private void autonomousPathUpdate() {
         switch (pathState) {
             case 0:
-                // PRELOAD SHOOT: 6 second wait with 10ft preset, shoot 3 preloaded balls
-                // Set up shooter at 10ft preset
+                // PRELOAD SHOOT: Start flywheel at 67% and ramp up first
                 launcher.setPower(PRELOAD_FLYWHEEL_POWER);
                 launcher.setHoodPosition(PRELOAD_HOOD_POSITION);
                 launcher.setSpinning(true);
 
-                // Ramp up and start feeding balls
+                // Ramp up first, intake will start after 1.5s delay
                 intakeTransfer.transferUp();
-                intakeTransfer.startIntake();
 
                 shootTimer.resetTimer();
                 setPathState(1);
@@ -170,30 +176,30 @@ public class BlueFarArnavs extends OpMode {
                 launcher.setHoodPosition(PRELOAD_HOOD_POSITION);
                 launcher.setSpinning(true);
 
-                // Pulsed feeding with ramp cycling to let flywheel recover
                 double elapsed = shootTimer.getElapsedTimeSeconds();
 
-                // Spin-up period (0-1.5s) - just flywheel, no feeding
-                if (elapsed < 1.5) {
-                    intakeTransfer.stopIntake();
-                    intakeTransfer.transferDown();
+                // First 1.5 seconds - flywheel and ramp only, no intake
+                if (elapsed < SPINUP_TIME_SECONDS) {
+                    intakeTransfer.transferUp();
+                    // Intake stays off during spinup
                 }
-                // Feeding period with pauses
+                // After 1.5s - cycle intake: 0.7s on, 0.7s off, repeat 3 times
                 else {
-                    long ms = (long) ((elapsed - 1.5) * 1000);
-                    long feedCycle = ms % 800;  // 800ms cycle (500 feed, 300 pause)
-                    if (feedCycle < 500) {
-                        // Feed phase - ramp up, intake on
-                        intakeTransfer.transferUp();
+                    intakeTransfer.transferUp();
+                    double cycleTime = elapsed - SPINUP_TIME_SECONDS;
+                    double cycleLength = INTAKE_ON_TIME_SECONDS + INTAKE_OFF_TIME_SECONDS;
+                    double positionInCycle = cycleTime % cycleLength;
+
+                    if (positionInCycle < INTAKE_ON_TIME_SECONDS) {
+                        // Intake ON phase
                         intakeTransfer.startIntake();
                     } else {
-                        // Pause phase - ramp down, intake off (let flywheel recover)
+                        // Intake OFF phase (pause between balls)
                         intakeTransfer.stopIntake();
-                        intakeTransfer.transferDown();
                     }
                 }
 
-                // Wait for 6 second preload shoot to complete
+                // Wait for 7 second preload shoot to complete
                 if (elapsed >= PRELOAD_SHOOT_TIME_SECONDS) {
                     // Stop shooting
                     launcher.setSpinning(false);
@@ -206,7 +212,8 @@ public class BlueFarArnavs extends OpMode {
                     intakeTransfer.stopIntake();
                     intakeTransfer.transferDown();
 
-                    // Start Path1 with intake running
+                    // Start Path1 with intake running - disable turret during intaking
+                    turretEnabled = false;
                     intakeTransfer.startIntake();
                     follower.followPath(paths.Path1);
                     setPathState(2);
@@ -242,10 +249,67 @@ public class BlueFarArnavs extends OpMode {
                 break;
 
             case 5:
-                // Path4: Wait for completion - DONE
+                // Path4: Wait for completion, then start shooting
                 if (!follower.isBusy()) {
-                    // All done
+                    // Re-enable turret for shooting
+                    turretEnabled = true;
+
+                    // Start shooting sequence - flywheel and ramp up first
+                    launcher.setPower(PRELOAD_FLYWHEEL_POWER);
+                    launcher.setHoodPosition(PRELOAD_HOOD_POSITION);
+                    launcher.setSpinning(true);
+                    intakeTransfer.transferUp();
+                    shootTimer.resetTimer();
+                    setPathState(6);
+                }
+                break;
+
+            case 6:
+                // Shooting after pickup: same 0.7s cycling pattern
+                if (launcher.flyWheelMotor != null) {
+                    launcher.flyWheelMotor.setPower(PRELOAD_FLYWHEEL_POWER);
+                }
+                if (launcher.flyWheelMotor2 != null) {
+                    launcher.flyWheelMotor2.setPower(PRELOAD_FLYWHEEL_POWER);
+                }
+                launcher.setHoodPosition(PRELOAD_HOOD_POSITION);
+                launcher.setSpinning(true);
+
+                double elapsed2 = shootTimer.getElapsedTimeSeconds();
+
+                // First 1.5 seconds - flywheel and ramp only, no intake
+                if (elapsed2 < SPINUP_TIME_SECONDS) {
+                    intakeTransfer.transferUp();
+                    // Intake stays off during spinup
+                }
+                // After 1.5s - cycle intake: 0.7s on, 0.7s off, repeat 3 times
+                else {
+                    intakeTransfer.transferUp();
+                    double cycleTime2 = elapsed2 - SPINUP_TIME_SECONDS;
+                    double cycleLength2 = INTAKE_ON_TIME_SECONDS + INTAKE_OFF_TIME_SECONDS;
+                    double positionInCycle2 = cycleTime2 % cycleLength2;
+
+                    if (positionInCycle2 < INTAKE_ON_TIME_SECONDS) {
+                        // Intake ON phase
+                        intakeTransfer.startIntake();
+                    } else {
+                        // Intake OFF phase (pause between balls)
+                        intakeTransfer.stopIntake();
+                    }
+                }
+
+                // Wait for 7 second shoot to complete
+                if (elapsed2 >= PRELOAD_SHOOT_TIME_SECONDS) {
+                    // Stop shooting - all done
+                    launcher.setSpinning(false);
+                    if (launcher.flyWheelMotor != null) {
+                        launcher.flyWheelMotor.setPower(0);
+                    }
+                    if (launcher.flyWheelMotor2 != null) {
+                        launcher.flyWheelMotor2.setPower(0);
+                    }
                     intakeTransfer.stopIntake();
+                    intakeTransfer.transferDown();
                     setPathState(-1);
                 }
                 break;
@@ -285,7 +349,7 @@ public class BlueFarArnavs extends OpMode {
             line3 = follower.pathBuilder()
                     .addPath(new BezierLine(
                             new Pose(27.273, 36.000),
-                            new Pose(9.091, 36.000)
+                            new Pose(12.091, 36.000)
                     ))
                     .setTangentHeadingInterpolation()
                     .build();

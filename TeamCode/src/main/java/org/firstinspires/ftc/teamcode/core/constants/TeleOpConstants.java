@@ -23,19 +23,19 @@ public class TeleOpConstants {
 
     // ==================== DISTANCE PRESETS ====================
     // 2 feet preset
-    public static final double PRESET_2FT_POWER = 0.55;
-    public static final double PRESET_2FT_HOOD = 0.35;
+    public static final double PRESET_2FT_POWER = 0.68;
+    public static final double PRESET_2FT_HOOD = 0.32;
     // 6 feet preset
-    public static final double PRESET_6FT_POWER = 0.60;
-    public static final double PRESET_6FT_HOOD = 0.60;
+    public static final double PRESET_6FT_POWER = 0.73;
+    public static final double PRESET_6FT_HOOD = 0.32;
     // 10 feet preset
-    public static final double PRESET_10FT_POWER = 0.67;
+    public static final double PRESET_10FT_POWER = 0.78;
     public static final double PRESET_10FT_HOOD = 0.70;
 
     // ==================== AUTO SHOOT SEQUENCE TIMING ====================
     public static final long SPIN_UP_TIME_MS = 1500;        // Flywheel spin-up before feeding
     public static final long FEED_DURATION_MS = 500;        // How long to feed each ball
-    public static final long PAUSE_DURATION_MS = 300;       // Pause between balls for flywheel recovery
+    public static final long PAUSE_DURATION_MS = 700;       // Pause between balls for flywheel recovery
 
     // ==================== TRANSFER RAMP ====================
     public static final double TRANSFER_UP_POSITION = 0.67;
@@ -46,7 +46,7 @@ public class TeleOpConstants {
     public static final double EJECT_POWER = -0.7;
 
     // ==================== TURRET ====================
-    public static final double TURRET_LOCKED_POSITION = 0.0;  // Manual locked position
+    public static final double TURRET_LOCKED_POSITION = 0.1;  // Manual locked position
     public static final boolean TURRET_AUTO_LOCK_ENABLED = true; // Enable auto-lock by default
 
 

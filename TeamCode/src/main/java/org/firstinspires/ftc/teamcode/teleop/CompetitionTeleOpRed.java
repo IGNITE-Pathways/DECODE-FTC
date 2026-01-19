@@ -41,6 +41,11 @@ public class CompetitionTeleOpRed extends LinearOpMode {
     // Button states for toggle
     private boolean lastA = false;
     private boolean lastY = false;
+    private boolean lastLB = false;
+    private boolean lastRB = false;
+
+    // Speed mode: 0 = normal (70%), 1 = slow (40%), 2 = fast (100%)
+    private int speedMode = 0;
 
 
     // Auto shoot timer
@@ -67,7 +72,20 @@ public class CompetitionTeleOpRed extends LinearOpMode {
             double fwd = -gamepad1.left_stick_y;
             double str = gamepad1.left_stick_x;
             double rot = gamepad1.right_stick_x;
-            driveTrain.driveRaw(fwd, str, rot);
+
+            // Speed mode toggle: LB = slow, RB = fast
+            if (gamepad1.left_bumper && !lastLB) {
+                speedMode = (speedMode == 1) ? 0 : 1;  // Toggle slow
+            }
+            if (gamepad1.right_bumper && !lastRB) {
+                speedMode = (speedMode == 2) ? 0 : 2;  // Toggle fast
+            }
+            lastLB = gamepad1.left_bumper;
+            lastRB = gamepad1.right_bumper;
+
+            // Apply speed multiplier
+            double speedMult = (speedMode == 1) ? 0.4 : (speedMode == 2) ? 1.0 : 0.7;
+            driveTrain.driveRaw(fwd * speedMult, str * speedMult, rot * speedMult);
 
             // === TURRET - A toggles auto-track ===
             if (gamepad1.a && !lastA) {
@@ -81,12 +99,12 @@ public class CompetitionTeleOpRed extends LinearOpMode {
                 turret.setPositionDirect(TeleOpConstants.TURRET_LOCKED_POSITION);
             }
 
-            // === INTAKE (GP2 triggers) - only when not shooting ===
+            // === INTAKE (GP1 triggers) - only when not shooting ===
             if (!shooting) {
-                if (gamepad2.right_trigger > 0.1) {
-                    intakeTransfer.startIntake(gamepad2.right_trigger);
-                } else if (gamepad2.left_trigger > 0.1) {
-                    intakeTransfer.startEject(gamepad2.left_trigger);
+                if (gamepad1.right_trigger > 0.1) {
+                    intakeTransfer.startIntake(gamepad1.right_trigger);
+                } else if (gamepad1.left_trigger > 0.1) {
+                    intakeTransfer.startEject(gamepad1.left_trigger);
                 } else {
                     intakeTransfer.stopIntake();
                 }
@@ -140,7 +158,7 @@ public class CompetitionTeleOpRed extends LinearOpMode {
                 long ms = (long) shootTimer.milliseconds();
                 long cycleTime = TeleOpConstants.FEED_DURATION_MS + TeleOpConstants.PAUSE_DURATION_MS;
 
-                // Spin-up period - just flywheel, no feeding
+                // Spin-up period - just flywheel, no feeding, ramp DOWN
                 if (ms < TeleOpConstants.SPIN_UP_TIME_MS) {
                     intakeTransfer.stopIntake();
                     intakeTransfer.transferDown();
@@ -155,10 +173,13 @@ public class CompetitionTeleOpRed extends LinearOpMode {
                         intakeTransfer.startIntake();
                         transferUp = true;
                     } else {
-                        // Pause phase - ramp down, intake off (let flywheel recover)
+                        // Pause phase - STOP INTAKE FIRST, then ramp down
                         intakeTransfer.stopIntake();
-                        intakeTransfer.transferDown();
-                        transferUp = false;
+                        // Small delay before ramp down (first 200ms of pause = intake off, ramp still up)
+                        if (feedCycle - TeleOpConstants.FEED_DURATION_MS > 200) {
+                            intakeTransfer.transferDown();
+                            transferUp = false;
+                        }
                     }
                 }
             }
@@ -168,9 +189,9 @@ public class CompetitionTeleOpRed extends LinearOpMode {
 
             // === TELEMETRY ===
             telemetry.addLine("=== RED TELEOP ===");
+            telemetry.addData("Speed", speedMode == 1 ? "SLOW 40%" : speedMode == 2 ? "FAST 100%" : "NORMAL 70%");
             telemetry.addData("Preset", selectedPreset);
             telemetry.addData("Flywheel", flywheelOn ? "ON " + (int)(flywheelPower*100) + "%" : "OFF");
-            telemetry.addData("Hood", "%.2f", hoodPosition);
             telemetry.addData("Shooting", shooting ? "YES" : "NO");
             telemetry.addData("Turret", turretTracking ? (turret.isLocked() ? "LOCKED ON" : "TRACKING") : "MANUAL");
             telemetry.update();
