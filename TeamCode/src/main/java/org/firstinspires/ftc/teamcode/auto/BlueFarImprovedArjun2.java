@@ -31,12 +31,12 @@ public class BlueFarImprovedArjun2 extends OpMode {
 
     // ==================== SHOOTING CONSTANTS ====================
     // 10ft preset for shooting
-    private static final double FLYWHEEL_POWER = 0.67;
-    private static final double HOOD_POSITION = 0.70;
+    private static final double FLYWHEEL_POWER = 0.8;
+    private static final double HOOD_POSITION = 0.6;
     private static final double SHOOT_TIME_SECONDS = 6.0;
 
     // Turret locked position
-    private static final double TURRET_LOCKED_POSITION = 0.47;
+    private static final double TURRET_LOCKED_POSITION = 0.45;
 
     // Path speed (45%)
     private static final double PATH_SPEED = 0.45;
@@ -58,6 +58,13 @@ public class BlueFarImprovedArjun2 extends OpMode {
     private Timer pathTimer;
     private Timer opModeTimer;
     private Timer shootTimer;
+    private Timer ejectTimer;  // Timer for eject/reintake sequence
+    private Timer rampTimer;  // Timer for ramp down/up sequence
+    private boolean ejectReintakeDone = false;  // Track if eject/reintake has been done for current shooting sequence
+    private boolean ejectReintakeStarted = false;  // Track if eject/reintake sequence has started
+    private boolean rampSequenceDone = false;  // Track if ramp down/up sequence has been done for current shooting sequence
+    private boolean rampSequenceStarted = false;  // Track if ramp sequence has started
+    private boolean rampDownCalled = false;  // Track if ramp down has been called for current sequence
     private double currentSpeed = PATH_SPEED;  // Track current speed for telemetry
 
     /**
@@ -101,6 +108,8 @@ public class BlueFarImprovedArjun2 extends OpMode {
         pathTimer = new Timer();
         opModeTimer = new Timer();
         shootTimer = new Timer();
+        ejectTimer = new Timer();
+        rampTimer = new Timer();
 
         // Initialize robot components
         intakeTransfer = new IntakeTransfer();
@@ -183,44 +192,20 @@ public class BlueFarImprovedArjun2 extends OpMode {
                 intakeTransfer.startIntake();
 
                 shootTimer.resetTimer();
+                ejectReintakeDone = false;  // Reset eject/reintake flag for preload shooting
+                ejectReintakeStarted = false;  // Reset eject/reintake started flag
+                rampSequenceDone = false;  // Reset ramp sequence flag for preload shooting
+                rampSequenceStarted = false;  // Reset ramp sequence started flag
+                rampDownCalled = false;  // Reset ramp down called flag
                 setPathState(PathState.PRELOAD_SHOOTING);
                 break;
 
             case PRELOAD_SHOOTING:
-                // Keep flywheel spinning during wait
-                if (launcher.flyWheelMotor != null) {
-                    launcher.flyWheelMotor.setPower(FLYWHEEL_POWER);
-                }
-                if (launcher.flyWheelMotor2 != null) {
-                    launcher.flyWheelMotor2.setPower(FLYWHEEL_POWER);
-                }
-                launcher.setHoodPosition(HOOD_POSITION);
-                launcher.setSpinning(true);
-
-                // Pulsed feeding with ramp cycling to let flywheel recover
-                double elapsed = shootTimer.getElapsedTimeSeconds();
-
-                // Spin-up period (0-1.5s) - just flywheel, no feeding
-                if (elapsed < 1.5) {
-                    intakeTransfer.stopIntake();
-                    intakeTransfer.transferDown();
-                }
-                // Feeding period with pauses
-                else {
-                    long ms = (long) ((elapsed - 1.5) * 1000);
-                    long feedCycle = ms % 800;  // 800ms cycle (500 feed, 300 pause)
-                    if (feedCycle < 500) {
-                        // Feed phase - ramp up, intake on
-                        intakeTransfer.transferUp();
-                        intakeTransfer.startIntake();
-                    } else {
-                        // Pause phase - ramp down, intake off (let flywheel recover)
-                        intakeTransfer.stopIntake();
-                        intakeTransfer.transferDown();
-                    }
-                }
-
+                // Use performShooting() which includes eject/reintake for third ball
+                performShooting();
+                
                 // Wait for preload shoot to complete
+                double elapsed = shootTimer.getElapsedTimeSeconds();
                 if (elapsed >= SHOOT_TIME_SECONDS) {
                     stopShooting();
                     // Start collecting first ball set with intake running, SLOW SPEED
@@ -411,10 +396,63 @@ public class BlueFarImprovedArjun2 extends OpMode {
         intakeTransfer.transferUp();
         intakeTransfer.startIntake();
         shootTimer.resetTimer();
+        ejectReintakeDone = false;  // Reset eject/reintake flag for new shooting sequence
+        ejectReintakeStarted = false;  // Reset eject/reintake started flag
+        rampSequenceDone = false;  // Reset ramp sequence flag for new shooting sequence
+        rampSequenceStarted = false;  // Reset ramp sequence started flag
+        rampDownCalled = false;  // Reset ramp down called flag
     }
 
     /**
-     * Perform shooting with pulsed feeding
+     * Eject ball for 0.2 seconds then reintake
+     * This helps clear any stuck balls and ensures the third ball feeds properly
+     * The ramp stays UP during this sequence to allow ball transfer
+     */
+    private void performEjectReintake() {
+        // Keep ramp UP during eject/reintake sequence
+        intakeTransfer.transferUp();
+        
+        double elapsed = ejectTimer.getElapsedTimeSeconds();
+        
+        if (elapsed < 0.4) {
+            // Eject phase - run motor in reverse
+            intakeTransfer.startEject(1.0);  // Full power eject
+        } else {
+            // Reintake phase - switch back to normal intake
+            intakeTransfer.startIntake();
+            ejectReintakeDone = true;  // Mark as complete
+        }
+    }
+
+    /**
+     * Move ramp down, eject, reintake, then ramp up for third ball shooting
+     * Sequence: Ramp down → Eject (0.2s) → Reintake (0.2s) → Ramp up
+     * This helps ensure the third ball feeds properly by cycling the ramp and clearing any stuck balls
+     */
+    private void performRampDownUp() {
+        double elapsed = rampTimer.getElapsedTimeSeconds();
+        
+        // Phase 1: Ramp down (only once at the start)
+        if (!rampDownCalled) {
+            intakeTransfer.transferDown();
+            rampDownCalled = true;
+        }
+        
+        if (elapsed < 0.2) {
+            // Phase 2: Eject for 0.2 seconds
+            intakeTransfer.startEject(1.0);  // Full power eject
+        } else if (elapsed < 0.4) {
+            // Phase 3: Reintake for 0.2 seconds
+            intakeTransfer.startIntake();
+        } else {
+            // Phase 4: Ramp up at 0.4 second mark
+            intakeTransfer.transferUp();
+            rampSequenceDone = true;  // Mark as complete
+        }
+    }
+
+    /**
+     * Perform shooting with continuous intake feeding
      */
     private void performShooting() {
         // Keep flywheel spinning
@@ -429,24 +467,44 @@ public class BlueFarImprovedArjun2 extends OpMode {
 
         double elapsed = shootTimer.getElapsedTimeSeconds();
 
-        // Spin-up period (0-1.5s) - just flywheel, no feeding
+        // Spin-up period (0-1.5s) - ramp down, but intake can start
         if (elapsed < 1.5) {
-            intakeTransfer.stopIntake();
             intakeTransfer.transferDown();
+            // Start intake early to be ready for feeding
+            intakeTransfer.startIntake();
         }
-        // Feeding period with pauses
+        // Feeding period - continuous intake, no pauses
         else {
-            long ms = (long) ((elapsed - 1.5) * 1000);
-            long feedCycle = ms % 800;  // 800ms cycle (500 feed, 300 pause)
-            if (feedCycle < 500) {
-                // Feed phase - ramp up, intake on
-                intakeTransfer.transferUp();
-                intakeTransfer.startIntake();
-            } else {
-                // Pause phase - ramp down, intake off (let flywheel recover)
-                intakeTransfer.stopIntake();
-                intakeTransfer.transferDown();
-            }
+            // COMMENTED OUT: Ramp down/up sequence for third ball - shooting all balls normally now
+            // Check if we need to perform ramp down/up sequence for third ball
+            // Trigger around 3.5 seconds (after first two balls, before third)
+            // if (!rampSequenceDone && elapsed >= 3.5 && elapsed < 4.0) {
+            //     if (!rampSequenceStarted) {
+            //         rampTimer.resetTimer();
+            //         rampSequenceStarted = true;
+            //         rampDownCalled = false;  // Reset ramp down flag
+            //     }
+            //     performRampDownUp();
+            //     return;  // Skip normal ramp/intake control during ramp sequence
+            // }
+            
+            // Keep ramp UP during entire feeding period so balls can transfer
+            intakeTransfer.transferUp();
+            
+            // COMMENTED OUT: Eject/reintake for third ball
+            // Check if we need to perform eject/reintake for third ball
+            // Trigger around 3.5 seconds (after first two balls, before third)
+            // if (!ejectReintakeDone && elapsed >= 3.5 && elapsed < 4.0) {
+            //     if (!ejectReintakeStarted) {
+            //         ejectTimer.resetTimer();
+            //         ejectReintakeStarted = true;
+            //     }
+            //     performEjectReintake();
+            //     return;  // Skip normal feeding cycle during eject/reintake
+            // }
+            
+            // Continuous intake feeding - no pauses, intake runs the entire time
+            intakeTransfer.startIntake();
         }
     }
 

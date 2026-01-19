@@ -56,14 +56,22 @@ public class CompetitionTeleOpBlue extends LinearOpMode {
         // Init
         driveTrain = new DriveTrain();
         driveTrain.initialize(hardwareMap, telemetry);
+        // Ensure voltage compensation is enabled for drive train
+        driveTrain.setBatteryCompensationEnabled(true);
+        
         launcher = new Launcher();
         launcher.initialize(hardwareMap, telemetry);
+        // Ensure voltage compensation is enabled for launcher
+        launcher.setVoltageCompensationEnabled(true);
+        
         intakeTransfer = new IntakeTransfer();
         intakeTransfer.initialize(hardwareMap, telemetry);
         turret = new TurretLockOptimized();
         turret.initialize(hardwareMap, telemetry, ALLIANCE);
 
         telemetry.addLine("BLUE TeleOp Ready");
+        telemetry.addLine("Voltage Compensation: ENABLED");
+        telemetry.addData("Battery", "%.2f V", driveTrain.getBatteryVoltage());
         telemetry.update();
         waitForStart();
 
@@ -194,6 +202,15 @@ public class CompetitionTeleOpBlue extends LinearOpMode {
             telemetry.addData("Flywheel", flywheelOn ? "ON " + (int)(flywheelPower*100) + "%" : "OFF");
             telemetry.addData("Shooting", shooting ? "YES" : "NO");
             telemetry.addData("Turret", turretTracking ? (turret.isLocked() ? "LOCKED ON" : "TRACKING") : "MANUAL");
+            
+            // Voltage compensation status
+            telemetry.addLine();
+            telemetry.addLine("=== BATTERY STATUS ===");
+            telemetry.addData("Voltage", "%.2f V", driveTrain.getBatteryVoltage());
+            telemetry.addData("Drive Comp", driveTrain.isBatteryCompensationEnabled() ? 
+                String.format("ON (+%.0f%%)", (driveTrain.getCompensationFactor() - 1.0) * 100) : "OFF");
+            telemetry.addData("Flywheel Comp", launcher.isVoltageCompensationEnabled() ? "ON" : "OFF");
+            
             telemetry.update();
         }
 
