@@ -3,6 +3,8 @@ package org.firstinspires.ftc.teamcode.teleop;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.util.ElapsedTime;
+import com.qualcomm.hardware.limelightvision.Limelight3A;
+import com.qualcomm.hardware.limelightvision.LLResult;
 
 import org.firstinspires.ftc.teamcode.core.components.DriveTrain;
 import org.firstinspires.ftc.teamcode.core.components.Launcher;
@@ -28,6 +30,13 @@ public class CompetitionTeleOpBlue extends LinearOpMode {
     private Launcher launcher;
     private IntakeTransfer intakeTransfer;
     private TurretLockOptimized turret;
+    private Limelight3A limelight;
+
+    // Limelight constants for distance calculation
+    private static final double APRILTAG_REAL_HEIGHT_METERS = 0.2032; // 8 inches
+    private static final double CAMERA_VERTICAL_FOV_DEGREES = 49.5;
+    private static final int IMAGE_WIDTH_PIXELS = 1280;
+    private static final int IMAGE_HEIGHT_PIXELS = 720;
 
     // State
     private boolean flywheelOn = false;
@@ -41,11 +50,16 @@ public class CompetitionTeleOpBlue extends LinearOpMode {
     // Button states for toggle
     private boolean lastA = false;
     private boolean lastY = false;
+    private boolean lastB = false;
     private boolean lastLB = false;
     private boolean lastRB = false;
 
     // Speed mode: 0 = normal (70%), 1 = slow (40%), 2 = fast (100%)
     private int speedMode = 0;
+
+    // Limelight distance tracking
+    private double limelightDistance = -1.0;  // Current live distance
+    private double lockedDistance = -1.0;     // Distance locked with B button
 
 
     // Auto shoot timer
@@ -56,22 +70,25 @@ public class CompetitionTeleOpBlue extends LinearOpMode {
         // Init
         driveTrain = new DriveTrain();
         driveTrain.initialize(hardwareMap, telemetry);
-        // Ensure voltage compensation is enabled for drive train
-        driveTrain.setBatteryCompensationEnabled(true);
-        
         launcher = new Launcher();
         launcher.initialize(hardwareMap, telemetry);
-        // Ensure voltage compensation is enabled for launcher
-        launcher.setVoltageCompensationEnabled(true);
-        
         intakeTransfer = new IntakeTransfer();
         intakeTransfer.initialize(hardwareMap, telemetry);
         turret = new TurretLockOptimized();
         turret.initialize(hardwareMap, telemetry, ALLIANCE);
 
+        // Initialize Limelight
+        try {
+            limelight = hardwareMap.get(Limelight3A.class, "limelight");
+            limelight.setPollRateHz(20);
+            limelight.pipelineSwitch(3);
+            limelight.start();
+        } catch (Exception e) {
+            limelight = null;
+        }
+
         telemetry.addLine("BLUE TeleOp Ready");
-        telemetry.addLine("Voltage Compensation: ENABLED");
-        telemetry.addData("Battery", "%.2f V", driveTrain.getBatteryVoltage());
+        telemetry.addLine(limelight != null ? "Limelight: OK" : "Limelight: NOT FOUND");
         telemetry.update();
         waitForStart();
 
@@ -92,7 +109,10 @@ public class CompetitionTeleOpBlue extends LinearOpMode {
             lastRB = gamepad1.right_bumper;
 
             // Apply speed multiplier
-            double speedMult = (speedMode == 1) ? 0.4 : (speedMode == 2) ? 1.0 : 0.7;
+            double speedMult = (speedMode == 1) ? 0.35 : (speedMode == 2) ? 0.95 : 0.65;
+            if (shooting) speedMult *= 0.85;  // Reduce drive power while flywheel spinning
+
+            // Drive directly
             driveTrain.driveRaw(fwd * speedMult, str * speedMult, rot * speedMult);
 
             // === TURRET - A toggles auto-track ===
@@ -117,6 +137,48 @@ public class CompetitionTeleOpBlue extends LinearOpMode {
                     intakeTransfer.stopIntake();
                 }
             }
+
+            // === LIMELIGHT DISTANCE - Always updating ===
+            limelightDistance = -1.0;
+            if (limelight != null && limelight.isConnected()) {
+                LLResult result = limelight.getLatestResult();
+                if (result != null && result.isValid()) {
+                    double taPercent = result.getTa();
+                    if (taPercent > 0.0) {
+                        double pixelArea = (taPercent / 100.0) * (IMAGE_WIDTH_PIXELS * IMAGE_HEIGHT_PIXELS);
+                        double tagPixelHeight = Math.sqrt(pixelArea);
+                        double focalPx = (IMAGE_HEIGHT_PIXELS / 2.0)
+                                / Math.tan(Math.toRadians(CAMERA_VERTICAL_FOV_DEGREES / 2.0));
+                        double distanceMeters = (APRILTAG_REAL_HEIGHT_METERS * focalPx) / tagPixelHeight;
+                        limelightDistance = distanceMeters * 3.28084; // Convert to feet
+                    }
+                }
+            }
+
+            // === B BUTTON - Lock distance and set power/hood ===
+            if (gamepad2.b && !lastB) {
+                if (limelightDistance > 0) {
+                    lockedDistance = limelightDistance;
+                    // Set power and hood based on distance ranges (continuous boundaries)
+                    if (lockedDistance >= 2.37 && lockedDistance < 4.50) {
+                        flywheelPower = 0.65;
+                        hoodPosition = 0.65;
+                        selectedPreset = "AUTO CLOSE";
+                    } else if (lockedDistance >= 4.50 && lockedDistance < 6.20) {
+                        flywheelPower = 0.75;
+                        hoodPosition = 0.70;
+                        selectedPreset = "AUTO MID";
+                    } else if (lockedDistance >= 6.20 && lockedDistance <= 8.00) {
+                        flywheelPower = 0.80;
+                        hoodPosition = 0.75;
+                        selectedPreset = "AUTO FAR";
+                    } else {
+                        selectedPreset = "OUT OF RANGE";
+                    }
+                    launcher.setHoodPosition(hoodPosition);
+                }
+            }
+            lastB = gamepad2.b;
 
             // === PRESETS (GP2 D-Pad) - Apply instantly when pressed ===
             if (gamepad2.dpad_up) {
@@ -161,10 +223,9 @@ public class CompetitionTeleOpBlue extends LinearOpMode {
             lastY = gamepad2.y;
 
             // Auto shoot sequence while shooting is on
-            // Pulsed feeding with ramp cycling to let flywheel recover between shots
+            // Simple: spin up, then ramp up and intake at full speed
             if (shooting) {
                 long ms = (long) shootTimer.milliseconds();
-                long cycleTime = TeleOpConstants.FEED_DURATION_MS + TeleOpConstants.PAUSE_DURATION_MS;
 
                 // Spin-up period - just flywheel, no feeding, ramp DOWN
                 if (ms < TeleOpConstants.SPIN_UP_TIME_MS) {
@@ -172,23 +233,11 @@ public class CompetitionTeleOpBlue extends LinearOpMode {
                     intakeTransfer.transferDown();
                     transferUp = false;
                 }
-                // Feeding period with pauses
+                // After spin-up - ramp up, intake at full speed
                 else {
-                    long feedCycle = (ms - TeleOpConstants.SPIN_UP_TIME_MS) % cycleTime;
-                    if (feedCycle < TeleOpConstants.FEED_DURATION_MS) {
-                        // Feed phase - ramp up, intake on
-                        intakeTransfer.transferUp();
-                        intakeTransfer.startIntake();
-                        transferUp = true;
-                    } else {
-                        // Pause phase - STOP INTAKE FIRST, then ramp down
-                        intakeTransfer.stopIntake();
-                        // Small delay before ramp down (first 200ms of pause = intake off, ramp still up)
-                        if (feedCycle - TeleOpConstants.FEED_DURATION_MS > 200) {
-                            intakeTransfer.transferDown();
-                            transferUp = false;
-                        }
-                    }
+                    intakeTransfer.transferUp();
+                    intakeTransfer.startIntake(1.0);  // Full speed
+                    transferUp = true;
                 }
             }
 
@@ -197,20 +246,22 @@ public class CompetitionTeleOpBlue extends LinearOpMode {
 
             // === TELEMETRY ===
             telemetry.addLine("=== BLUE TELEOP ===");
-            telemetry.addData("Speed", speedMode == 1 ? "SLOW 40%" : speedMode == 2 ? "FAST 100%" : "NORMAL 70%");
+            telemetry.addData("Speed", speedMode == 1 ? "SLOW 35%" : speedMode == 2 ? "FAST 95%" : "NORMAL 65%");
             telemetry.addData("Preset", selectedPreset);
             telemetry.addData("Flywheel", flywheelOn ? "ON " + (int)(flywheelPower*100) + "%" : "OFF");
+            telemetry.addData("Hood", "%.2f", hoodPosition);
             telemetry.addData("Shooting", shooting ? "YES" : "NO");
             telemetry.addData("Turret", turretTracking ? (turret.isLocked() ? "LOCKED ON" : "TRACKING") : "MANUAL");
-            
-            // Voltage compensation status
             telemetry.addLine();
-            telemetry.addLine("=== BATTERY STATUS ===");
-            telemetry.addData("Voltage", "%.2f V", driveTrain.getBatteryVoltage());
-            telemetry.addData("Drive Comp", driveTrain.isBatteryCompensationEnabled() ? 
-                String.format("ON (+%.0f%%)", (driveTrain.getCompensationFactor() - 1.0) * 100) : "OFF");
-            telemetry.addData("Flywheel Comp", launcher.isVoltageCompensationEnabled() ? "ON" : "OFF");
-            
+            telemetry.addLine("=== LIMELIGHT ===");
+            telemetry.addData("Live Distance", limelightDistance > 0 ? String.format("%.2f ft", limelightDistance) : "NO TARGET");
+            telemetry.addData("Locked Distance", lockedDistance > 0 ? String.format("%.2f ft", lockedDistance) : "NOT SET");
+            telemetry.addLine();
+            telemetry.addLine("=== DISTANCE RANGES ===");
+            telemetry.addData("CLOSE", "2.37-4.49 ft | 65% | 0.65");
+            telemetry.addData("MID", "4.50-6.19 ft | 75% | 0.70");
+            telemetry.addData("FAR", "6.20-8.00 ft | 80% | 0.75");
+            telemetry.addLine("B = Lock distance | Y = Shoot");
             telemetry.update();
         }
 
@@ -219,4 +270,5 @@ public class CompetitionTeleOpBlue extends LinearOpMode {
         intakeTransfer.stopIntake();
         driveTrain.stopMotors();
     }
+
 }

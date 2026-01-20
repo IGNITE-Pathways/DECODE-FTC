@@ -3,6 +3,8 @@ package org.firstinspires.ftc.teamcode.tests.individual;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.hardware.limelightvision.Limelight3A;
+import com.qualcomm.hardware.limelightvision.LLResult;
 
 import org.firstinspires.ftc.teamcode.core.components.Launcher;
 import org.firstinspires.ftc.teamcode.core.components.IntakeTransfer;
@@ -39,12 +41,22 @@ public class ShooterDistanceTest extends OpMode {
     private Launcher launcher;
     private IntakeTransfer intakeTransfer;
     private Servo turretServo;
+    private Limelight3A limelight;
 
     // Turret locked position
     private static final double TURRET_LOCKED_POSITION = 0.5;
 
+    // Limelight constants for distance calculation
+    private static final double APRILTAG_REAL_HEIGHT_METERS = 0.2032; // 8 inches
+    private static final double CAMERA_VERTICAL_FOV_DEGREES = 49.5;   // Limelight 3A vertical FOV
+    private static final int IMAGE_WIDTH_PIXELS = 1280;
+    private static final int IMAGE_HEIGHT_PIXELS = 720;
+
+    // Calculated distance
+    private double limelightDistance = -1.0;
+
     // State variables
-    private double flywheelPower = 0.7;
+    private double flywheelPower = 0.6;  // Lower default to reduce current
     private double hoodPosition = 0.85;
     private boolean flywheelOn = false;
     private String currentPreset = "MANUAL";
@@ -83,10 +95,22 @@ public class ShooterDistanceTest extends OpMode {
         try {
             turretServo = hardwareMap.get(Servo.class, HardwareConfig.TURRET_SERVO);
             turretServo.setPosition(TURRET_LOCKED_POSITION);
-            telemetry.addLine("Turret Servo: OK (locked at 0.1)");
+            telemetry.addLine("Turret Servo: OK (locked at 0.5)");
         } catch (Exception e) {
             turretServo = null;
             telemetry.addLine("Turret Servo: NOT FOUND");
+        }
+
+        // Initialize Limelight
+        try {
+            limelight = hardwareMap.get(Limelight3A.class, "limelight");
+            limelight.setPollRateHz(20);  // Lower poll rate to reduce load
+            limelight.pipelineSwitch(3);  // Use pipeline 3
+            limelight.start();
+            telemetry.addLine("Limelight: OK (Pipeline 3)");
+        } catch (Exception e) {
+            limelight = null;
+            telemetry.addLine("Limelight: NOT FOUND");
         }
 
         // Set initial values
@@ -203,6 +227,24 @@ public class ShooterDistanceTest extends OpMode {
         // ========== UPDATE LAUNCHER ==========
         launcher.update();
 
+        // ========== LIMELIGHT DISTANCE CALCULATION ==========
+        limelightDistance = -1.0;
+        if (limelight != null && limelight.isConnected()) {
+            LLResult result = limelight.getLatestResult();
+            if (result != null && result.isValid()) {
+                double taPercent = result.getTa();
+                if (taPercent > 0.0) {
+                    double pixelArea = (taPercent / 100.0) * (IMAGE_WIDTH_PIXELS * IMAGE_HEIGHT_PIXELS);
+                    double tagPixelHeight = Math.sqrt(pixelArea);
+                    double focalPx = (IMAGE_HEIGHT_PIXELS / 2.0)
+                            / Math.tan(Math.toRadians(CAMERA_VERTICAL_FOV_DEGREES / 2.0));
+
+                    double distanceMeters = (APRILTAG_REAL_HEIGHT_METERS * focalPx) / tagPixelHeight;
+                    limelightDistance = distanceMeters * 3.28084; // Convert to feet
+                }
+            }
+        }
+
         // ========== UPDATE EDGE DETECTION ==========
         prevDpadUp = gamepad1.dpad_up;
         prevDpadDown = gamepad1.dpad_down;
@@ -237,6 +279,14 @@ public class ShooterDistanceTest extends OpMode {
         telemetry.addLine();
 
         telemetry.addData("Current Preset", currentPreset);
+        telemetry.addLine();
+
+        telemetry.addLine("--- LIMELIGHT DISTANCE ---");
+        if (limelightDistance > 0) {
+            telemetry.addData("Distance", "%.2f ft", limelightDistance);
+        } else {
+            telemetry.addData("Distance", "NO TARGET");
+        }
         telemetry.addLine();
 
         telemetry.addLine("--- FLYWHEEL ---");

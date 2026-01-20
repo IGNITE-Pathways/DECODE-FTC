@@ -38,8 +38,8 @@ public class DriveTrain {
     // Rotation sensitivity (reduce for easier straight driving)
     private double rotationSensitivity = 0.7;
 
-    // Input smoothing (ramping)
-    private boolean smoothingEnabled = true;
+    // Input smoothing (ramping) - DISABLED to fix driving issues
+    private boolean smoothingEnabled = false;
     private static final double SMOOTHING_FACTOR = 0.15;  // Lower = smoother (0.1-0.3 recommended)
 
     // Smoothed input values
