@@ -31,12 +31,12 @@ public class BlueFarImprovedArjun2 extends OpMode {
 
     // ==================== SHOOTING CONSTANTS ====================
     // 10ft preset for shooting
-    private static final double FLYWHEEL_POWER = 0.8;
+    private static final double FLYWHEEL_POWER = 1.0;
     private static final double HOOD_POSITION = 0.6;
     private static final double SHOOT_TIME_SECONDS = 6.0;
 
     // Turret locked position
-    private static final double TURRET_LOCKED_POSITION = 0.45;
+    private static final double TURRET_LOCKED_POSITION = 0.91;
 
     // Path speed (45%)
     private static final double PATH_SPEED = 0.45;
@@ -411,11 +411,11 @@ public class BlueFarImprovedArjun2 extends OpMode {
     private void performEjectReintake() {
         // Keep ramp UP during eject/reintake sequence
         intakeTransfer.transferUp();
-        
+
         double elapsed = ejectTimer.getElapsedTimeSeconds();
-        
-        if (elapsed < 0.4) {
-            // Eject phase - run motor in reverse
+
+        if (elapsed < 0.1) {
+            // Eject phase - run motor in reverse (0.1 seconds)
             intakeTransfer.startEject(1.0);  // Full power eject
         } else {
             // Reintake phase - switch back to normal intake
@@ -467,42 +467,26 @@ public class BlueFarImprovedArjun2 extends OpMode {
 
         double elapsed = shootTimer.getElapsedTimeSeconds();
 
-        // Spin-up period (0-1.5s) - ramp down, but intake can start
-        if (elapsed < 1.5) {
+        // Spin-up period (0-2.0s) - ramp down, no intake yet to let flywheel reach full speed
+        if (elapsed < 2.0) {
             intakeTransfer.transferDown();
-            // Start intake early to be ready for feeding
-            intakeTransfer.startIntake();
+            intakeTransfer.stopIntake();  // Don't feed until flywheel is at speed
         }
         // Feeding period - continuous intake, no pauses
         else {
-            // COMMENTED OUT: Ramp down/up sequence for third ball - shooting all balls normally now
-            // Check if we need to perform ramp down/up sequence for third ball
-            // Trigger around 3.5 seconds (after first two balls, before third)
-            // if (!rampSequenceDone && elapsed >= 3.5 && elapsed < 4.0) {
-            //     if (!rampSequenceStarted) {
-            //         rampTimer.resetTimer();
-            //         rampSequenceStarted = true;
-            //         rampDownCalled = false;  // Reset ramp down flag
-            //     }
-            //     performRampDownUp();
-            //     return;  // Skip normal ramp/intake control during ramp sequence
-            // }
-            
             // Keep ramp UP during entire feeding period so balls can transfer
             intakeTransfer.transferUp();
-            
-            // COMMENTED OUT: Eject/reintake for third ball
-            // Check if we need to perform eject/reintake for third ball
-            // Trigger around 3.5 seconds (after first two balls, before third)
-            // if (!ejectReintakeDone && elapsed >= 3.5 && elapsed < 4.0) {
-            //     if (!ejectReintakeStarted) {
-            //         ejectTimer.resetTimer();
-            //         ejectReintakeStarted = true;
-            //     }
-            //     performEjectReintake();
-            //     return;  // Skip normal feeding cycle during eject/reintake
-            // }
-            
+
+            // Eject/reintake at 3 seconds to help clear stuck balls
+            if (!ejectReintakeDone && elapsed >= 3.0) {
+                if (!ejectReintakeStarted) {
+                    ejectTimer.resetTimer();
+                    ejectReintakeStarted = true;
+                }
+                performEjectReintake();
+                return;  // Skip normal feeding cycle during eject/reintake
+            }
+
             // Continuous intake feeding - no pauses, intake runs the entire time
             intakeTransfer.startIntake();
         }
@@ -647,8 +631,8 @@ public class BlueFarImprovedArjun2 extends OpMode {
 
             goingBackToShootSet1 = follower.pathBuilder()
                     .addPath(new BezierLine(
-                            new Pose(22.487, 35.899),
-                            new Pose(60.845, 7.910)
+                            new Pose(22.487, 33.899),
+                            new Pose(60.845, 5.910)
                     ))
                     .setConstantHeadingInterpolation(Math.toRadians(180))
                     .build();
