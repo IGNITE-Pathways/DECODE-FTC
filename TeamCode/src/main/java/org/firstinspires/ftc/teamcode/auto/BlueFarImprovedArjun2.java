@@ -32,7 +32,7 @@ public class BlueFarImprovedArjun2 extends OpMode {
     // ==================== SHOOTING CONSTANTS ====================
     // 10ft preset for shooting
     private static final double FLYWHEEL_POWER = 1.0;
-    private static final double HOOD_POSITION = 0.5;
+    private static final double HOOD_POSITION = 0.65;
     private static final double SHOOT_TIME_SECONDS = 6.0;
 
     // Turret locked position
@@ -464,16 +464,13 @@ public class BlueFarImprovedArjun2 extends OpMode {
             rampSequenceDone = true;  // Mark as complete
         }
     }
-
     /**
-     * Perform shooting with continuous intake feeding
-     */
-    /**
-     * Perform shooting with continuous intake feeding
-     * Calls blocking eject/intake before 3rd ball for reliable feeding
+     * Perform shooting with timed sequence for 3 balls
+     * Sequence per ball: Ramp UP + Intake ON → 0.3s → Intake OFF + Ramp DOWN → Intake ON → 0.5s → Repeat
+     * Flywheel stays on the entire time
      */
     private void performShooting() {
-        // Keep flywheel spinning
+        // Keep flywheel spinning the entire time
         if (launcher.flyWheelMotor != null) {
             launcher.flyWheelMotor.setPower(FLYWHEEL_POWER);
         }
@@ -488,23 +485,39 @@ public class BlueFarImprovedArjun2 extends OpMode {
         // Spin-up period (0-2.0s) - ramp down, no intake yet to let flywheel reach full speed
         if (elapsed < 2.0) {
             intakeTransfer.transferDown();
-            intakeTransfer.stopIntake();  // Don't feed until flywheel is at speed
+            intakeTransfer.stopIntake();
         }
-        // Before 3rd ball: perform blocking eject/intake at 4.5s (one-time only)
-        else if (elapsed >= 3.5 && !ejectReintakeDone) {
-            // CRITICAL: Update follower during blocking call to maintain position tracking
-            intakeTransfer.ejectThenIntakeBlocking();
-            ejectReintakeDone = true;  // Mark as complete so we don't call again
-        }
-        // Feeding period - continuous intake
-        else {
-            // Keep ramp UP during entire feeding period so balls can transfer
+        // BALL 1: Ramp UP, Intake ON (2.0s - 2.15s)
+        else if (elapsed >= 2.0 && elapsed < 2.15) {
             intakeTransfer.transferUp();
-            // Continuous intake feeding
             intakeTransfer.startIntake();
         }
+        // BALL 1: After 0.3s, Intake OFF, Ramp DOWN, then Intake ON (2.15s - 2.65s)
+        else if (elapsed >= 2.15 && elapsed < 2.65) {
+            intakeTransfer.transferDown();
+            intakeTransfer.startIntake();  // Intake turns back on immediately
+        }
+        // BALL 2: After 0.5s, Ramp UP (2.65s - 2.95s)
+        else if (elapsed >= 2.65 && elapsed < 2.95) {
+            intakeTransfer.transferUp();
+            intakeTransfer.startIntake();  // Keep intake on
+        }
+        // BALL 2: After 0.3s, Intake OFF, Ramp DOWN, then Intake ON (2.95s - 3.45s)
+        else if (elapsed >= 2.95 && elapsed < 3.45) {
+            intakeTransfer.transferDown();
+            intakeTransfer.startIntake();  // Intake turns back on immediately
+        }
+        // BALL 3: After 0.5s, Ramp UP (3.45s - 3.75s)
+        else if (elapsed >= 3.45 && elapsed < 3.75) {
+            intakeTransfer.transferUp();
+            intakeTransfer.startIntake();  // Keep intake on
+        }
+        // BALL 3: After 0.3s, Intake OFF, Ramp DOWN (3.75s+)
+        else if (elapsed >= 3.75) {
+            intakeTransfer.transferDown();
+            intakeTransfer.stopIntake();
+        }
     }
-
     /**
      * Stop shooting and turn off systems
      */
