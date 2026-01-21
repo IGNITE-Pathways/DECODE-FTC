@@ -133,6 +133,11 @@ public class BlueFarImprovedArjun2 extends OpMode {
         follower.setStartingPose(new Pose(60.845, 7.910, Math.toRadians(180)));
         follower.setMaxPower(PATH_SPEED);
 
+
+        // Activate all PIDFs so the tuned PIDF constants are used during following
+        follower.activateAllPIDFs();
+
+
         // Create path objects
         paths = new Paths(follower);
 
