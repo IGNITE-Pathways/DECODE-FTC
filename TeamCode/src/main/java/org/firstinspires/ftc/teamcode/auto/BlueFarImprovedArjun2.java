@@ -32,11 +32,11 @@ public class BlueFarImprovedArjun2 extends OpMode {
     // ==================== SHOOTING CONSTANTS ====================
     // 10ft preset for shooting
     private static final double FLYWHEEL_POWER = 1.0;
-    private static final double HOOD_POSITION = 0.8;
+    private static final double HOOD_POSITION = 0.5;
     private static final double SHOOT_TIME_SECONDS = 6.0;
 
     // Turret locked position
-    private static final double TURRET_LOCKED_POSITION = 0.5;
+    private static final double TURRET_LOCKED_POSITION = 0.55;
 
     // Path speed (45%)
     private static final double PATH_SPEED = 0.45;
@@ -208,14 +208,14 @@ public class BlueFarImprovedArjun2 extends OpMode {
             case PRELOAD_SHOOTING:
                 // Use performShooting() which includes eject/reintake for third ball
                 performShooting();
-                
+
                 // Wait for preload shoot to complete
                 double elapsed = shootTimer.getElapsedTimeSeconds();
                 if (elapsed >= SHOOT_TIME_SECONDS) {
                     stopShooting();
-                    // Start collecting first ball set with intake running, SLOW SPEED
-                    currentSpeed = PATH_SPEED;
-                    follower.setMaxPower(PATH_SPEED);  // Slow speed for collection
+                    // Start approaching first spike mark with FAST SPEED
+                    currentSpeed = 0.8;  // Fast approach to spike mark
+                    follower.setMaxPower(0.8);
                     intakeTransfer.startIntake();
                     follower.followPath(paths.goingToNearestBalls);
                     setPathState(PathState.GOING_TO_NEAREST_BALLS);
@@ -226,6 +226,9 @@ public class BlueFarImprovedArjun2 extends OpMode {
             case GOING_TO_NEAREST_BALLS:
                 // Keep intake running
                 if (!follower.isBusy()) {
+                    // Now SLOW DOWN for precise ball collection
+                    currentSpeed = PATH_SPEED;
+                    follower.setMaxPower(PATH_SPEED);
                     follower.followPath(paths.gettingFirstBallSet1);
                     setPathState(PathState.GETTING_FIRST_BALL_SET_1);
                 }
@@ -270,9 +273,9 @@ public class BlueFarImprovedArjun2 extends OpMode {
                 performShooting();
                 if (shootTimer.getElapsedTimeSeconds() >= SHOOT_TIME_SECONDS) {
                     stopShooting();
-                    // Start collecting second ball set with intake running, SLOW SPEED
-                    currentSpeed = PATH_SPEED;
-                    follower.setMaxPower(PATH_SPEED);  // Back to slow speed for collection
+                    // Start approaching second spike mark with FAST SPEED
+                    currentSpeed = 0.8;  // Fast approach to spike mark
+                    follower.setMaxPower(0.8);
                     intakeTransfer.startIntake();
                     follower.followPath(paths.gettingNextSetOfBalls);
                     setPathState(PathState.GETTING_NEXT_SET_OF_BALLS);
@@ -283,6 +286,9 @@ public class BlueFarImprovedArjun2 extends OpMode {
             case GETTING_NEXT_SET_OF_BALLS:
                 // Keep intake running
                 if (!follower.isBusy()) {
+                    // Now SLOW DOWN for precise ball collection
+                    currentSpeed = PATH_SPEED;
+                    follower.setMaxPower(PATH_SPEED);
                     follower.followPath(paths.gettingFirstBallSet2);
                     setPathState(PathState.GETTING_FIRST_BALL_SET_2);
                 }
@@ -327,9 +333,9 @@ public class BlueFarImprovedArjun2 extends OpMode {
                 performShooting();
                 if (shootTimer.getElapsedTimeSeconds() >= SHOOT_TIME_SECONDS) {
                     stopShooting();
-                    // Start collecting third ball set with intake running, SLOW SPEED
-                    currentSpeed = PATH_SPEED;
-                    follower.setMaxPower(PATH_SPEED);  // Back to slow speed for collection
+                    // Start approaching third spike mark with FAST SPEED
+                    currentSpeed = 0.8;  // Fast approach to spike mark
+                    follower.setMaxPower(0.8);
                     intakeTransfer.startIntake();
                     follower.followPath(paths.gettingThirdSetOfBalls);
                     setPathState(PathState.GETTING_THIRD_SET_OF_BALLS);
@@ -340,6 +346,9 @@ public class BlueFarImprovedArjun2 extends OpMode {
             case GETTING_THIRD_SET_OF_BALLS:
                 // Keep intake running
                 if (!follower.isBusy()) {
+                    // Now SLOW DOWN for precise ball collection
+                    currentSpeed = PATH_SPEED;
+                    follower.setMaxPower(PATH_SPEED);
                     follower.followPath(paths.gettingFirstBallSet3);
                     setPathState(PathState.GETTING_FIRST_BALL_SET_3);
                 }
@@ -436,13 +445,13 @@ public class BlueFarImprovedArjun2 extends OpMode {
      */
     private void performRampDownUp() {
         double elapsed = rampTimer.getElapsedTimeSeconds();
-        
+
         // Phase 1: Ramp down (only once at the start)
         if (!rampDownCalled) {
             intakeTransfer.transferDown();
             rampDownCalled = true;
         }
-        
+
         if (elapsed < 0.2) {
             // Phase 2: Eject for 0.2 seconds
             intakeTransfer.startEject(1.0);  // Full power eject
@@ -458,6 +467,10 @@ public class BlueFarImprovedArjun2 extends OpMode {
 
     /**
      * Perform shooting with continuous intake feeding
+     */
+    /**
+     * Perform shooting with continuous intake feeding
+     * Calls blocking eject/intake before 3rd ball for reliable feeding
      */
     private void performShooting() {
         // Keep flywheel spinning
@@ -477,22 +490,17 @@ public class BlueFarImprovedArjun2 extends OpMode {
             intakeTransfer.transferDown();
             intakeTransfer.stopIntake();  // Don't feed until flywheel is at speed
         }
-        // Feeding period - continuous intake, no pauses
+        // Before 3rd ball: perform blocking eject/intake at 4.5s (one-time only)
+        else if (elapsed >= 3.5 && !ejectReintakeDone) {
+            // CRITICAL: Update follower during blocking call to maintain position tracking
+            intakeTransfer.ejectThenIntakeBlocking();
+            ejectReintakeDone = true;  // Mark as complete so we don't call again
+        }
+        // Feeding period - continuous intake
         else {
             // Keep ramp UP during entire feeding period so balls can transfer
             intakeTransfer.transferUp();
-
-            // Eject/reintake at 3 seconds to help clear stuck balls
-            if (!ejectReintakeDone && elapsed >= 3.0) {
-                if (!ejectReintakeStarted) {
-                    ejectTimer.resetTimer();
-                    ejectReintakeStarted = true;
-                }
-                performEjectReintake();
-                return;  // Skip normal feeding cycle during eject/reintake
-            }
-
-            // Continuous intake feeding - no pauses, intake runs the entire time
+            // Continuous intake feeding
             intakeTransfer.startIntake();
         }
     }
@@ -605,38 +613,38 @@ public class BlueFarImprovedArjun2 extends OpMode {
             goingToNearestBalls = follower.pathBuilder()
                     .addPath(new BezierLine(
                             new Pose(60.845, 7.910),
-                            new Pose(41.172, 36.034)
+                            new Pose(41.172, 33.034)  // Changed from 36.034
                     ))
                     .setConstantHeadingInterpolation(Math.toRadians(180))
                     .build();
 
             gettingFirstBallSet1 = follower.pathBuilder()
                     .addPath(new BezierLine(
-                            new Pose(41.172, 36.034),
-                            new Pose(35.392, 35.899)
+                            new Pose(41.172, 33.034),  // Changed from 36.034
+                            new Pose(35.392, 32.899)   // Changed from 35.899
                     ))
                     .setTangentHeadingInterpolation()
                     .build();
 
             gettingSecondBallSet1 = follower.pathBuilder()
                     .addPath(new BezierLine(
-                            new Pose(35.392, 35.899),
-                            new Pose(29.358, 35.899)
+                            new Pose(35.392, 32.899),  // Changed from 35.899
+                            new Pose(29.358, 32.899)   // Changed from 35.899
                     ))
                     .setTangentHeadingInterpolation()
                     .build();
 
             gettingThirdBallSet1 = follower.pathBuilder()
                     .addPath(new BezierLine(
-                            new Pose(29.358, 35.899),
-                            new Pose(22.487, 35.899)
+                            new Pose(29.358, 32.899),  // Changed from 35.899
+                            new Pose(22.487, 32.899)   // Changed from 35.899
                     ))
                     .setTangentHeadingInterpolation()
                     .build();
 
             goingBackToShootSet1 = follower.pathBuilder()
                     .addPath(new BezierLine(
-                            new Pose(22.487, 33.899),
+                            new Pose(22.487, 30.899),  // Changed from 33.899
                             new Pose(60.845, 5.910)
                     ))
                     .setConstantHeadingInterpolation(Math.toRadians(180))
@@ -647,39 +655,39 @@ public class BlueFarImprovedArjun2 extends OpMode {
             gettingNextSetOfBalls = follower.pathBuilder()
                     .addPath(new BezierCurve(
                             new Pose(60.845, 7.910),
-                            new Pose(40.606, 45.856),
-                            new Pose(39.752, 59.831)
+                            new Pose(40.606, 42.856),  // Changed from 45.856
+                            new Pose(39.752, 56.831)   // Changed from 59.831
                     ))
                     .setConstantHeadingInterpolation(Math.toRadians(180))
                     .build();
 
             gettingFirstBallSet2 = follower.pathBuilder()
                     .addPath(new BezierLine(
-                            new Pose(39.752, 59.831),
-                            new Pose(34.580, 59.730)
+                            new Pose(39.752, 56.831),  // Changed from 59.831
+                            new Pose(34.580, 56.730)   // Changed from 59.730
                     ))
                     .setTangentHeadingInterpolation()
                     .build();
 
             gettingSecondBallSet2 = follower.pathBuilder()
                     .addPath(new BezierLine(
-                            new Pose(34.580, 59.730),
-                            new Pose(30.068, 59.780)
+                            new Pose(34.580, 56.730),  // Changed from 59.730
+                            new Pose(30.068, 56.780)   // Changed from 59.780
                     ))
                     .setTangentHeadingInterpolation()
                     .build();
 
             gettingThirdBallSet2 = follower.pathBuilder()
                     .addPath(new BezierLine(
-                            new Pose(30.068, 59.780),
-                            new Pose(24.566, 60.008)
+                            new Pose(30.068, 56.780),  // Changed from 59.780
+                            new Pose(24.566, 57.008)   // Changed from 60.008
                     ))
                     .setTangentHeadingInterpolation()
                     .build();
 
             goingBackToShootSet2 = follower.pathBuilder()
                     .addPath(new BezierLine(
-                            new Pose(24.566, 60.008),
+                            new Pose(24.566, 57.008),  // Changed from 60.008
                             new Pose(60.845, 7.910)
                     ))
                     .setConstantHeadingInterpolation(Math.toRadians(180))
@@ -690,41 +698,41 @@ public class BlueFarImprovedArjun2 extends OpMode {
             gettingThirdSetOfBalls = follower.pathBuilder()
                     .addPath(new BezierCurve(
                             new Pose(60.845, 7.910),
-                            new Pose(41.666, 57.846),
-                            new Pose(40.158, 84.169)
+                            new Pose(41.666, 54.846),  // Changed from 57.846
+                            new Pose(40.158, 81.169)   // Changed from 84.169
                     ))
                     .setConstantHeadingInterpolation(Math.toRadians(180))
                     .build();
 
             gettingFirstBallSet3 = follower.pathBuilder()
                     .addPath(new BezierLine(
-                            new Pose(40.158, 84.169),
-                            new Pose(34.885, 84.169)
+                            new Pose(40.158, 81.169),  // Changed from 84.169
+                            new Pose(34.885, 81.169)   // Changed from 84.169
                     ))
                     .setConstantHeadingInterpolation(Math.toRadians(180))
                     .build();
 
             gettingSecondBallSet3 = follower.pathBuilder()
                     .addPath(new BezierLine(
-                            new Pose(34.885, 84.169),
-                            new Pose(30.070, 84.118)
+                            new Pose(34.885, 81.169),  // Changed from 84.169
+                            new Pose(30.070, 81.118)   // Changed from 84.118
                     ))
                     .setTangentHeadingInterpolation()
                     .build();
 
             gettingThirdBallSet3 = follower.pathBuilder()
                     .addPath(new BezierLine(
-                            new Pose(30.070, 84.118),
-                            new Pose(24.513, 83.989)
+                            new Pose(30.070, 81.118),  // Changed from 84.118
+                            new Pose(24.513, 80.989)   // Changed from 83.989
                     ))
                     .setTangentHeadingInterpolation()
                     .build();
 
             path15 = follower.pathBuilder()
                     .addPath(new BezierCurve(
-                            new Pose(24.513, 83.989),
-                            new Pose(32.543, 92.571),
-                            new Pose(40.994, 101.603)
+                            new Pose(24.513, 80.989),  // Changed from 83.989
+                            new Pose(32.543, 92.571),  // Unchanged - final position path
+                            new Pose(40.994, 101.603)  // Unchanged - final position
                     ))
                     .setConstantHeadingInterpolation(Math.toRadians(180))
                     .build();
