@@ -26,17 +26,17 @@ import org.firstinspires.ftc.teamcode.core.constants.HardwareConfig;
  * 6. Collects 3 balls from the third zone
  * 7. Moves to final position
  */
-@Autonomous(name = "Blue Far Combined", group = "Autonomous")
+@Autonomous(name = "Blue Far ACTUAL", group = "Autonomous")
 public class BlueFarImprovedArjun2 extends OpMode {
 
     // ==================== SHOOTING CONSTANTS ====================
     // 10ft preset for shooting
     private static final double FLYWHEEL_POWER = 1.0;
-    private static final double HOOD_POSITION = 0.6;
+    private static final double HOOD_POSITION = 0.8;
     private static final double SHOOT_TIME_SECONDS = 6.0;
 
     // Turret locked position
-    private static final double TURRET_LOCKED_POSITION = 0.91;
+    private static final double TURRET_LOCKED_POSITION = 0.5;
 
     // Path speed (45%)
     private static final double PATH_SPEED = 0.45;

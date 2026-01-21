@@ -25,7 +25,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
  *
  * State Machine uses PathState enum to manage path transitions
  */
-@Autonomous(name = "Auto Ball Collection", group = "Autonomous")
+@Autonomous(name = "Red Near ACTUAL", group = "Autonomous")
 public class RedNear extends LinearOpMode {
 
     // ================== ENUMS ==================

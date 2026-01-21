@@ -17,7 +17,7 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
  *
  * Uses LinearOpMode with sequential execution for clearer autonomous logic.
  */
-@Autonomous(name = "Red Far", group = "Autonomous")
+@Autonomous(name = "Red Far ACTUAL", group = "Autonomous")
 public class RedFar extends OpMode {
 
     private Follower follower;

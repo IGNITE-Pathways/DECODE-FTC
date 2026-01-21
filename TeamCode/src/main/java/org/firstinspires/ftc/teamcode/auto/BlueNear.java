@@ -27,7 +27,7 @@ import org.firstinspires.ftc.teamcode.core.constants.HardwareConfig;
  * 5. Collects 3 balls from the 2nd set
  * 6. Moves to shooting position and scores
  */
-@Autonomous(name = "Auto - Ball Pickup (Pedro Pathing)", group = "Autonomous")
+@Autonomous(name = "BLUE NEAR ACTUAL", group = "Autonomous")
 public class BlueNear extends OpMode {
 
     // Follower for path following
