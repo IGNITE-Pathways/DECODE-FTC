@@ -84,10 +84,10 @@ public class FlywheelPIDFTuner extends LinearOpMode {
 
     // PIDF Gains - TUNED FOR 6000 RPM MOTORS
     // These are optimized starting values - fine-tune to your specific robot
-    private double kP = 0.0004;   // Proportional - responds to error
-    private double kI = 0.00003;  // Integral - eliminates steady-state error
-    private double kD = 0.0002;   // Derivative - reduces oscillation
-    private double kF = 0.00020;  // Feedforward - provides base power for target velocity
+    private double kP = 0.00035;   // Proportional - responds to error
+    private double kI = 0.000025;  // Integral - eliminates steady-state error
+    private double kD = 0.00015;   // Derivative - reduces oscillation
+    private double kF = 0.000215;  // Feedforward - provides base power for target velocity
 
     // Target and control
     private double targetRPM = 3500;  // Target flywheel speed (60% of max for good control)
@@ -123,16 +123,28 @@ public class FlywheelPIDFTuner extends LinearOpMode {
     private double dComponent = 0.0;
     private double fComponent = 0.0;
 
+    // Recovery tracking
+    private boolean wasInError = false;
+    private ElapsedTime recoveryTimer = new ElapsedTime();
+    private double lastRecoveryTime = 0.0;
+
     @Override
     public void runOpMode() {
         initializeHardware();
 
         telemetry.addLine("=== FLYWHEEL PIDF TUNER ===");
-        telemetry.addLine("Y: Toggle flywheel");
-        telemetry.addLine("RT: Intake | LT: Eject");
-        telemetry.addLine("DPAD UP/DN: Adjust RPM");
+        telemetry.addLine();
+        telemetry.addLine("Y: Toggle flywheel ON/OFF");
+        telemetry.addLine("DPAD UP/DN: Adjust target RPM");
+        telemetry.addLine();
+        telemetry.addLine("*** INTAKE/EJECT CONTROLS ***");
+        telemetry.addLine("RT: Run INTAKE (test flywheel load)");
+        telemetry.addLine("LT: Run EJECT (reverse)");
+        telemetry.addLine();
         telemetry.addData("Battery", "%.2fV", currentVoltage);
+        telemetry.addLine();
         telemetry.addLine("PIDF naturally handles voltage drops!");
+        telemetry.addLine("Use RT to test recovery after shots");
         telemetry.update();
 
         waitForStart();
@@ -143,13 +155,32 @@ public class FlywheelPIDFTuner extends LinearOpMode {
         while (opModeIsActive()) {
             handleControls();
             measureVelocity();
+            intakeTransfer.transferUp();
+
 
             if (flywheelOn) {
                 double power = calculatePIDFPower();
                 setFlywheelPower(power);
+
+                // Track recovery time for tuning feedback
+                double error = targetRPM - avgRPM;
+                if (Math.abs(error) > 50) {
+                    // Large error detected (disturbance)
+                    if (!wasInError) {
+                        recoveryTimer.reset();
+                        wasInError = true;
+                    }
+                } else if (Math.abs(error) < 30) {
+                    // Back to good error range
+                    if (wasInError) {
+                        lastRecoveryTime = recoveryTimer.milliseconds();
+                        wasInError = false;
+                    }
+                }
             } else {
                 setFlywheelPower(0.0);
                 resetPID();
+                wasInError = false;
             }
 
             displayTelemetry();
@@ -383,25 +414,57 @@ public class FlywheelPIDFTuner extends LinearOpMode {
             voltageStatus = String.format("%.2fV", currentVoltage);
         }
         telemetry.addData("Battery", voltageStatus);
-
-        // Intake status
-        double intakePower = intakeTransfer.getIntakePower();
-        String intakeStatus = "STOPPED";
-        if (intakePower > 0.1) {
-            intakeStatus = "INTAKE";
-        } else if (intakePower < -0.1) {
-            intakeStatus = "EJECT";
-        }
-        telemetry.addData("Intake", intakeStatus);
         telemetry.addLine();
 
-        // Velocity info
+        // Intake status (prominent display)
+        telemetry.addLine("--- INTAKE STATUS ---");
+        double intakePower = intakeTransfer.getIntakePower();
+        String intakeStatus;
+        if (intakePower > 0.1) {
+            intakeStatus = ">>> RUNNING (RT) <<<";
+        } else if (intakePower < -0.1) {
+            intakeStatus = ">>> EJECTING (LT) <<<";
+        } else {
+            intakeStatus = "STOPPED";
+        }
+        telemetry.addData("Status", intakeStatus);
+        telemetry.addData("Power", "%.2f", intakePower);
+        telemetry.addLine();
+
+        // Velocity info with performance indicators
         telemetry.addLine("--- VELOCITY (Motor 1) ---");
         telemetry.addData("Target RPM", "%.0f", targetRPM);
         telemetry.addData("Current RPM", "%.0f", currentRPM);
         telemetry.addData("Avg RPM (smooth)", "%.0f", avgRPM);
-        telemetry.addData("Error", "%.0f RPM", targetRPM - avgRPM);
-        telemetry.addData("Error %", "%.1f%%", ((targetRPM - avgRPM) / targetRPM) * 100);
+
+        double error = targetRPM - avgRPM;
+        double errorPercent = (error / targetRPM) * 100;
+        String errorStatus;
+        if (Math.abs(error) < 20) {
+            errorStatus = "EXCELLENT ✓";
+        } else if (Math.abs(error) < 50) {
+            errorStatus = "GOOD";
+        } else if (Math.abs(error) < 100) {
+            errorStatus = "OK (tune kP/kI)";
+        } else {
+            errorStatus = "POOR (needs tuning!)";
+        }
+
+        telemetry.addData("Error", "%.0f RPM (%s)", error, errorStatus);
+        telemetry.addData("Error %", "%.1f%%", errorPercent);
+
+        // Recovery time display
+        if (lastRecoveryTime > 0) {
+            String recoveryStatus;
+            if (lastRecoveryTime < 100) {
+                recoveryStatus = "FAST ✓";
+            } else if (lastRecoveryTime < 200) {
+                recoveryStatus = "GOOD";
+            } else {
+                recoveryStatus = "SLOW (increase kP)";
+            }
+            telemetry.addData("Last Recovery", "%.0fms (%s)", lastRecoveryTime, recoveryStatus);
+        }
         telemetry.addLine();
 
         // Power output
@@ -409,33 +472,75 @@ public class FlywheelPIDFTuner extends LinearOpMode {
         telemetry.addData("Motor Power", "%.4f (%.1f%%)", lastPower, lastPower * 100);
         telemetry.addLine();
 
-        // PIDF Components
-        telemetry.addLine("--- PIDF COMPONENTS ---");
-        telemetry.addData("F (feedforward)", "%.4f", fComponent);
-        telemetry.addData("P (proportional)", "%.4f", pComponent);
-        telemetry.addData("I (integral)", "%.4f", iComponent);
-        telemetry.addData("D (derivative)", "%.4f", dComponent);
+        // PIDF Components with explanations
+        telemetry.addLine("--- PIDF COMPONENTS (What's Happening) ---");
+        telemetry.addData("F (base power)", "%.4f (%.0f%% of total)", fComponent, (fComponent/lastPower)*100);
+        telemetry.addData("P (error fix)", "%.4f (%.0f%% of total)", pComponent, Math.abs(pComponent/lastPower)*100);
+        telemetry.addData("I (drift fix)", "%.4f (%.0f%% of total)", iComponent, Math.abs(iComponent/lastPower)*100);
+        telemetry.addData("D (smoothing)", "%.4f (%.0f%% of total)", dComponent, Math.abs(dComponent/lastPower)*100);
         telemetry.addLine();
 
-        // Gains
-        telemetry.addLine("--- GAINS ---");
-        telemetry.addData("kF", "%.6f", kF);
-        telemetry.addData("kP", "%.6f", kP);
-        telemetry.addData("kI", "%.6f", kI);
-        telemetry.addData("kD", "%.6f", kD);
+        // Component balance analysis
+        telemetry.addLine("PIDF Balance Check:");
+        double totalCorrection = Math.abs(pComponent) + Math.abs(iComponent) + Math.abs(dComponent);
+        if (totalCorrection < 0.05) {
+            telemetry.addLine("✓ Stable - corrections are minimal");
+        } else if (Math.abs(pComponent) > 0.1) {
+            telemetry.addLine("! Large P - error is high, adjust kF");
+        } else if (Math.abs(iComponent) > 0.05) {
+            telemetry.addLine("! Large I - steady error, increase kF/kP");
+        } else {
+            telemetry.addLine("~ Actively correcting");
+        }
         telemetry.addLine();
 
-        // Controls
-        telemetry.addLine("--- CONTROLS ---");
-        telemetry.addLine("Y: Toggle | X: Reset PID | B: Save");
-        telemetry.addLine("DPAD UP/DN: ±50 RPM | Stick: Fine");
-        telemetry.addLine("RT: Intake | LT: Eject");
+        // Gains with tuning hints
+        telemetry.addLine("--- GAINS (Your Tuning Values) ---");
+        telemetry.addData("kF (Feedforward)", "%.6f", kF);
+        telemetry.addData("kP (Proportional)", "%.6f", kP);
+        telemetry.addData("kI (Integral)", "%.6f", kI);
+        telemetry.addData("kD (Derivative)", "%.6f", kD);
         telemetry.addLine();
-        telemetry.addLine("GAIN TUNING:");
-        telemetry.addLine("LB+DPAD: kP | RB+DPAD: kF");
-        telemetry.addLine("LB+RB+DPAD: kI | A+DPAD: kD");
+
+        // Quick tuning status
+        telemetry.addLine("--- TUNING STATUS ---");
+        boolean wellTuned = Math.abs(error) < 30 && totalCorrection < 0.08;
+        if (wellTuned) {
+            telemetry.addLine("✓✓✓ WELL TUNED ✓✓✓");
+            telemetry.addLine("Error is low, corrections are small");
+            telemetry.addLine("Press B to save these gains!");
+        } else if (Math.abs(error) > 100) {
+            telemetry.addLine("NEEDS TUNING:");
+            telemetry.addLine("1. Adjust kF until error < 50 RPM");
+            telemetry.addLine("2. Then tune kP for recovery speed");
+        } else {
+            telemetry.addLine("FINE TUNING:");
+            telemetry.addLine("Test with RT (intake) and watch recovery");
+        }
         telemetry.addLine();
-        telemetry.addLine("NOTE: PIDF auto-compensates for voltage");
+
+        // Tuning guide (simplified)
+        telemetry.addLine("=== WHAT DO THESE MEAN? ===");
+        telemetry.addLine();
+        telemetry.addLine("ERROR: How far off from target");
+        telemetry.addLine("  • < 20 RPM = Excellent");
+        telemetry.addLine("  • < 50 RPM = Good");
+        telemetry.addLine("  • > 100 RPM = Needs tuning");
+        telemetry.addLine();
+        telemetry.addLine("kF (Base Power):");
+        telemetry.addLine("  • Should give ~90% of target");
+        telemetry.addLine("  • Too low = steady error");
+        telemetry.addLine("  • Too high = overshoot");
+        telemetry.addLine();
+        telemetry.addLine("kP (Quick Response):");
+        telemetry.addLine("  • Fixes errors fast");
+        telemetry.addLine("  • Too low = slow recovery");
+        telemetry.addLine("  • Too high = oscillation");
+        telemetry.addLine();
+        telemetry.addLine("TEST: Press RT (intake) and watch:");
+        telemetry.addLine("  1. RPM drops (expected)");
+        telemetry.addLine("  2. Should recover in < 200ms");
+        telemetry.addLine("  3. Should not overshoot");
 
         telemetry.update();
     }

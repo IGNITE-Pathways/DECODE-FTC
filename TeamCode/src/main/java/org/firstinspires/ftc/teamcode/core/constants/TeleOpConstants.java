@@ -79,6 +79,14 @@ public class TeleOpConstants {
     public static final double TURRET_LOCKED_POSITION = 0.2;
     public static final boolean TURRET_AUTO_LOCK_ENABLED = true;
 
+    // Manual turret control
+    public static final double TURRET_MANUAL_INCREMENT = 0.02;     // DPAD increment
+    public static final double TURRET_MANUAL_STICK_DEADZONE = 0.1; // Stick deadzone
+    public static final double TURRET_MANUAL_STICK_SENSITIVITY = 0.01; // Stick scaling
+    public static final double TURRET_MIN_POSITION = 0.0;
+    public static final double TURRET_MAX_POSITION = 1.0;
+    public static final double TURRET_CENTER_POSITION = 0.3;
+
     // ==================== TRANSFER RAMP ====================
     public static final double TRANSFER_UP_POSITION = 0.75;  // Raised higher for better feeding
     public static final double TRANSFER_DOWN_POSITION = 0.5;

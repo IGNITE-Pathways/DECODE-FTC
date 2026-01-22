@@ -20,8 +20,10 @@ import org.firstinspires.ftc.teamcode.core.util.DistanceCalculator;
  * - Left Stick: Drive forward/strafe
  * - Right Stick X: Rotate
  * - A: Toggle turret auto-tracking ON/OFF
- * - Y: Toggle flywheel ON/OFF
- * - B: Lock current distance (calculates from limelight)
+ * - Y: Toggle flywheel ON/OFF (uses locked distance preset)
+ * - B: Lock current detected distance
+ * - DPAD UP: Enable continuous distance detection (updates display only)
+ * - DPAD DOWN: Disable distance detection, use default values
  * - RT: Intake
  * - LT: Eject
  *
@@ -31,13 +33,14 @@ import org.firstinspires.ftc.teamcode.core.util.DistanceCalculator;
  * - DPAD Right: Move turret right (small increment)
  * - X: Reset turret to center position
  *
- * DISTANCE LOCKING WORKFLOW:
+ * DISTANCE DETECTION WORKFLOW:
  * 1. Point robot at AprilTag (use A to toggle auto-tracking)
- * 2. Press B to lock current distance (calculates once, stores it)
- * 3. Press Y to activate flywheel (uses locked distance to set power & hood)
- * 4. Flywheel spins at preset power/hood for that distance range
+ * 2. Press DPAD UP to enable continuous distance detection
+ * 3. Press B to lock the current detected distance
+ * 4. Press Y to activate flywheel with locked distance preset
+ * 5. Press DPAD DOWN to return to default values
  *
- * DEFAULT (no distance locked): 80% power, 0.25 hood (lowest)
+ * DEFAULT (distance detection OFF): 80% power, 0.25 hood (lowest)
  */
 public abstract class CompetitionTeleOpBase extends LinearOpMode {
 
@@ -56,25 +59,23 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
     private double hoodPosition = TeleOpConstants.DEFAULT_HOOD_POSITION;
     private String selectedPreset = "DEFAULT";
     private boolean turretTracking = false;
+    private boolean distanceDetectionEnabled = false;  // Default: OFF
 
     // Gamepad 1 button states
     private boolean lastGP1_A = false;
     private boolean lastGP1_Y = false;
     private boolean lastGP1_B = false;
+    private boolean lastGP1_DpadUp = false;
+    private boolean lastGP1_DpadDown = false;
+
+    // Limelight distance tracking
+    private double currentDistance = -1.0;  // Currently detected distance
+    private double lockedDistance = -1.0;   // Locked distance for shooting
 
     // Gamepad 2 button states (manual turret)
     private boolean lastGP2_X = false;
     private boolean lastGP2_DpadLeft = false;
     private boolean lastGP2_DpadRight = false;
-
-    // Manual turret control
-    private static final double TURRET_INCREMENT = 0.02;  // Small increment for DPAD
-    private static final double TURRET_MIN = 0.0;
-    private static final double TURRET_MAX = 1.0;
-    private static final double TURRET_CENTER = 0.5;
-
-    // Limelight distance tracking
-    private double lockedDistance = -1.0;
 
     @Override
     public void runOpMode() {
@@ -180,31 +181,32 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
 
         // Gamepad 2 Left Stick X: Continuous manual control
         double stickInput = -gamepad2.left_stick_x;  // Inverted for intuitive control
-        if (Math.abs(stickInput) > 0.1) {
-            double adjustment = stickInput * 0.01;  // Scale down for smooth control
+        if (Math.abs(stickInput) > TeleOpConstants.TURRET_MANUAL_STICK_DEADZONE) {
+            double adjustment = stickInput * TeleOpConstants.TURRET_MANUAL_STICK_SENSITIVITY;
             currentPos += adjustment;
         }
 
         // Gamepad 2 DPAD Left: Small increment left
         if (gamepad2.dpad_left && !lastGP2_DpadLeft) {
-            currentPos -= TURRET_INCREMENT;
+            currentPos -= TeleOpConstants.TURRET_MANUAL_INCREMENT;
         }
         lastGP2_DpadLeft = gamepad2.dpad_left;
 
         // Gamepad 2 DPAD Right: Small increment right
         if (gamepad2.dpad_right && !lastGP2_DpadRight) {
-            currentPos += TURRET_INCREMENT;
+            currentPos += TeleOpConstants.TURRET_MANUAL_INCREMENT;
         }
         lastGP2_DpadRight = gamepad2.dpad_right;
 
         // Gamepad 2 X: Reset to center
         if (gamepad2.x && !lastGP2_X) {
-            currentPos = TURRET_CENTER;
+            currentPos = TeleOpConstants.TURRET_CENTER_POSITION;
         }
         lastGP2_X = gamepad2.x;
 
         // Clamp position to valid range
-        currentPos = Math.max(TURRET_MIN, Math.min(TURRET_MAX, currentPos));
+        currentPos = Math.max(TeleOpConstants.TURRET_MIN_POSITION,
+                             Math.min(TeleOpConstants.TURRET_MAX_POSITION, currentPos));
 
         // Apply position
         turret.setPositionDirect(currentPos);
@@ -225,14 +227,42 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
     // ========================================
 
     private void handleDistanceLock() {
-        // Gamepad 1 B: Lock distance
-        if (gamepad1.b && !lastGP1_B) {
-            // Only calculate distance when B button is pressed (performance optimization)
+        // Gamepad 1 DPAD UP: Enable continuous distance detection
+        if (gamepad1.dpad_up && !lastGP1_DpadUp) {
+            distanceDetectionEnabled = true;
+        }
+        lastGP1_DpadUp = gamepad1.dpad_up;
+
+        // Gamepad 1 DPAD DOWN: Disable distance detection, use defaults
+        if (gamepad1.dpad_down && !lastGP1_DpadDown) {
+            distanceDetectionEnabled = false;
+            // Reset to default values
+            currentDistance = -1.0;
+            lockedDistance = -1.0;
+            flywheelPower = TeleOpConstants.DEFAULT_FLYWHEEL_POWER;
+            hoodPosition = TeleOpConstants.DEFAULT_HOOD_POSITION;
+            selectedPreset = "DEFAULT";
+            // Update launcher if flywheel is running
+            if (flywheelOn) {
+                launcher.setPower(flywheelPower);
+                launcher.setHoodPosition(hoodPosition);
+            }
+        }
+        lastGP1_DpadDown = gamepad1.dpad_down;
+
+        // Continuously update current distance when detection is enabled
+        if (distanceDetectionEnabled) {
             double distance = calculateCurrentDistance();
             if (distance > 0) {
-                lockedDistance = distance;
+                currentDistance = distance;
+            }
+        }
+
+        // Gamepad 1 B: Lock current detected distance
+        if (gamepad1.b && !lastGP1_B) {
+            if (distanceDetectionEnabled && currentDistance > 0) {
+                lockedDistance = currentDistance;
                 applyDistancePreset(lockedDistance);
-                launcher.setHoodPosition(hoodPosition);
             }
         }
         lastGP1_B = gamepad1.b;
@@ -343,7 +373,9 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
 
         // Distance & Preset Info
         telemetry.addLine("--- SHOOTING ---");
-        telemetry.addData("Locked Distance", lockedDistance > 0 ? String.format("%.2f ft", lockedDistance) : "NONE (GP1-B)");
+        telemetry.addData("Distance Detection", distanceDetectionEnabled ? "ENABLED" : "DISABLED (DPAD UP/DOWN)");
+        telemetry.addData("Current Distance", currentDistance > 0 ? String.format("%.2f ft", currentDistance) : "NONE");
+        telemetry.addData("Locked Distance", lockedDistance > 0 ? String.format("%.2f ft (GP1-B)", lockedDistance) : "NONE");
         telemetry.addData("Preset", selectedPreset);
         telemetry.addLine();
 
@@ -363,6 +395,7 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
         telemetry.addLine("--- GAMEPAD 1 (Driver/Shooter) ---");
         telemetry.addLine("Sticks: Drive | A: Turret auto");
         telemetry.addLine("Y: Flywheel | B: Lock distance");
+        telemetry.addLine("DPAD UP/DOWN: Distance detect");
         telemetry.addLine("RT: Intake | LT: Eject");
         telemetry.addLine();
         telemetry.addLine("--- GAMEPAD 2 (Manual Turret) ---");
