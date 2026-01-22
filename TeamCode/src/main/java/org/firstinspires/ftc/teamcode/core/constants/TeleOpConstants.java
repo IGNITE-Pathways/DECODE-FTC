@@ -11,8 +11,8 @@ public class TeleOpConstants {
     }
 
     // ==================== DEFAULT SHOOTER SETTINGS ====================
-    public static final double DEFAULT_FLYWHEEL_POWER = 0.73;
-    public static final double DEFAULT_HOOD_POSITION = 0.67;
+    public static final double DEFAULT_FLYWHEEL_POWER = 0.80;
+    public static final double DEFAULT_HOOD_POSITION = 0.60;
 
     // ==================== DRIVE SPEED SETTINGS ====================
     public static final double SPEED_SHOOTING_MULTIPLIER = 0.85;  // Reduce speed while flywheel on

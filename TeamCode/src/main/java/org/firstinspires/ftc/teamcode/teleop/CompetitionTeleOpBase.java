@@ -222,6 +222,8 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
         telemetry.addData("Preset", selectedPreset);
         telemetry.addData("Flywheel", flywheelOn ? "ON " + (int)(flywheelPower*100) + "%" : "OFF");
         telemetry.addData("Hood", "%.2f", hoodPosition);
+        telemetry.addData("Transfer Ramp", intakeTransfer.isTransferUp() ? "UP" : "DOWN");
+        telemetry.addData("Ramp Position", "%.2f", intakeTransfer.getTransferPosition());
         telemetry.addData("Turret", turretTracking ? (turret.isLocked() ? "LOCKED ON" : "TRACKING") : "MANUAL");
         telemetry.addLine();
         telemetry.addData("Locked Distance", lockedDistance > 0 ? String.format("%.2f ft", lockedDistance) : "NOT SET");
