@@ -10,60 +10,56 @@ import org.firstinspires.ftc.teamcode.core.components.Launcher;
 import org.firstinspires.ftc.teamcode.core.constants.HardwareConfig;
 
 /**
- * TeleOp for Testing Shooting Sequence
+ * TeleOp for Testing Shooting Sequence - ALL CONTROLS ON GAMEPAD 1
  *
- * TUNABLE PARAMETERS - LIVE ADJUSTMENT:
+ * GAMEPAD 1 CONTROLS:
  *
- * GAMEPAD 1 (Test Execution & Manual Controls):
- * - A: Start automatic shooting sequence
- * - B: Stop shooting sequence
- * - RIGHT TRIGGER: Intake ON (hold)
- * - LEFT TRIGGER: Eject ON (hold)
- * - DPAD UP: Ramp UP
- * - DPAD DOWN: Ramp DOWN
- * - X: Increase flywheel power (+0.05)
- * - Y: Decrease flywheel power (-0.05)
- * - RIGHT BUMPER: Increase hood position (+0.05)
- * - LEFT BUMPER: Decrease hood position (-0.05)
+ * SHOOTING MODES:
+ * - START: Start automatic shooting sequence
+ * - BACK: Stop shooting sequence / Flywheel only mode (toggle)
  *
- * GAMEPAD 2 (Live Timing Adjustments - ±0.05s per press):
- * - DPAD UP/DOWN: Spinup Time
- * - A/B: Ball 1 Ramp Up Time
- * - X/Y: Ball 1 Wait After
- * - LEFT/RIGHT BUMPER: Ball 2 Ramp Up Time
- * - LEFT STICK UP/DOWN: Ball 2 Wait After
- * - RIGHT STICK UP/DOWN: Ball 3 Ramp Up Time
+ * HARDWARE SETTINGS (±0.05):
+ * - DPAD UP: Hood position +
+ * - DPAD DOWN: Hood position -
+ * - DPAD LEFT: Flywheel power -
+ * - DPAD RIGHT: Flywheel power +
+ * - LEFT STICK X (analog): Turret position (left/right)
+ *
+ * TIMING ADJUSTMENTS (±0.05s):
+ * - LEFT BUMPER: Spinup time +
+ * - LEFT TRIGGER: Spinup time -
+ * - A: Ball 1 ramp up +
+ * - B: Ball 1 ramp up -
+ * - X: Ball 1 wait (B1→B2) +
+ * - Y: Ball 1 wait (B1→B2) -
+ * - RIGHT BUMPER: Ball 2 ramp up +
+ * - RIGHT TRIGGER: Ball 2 ramp up -
+ * - LEFT STICK Y (hold up): Ball 2 wait (B2→B3) +
+ * - LEFT STICK Y (hold down): Ball 2 wait (B2→B3) -
+ * - RIGHT STICK Y (hold up): Ball 3 ramp up +
+ * - RIGHT STICK Y (hold down): Ball 3 ramp up -
  */
 @TeleOp(name = "Shooting Sequence Test", group = "Test")
 public class SHOOTINGSEQUENCETEST extends OpMode {
 
     // ==================== TUNABLE SHOOTING PARAMETERS ====================
-    // Adjust these values to tune the shooting sequence
 
-    // Flywheel and Hood Settings (Gamepad 1)
-    private double flywheelPower = 1.0;        // X/Y buttons
-    private double hoodPosition = 0.65;        // Bumpers
-    private static final double TURRET_POSITION = 0.55;      // Locked position
+    // Hardware Settings
+    private double flywheelPower = 1.0;
+    private double hoodPosition = 0.65;
+    private double turretPosition = 0.55;
 
-    // ==================== TIMING PARAMETERS (GAMEPAD 2) ====================
-    // All times in seconds - adjustable live with gamepad 2
-
-    // Adjustment increment
-    private static final double TIME_INCREMENT = 0.05;  // 50ms per button press
-
-    // Spin-up time before first ball (DPAD UP/DOWN)
+    // Timing Parameters (all in seconds)
     private double spinupTime = 2.0;
+    private double ball1RampUpTime = 0.15;
+    private double ball1WaitAfter = 0.5;
+    private double ball2RampUpTime = 0.30;
+    private double ball2WaitAfter = 0.5;
+    private double ball3RampUpTime = 0.30;
 
-    // BALL 1 timing (A/B and X/Y)
-    private double ball1RampUpTime = 0.15;      // How long ramp stays UP (A/B)
-    private double ball1WaitAfter = 0.5;         // Wait after ramp goes DOWN (X/Y)
-
-    // BALL 2 timing (Left/Right Bumpers and Left/Right Stick Y)
-    private double ball2RampUpTime = 0.30;      // How long ramp stays UP (Bumpers)
-    private double ball2WaitAfter = 0.5;         // Wait after ramp goes DOWN (Left Stick Y)
-
-    // BALL 3 timing (Right Stick Y)
-    private double ball3RampUpTime = 0.30;      // How long ramp stays UP (Right Stick Y)
+    // Adjustment increments
+    private static final double TIME_INCREMENT = 0.05;
+    private static final double POSITION_INCREMENT = 0.05;
 
     // ==================== ROBOT COMPONENTS ====================
     private IntakeTransfer intakeTransfer;
@@ -72,29 +68,13 @@ public class SHOOTINGSEQUENCETEST extends OpMode {
 
     // State tracking
     private ElapsedTime shootTimer;
+    private ElapsedTime adjustmentTimer;  // For continuous adjustments
     private boolean shootingSequenceActive = false;
+    private boolean flywheelOnlyMode = false;  // Just spin flywheel, no shooting
 
-    // Gamepad 1 button tracking
-    private boolean lastAButton = false;
-    private boolean lastBButton = false;
-    private boolean lastXButton = false;
-    private boolean lastYButton = false;
-    private boolean lastRightBumper = false;
-    private boolean lastLeftBumper = false;
-
-    // Gamepad 2 button tracking (for timing adjustments)
-    private boolean lastG2A = false;
-    private boolean lastG2B = false;
-    private boolean lastG2X = false;
-    private boolean lastG2Y = false;
-    private boolean lastG2DpadUp = false;
-    private boolean lastG2DpadDown = false;
-    private boolean lastG2LeftBumper = false;
-    private boolean lastG2RightBumper = false;
-    private boolean lastG2LeftStickUp = false;
-    private boolean lastG2LeftStickDown = false;
-    private boolean lastG2RightStickUp = false;
-    private boolean lastG2RightStickDown = false;
+    // Button tracking for START/BACK
+    private boolean lastStart = false;
+    private boolean lastBack = false;
 
     // Shooting phase tracking
     private enum ShootPhase {
@@ -120,35 +100,16 @@ public class SHOOTINGSEQUENCETEST extends OpMode {
         // Initialize turret servo
         try {
             turretServo = hardwareMap.get(Servo.class, HardwareConfig.TURRET_SERVO);
-            turretServo.setPosition(TURRET_POSITION);
-            telemetry.addLine("✓ Turret Servo: OK");
+            turretServo.setPosition(turretPosition);
         } catch (Exception e) {
             turretServo = null;
-            telemetry.addLine("✗ Turret Servo: NOT FOUND");
         }
 
         shootTimer = new ElapsedTime();
+        adjustmentTimer = new ElapsedTime();
 
-        telemetry.addLine("=================================");
-        telemetry.addLine("   SHOOTING SEQUENCE TEST");
-        telemetry.addLine("=================================");
-        telemetry.addLine();
-        telemetry.addLine("GAMEPAD 1 - Test Controls:");
-        telemetry.addLine("  A: Start | B: Stop");
-        telemetry.addLine("  RT: Intake | LT: Eject");
-        telemetry.addLine("  DPAD ↑↓: Ramp");
-        telemetry.addLine("  X/Y: Flywheel | Bumpers: Hood");
-        telemetry.addLine();
-        telemetry.addLine("GAMEPAD 2 - Live Timing (±0.05s):");
-        telemetry.addLine("  DPAD ↑↓: Spinup Time");
-        telemetry.addLine("  A/B: Ball 1 Ramp Up");
-        telemetry.addLine("  X/Y: Ball 1 Wait");
-        telemetry.addLine("  Bumpers: Ball 2 Ramp Up");
-        telemetry.addLine("  L-Stick ↑↓: Ball 2 Wait");
-        telemetry.addLine("  R-Stick ↑↓: Ball 3 Ramp Up");
-        telemetry.addLine();
-        telemetry.addData("Flywheel", "%.2f", flywheelPower);
-        telemetry.addData("Hood", "%.2f", hoodPosition);
+        telemetry.addLine("Shooting Sequence Test - Ready!");
+        telemetry.addLine("All controls on Gamepad 1");
         telemetry.update();
     }
 
@@ -157,190 +118,170 @@ public class SHOOTINGSEQUENCETEST extends OpMode {
         // Update launcher
         launcher.update();
 
-        // Keep turret locked
+        // Set turret position
         if (turretServo != null) {
-            turretServo.setPosition(TURRET_POSITION);
+            turretServo.setPosition(turretPosition);
         }
 
-        // Handle shooting sequence controls (gamepad 1)
-        handleShootingControls();
-
-        // Handle manual controls (gamepad 1)
-        handleManualControls();
-
-        // Handle timing adjustments (gamepad 2)
+        // Handle all controls
+        handleModeControls();
+        handleHardwareAdjustments();
         handleTimingAdjustments();
 
-        // Execute shooting sequence if active
+        // Execute shooting sequence or flywheel-only mode
         if (shootingSequenceActive) {
             performShootingTest();
+        } else if (flywheelOnlyMode) {
+            performFlywheelOnly();
         }
 
-        // Update telemetry
-        updateTelemetry();
+        // Update detailed telemetry
+        updateDetailedTelemetry();
     }
 
     /**
-     * Handle shooting sequence start/stop (Gamepad 1)
+     * Handle START and BACK buttons for mode control
      */
-    private void handleShootingControls() {
-        boolean currentA = gamepad1.a;
-        boolean currentB = gamepad1.b;
-        boolean currentX = gamepad1.x;
-        boolean currentY = gamepad1.y;
-        boolean currentRightBumper = gamepad1.right_bumper;
-        boolean currentLeftBumper = gamepad1.left_bumper;
+    private void handleModeControls() {
+        boolean currentStart = gamepad1.start;
+        boolean currentBack = gamepad1.back;
 
-        // A button: Start shooting sequence
-        if (currentA && !lastAButton) {
-            startShootingSequence();
+        // START: Begin shooting sequence
+        if (currentStart && !lastStart) {
+            if (!shootingSequenceActive) {
+                startShootingSequence();
+            }
         }
 
-        // B button: Stop shooting sequence
-        if (currentB && !lastBButton) {
-            stopShootingSequence();
+        // BACK: Toggle flywheel-only mode or stop sequence
+        if (currentBack && !lastBack) {
+            if (shootingSequenceActive) {
+                stopShootingSequence();
+            } else {
+                flywheelOnlyMode = !flywheelOnlyMode;
+                if (flywheelOnlyMode) {
+                    // Start flywheel without shooting
+                    launcher.setPower(flywheelPower);
+                    launcher.setHoodPosition(hoodPosition);
+                    launcher.setSpinning(true);
+                } else {
+                    // Turn off flywheel
+                    launcher.setSpinning(false);
+                    if (launcher.flyWheelMotor != null) {
+                        launcher.flyWheelMotor.setPower(0);
+                    }
+                    if (launcher.flyWheelMotor2 != null) {
+                        launcher.flyWheelMotor2.setPower(0);
+                    }
+                }
+            }
         }
 
-        // X button: Increase flywheel power
-        if (currentX && !lastXButton) {
-            flywheelPower = Math.min(1.0, flywheelPower + 0.05);
-        }
+        lastStart = currentStart;
+        lastBack = currentBack;
+    }
 
-        // Y button: Decrease flywheel power
-        if (currentY && !lastYButton) {
-            flywheelPower = Math.max(0.0, flywheelPower - 0.05);
+    /**
+     * Handle hardware adjustments (flywheel, hood, turret)
+     */
+    private void handleHardwareAdjustments() {
+        // DPAD for flywheel power and hood position
+        if (gamepad1.dpad_right) {
+            flywheelPower = Math.min(1.0, flywheelPower + POSITION_INCREMENT);
         }
-
-        // Right bumper: Increase hood position
-        if (currentRightBumper && !lastRightBumper) {
-            hoodPosition = Math.min(1.0, hoodPosition + 0.05);
+        if (gamepad1.dpad_left) {
+            flywheelPower = Math.max(0.0, flywheelPower - POSITION_INCREMENT);
+        }
+        if (gamepad1.dpad_up) {
+            hoodPosition = Math.min(1.0, hoodPosition + POSITION_INCREMENT);
+            launcher.setHoodPosition(hoodPosition);
+        }
+        if (gamepad1.dpad_down) {
+            hoodPosition = Math.max(0.0, hoodPosition - POSITION_INCREMENT);
             launcher.setHoodPosition(hoodPosition);
         }
 
-        // Left bumper: Decrease hood position
-        if (currentLeftBumper && !lastLeftBumper) {
-            hoodPosition = Math.max(0.0, hoodPosition - 0.05);
-            launcher.setHoodPosition(hoodPosition);
-        }
-
-        lastAButton = currentA;
-        lastBButton = currentB;
-        lastXButton = currentX;
-        lastYButton = currentY;
-        lastRightBumper = currentRightBumper;
-        lastLeftBumper = currentLeftBumper;
-    }
-
-    /**
-     * Handle manual intake/ramp controls (Gamepad 1)
-     */
-    private void handleManualControls() {
-        // Only allow manual controls when shooting sequence is NOT active
-        if (!shootingSequenceActive) {
-            // Right trigger: Intake
-            if (gamepad1.right_trigger > 0.1) {
-                intakeTransfer.startIntake();
-            } else if (gamepad1.left_trigger < 0.1) {
-                intakeTransfer.stopIntake();
-            }
-
-            // Left trigger: Eject
-            if (gamepad1.left_trigger > 0.1) {
-                intakeTransfer.startEject(1.0);
-            }
-
-            // Dpad up: Ramp up
-            if (gamepad1.dpad_up) {
-                intakeTransfer.transferUp();
-            }
-
-            // Dpad down: Ramp down
-            if (gamepad1.dpad_down) {
-                intakeTransfer.transferDown();
-            }
+        // Left stick X for turret (analog control)
+        if (Math.abs(gamepad1.left_stick_x) > 0.1) {
+            turretPosition += gamepad1.left_stick_x * POSITION_INCREMENT * 0.5;
+            turretPosition = Math.max(0.0, Math.min(1.0, turretPosition));
         }
     }
 
     /**
-     * Handle timing adjustments with Gamepad 2
-     * All adjustments are ±0.05 seconds (50ms) per button press
+     * Handle timing adjustments
      */
     private void handleTimingAdjustments() {
-        // Read all gamepad 2 inputs
-        boolean g2A = gamepad2.a;
-        boolean g2B = gamepad2.b;
-        boolean g2X = gamepad2.x;
-        boolean g2Y = gamepad2.y;
-        boolean g2DpadUp = gamepad2.dpad_up;
-        boolean g2DpadDown = gamepad2.dpad_down;
-        boolean g2LeftBumper = gamepad2.left_bumper;
-        boolean g2RightBumper = gamepad2.right_bumper;
-        boolean g2LeftStickUp = gamepad2.left_stick_y > 0.5;
-        boolean g2LeftStickDown = gamepad2.left_stick_y < -0.5;
-        boolean g2RightStickUp = gamepad2.right_stick_y > 0.5;
-        boolean g2RightStickDown = gamepad2.right_stick_y < -0.5;
+        // Use timer to prevent too-rapid adjustments
+        if (adjustmentTimer.milliseconds() < 150) {
+            return;  // Limit adjustment rate to ~7 per second
+        }
 
-        // SPINUP TIME (DPAD UP/DOWN)
-        if (g2DpadUp && !lastG2DpadUp) {
+        boolean adjusted = false;
+
+        // SPINUP TIME (Bumper/Trigger left)
+        if (gamepad1.left_bumper) {
             spinupTime += TIME_INCREMENT;
+            adjusted = true;
         }
-        if (g2DpadDown && !lastG2DpadDown) {
+        if (gamepad1.left_trigger > 0.5) {
             spinupTime = Math.max(0, spinupTime - TIME_INCREMENT);
+            adjusted = true;
         }
 
-        // BALL 1 RAMP UP TIME (A/B)
-        if (g2A && !lastG2A) {
+        // BALL 1 RAMP UP (A/B)
+        if (gamepad1.a) {
             ball1RampUpTime += TIME_INCREMENT;
+            adjusted = true;
         }
-        if (g2B && !lastG2B) {
+        if (gamepad1.b) {
             ball1RampUpTime = Math.max(0, ball1RampUpTime - TIME_INCREMENT);
+            adjusted = true;
         }
 
-        // BALL 1 WAIT AFTER (X/Y)
-        if (g2X && !lastG2X) {
+        // BALL 1 WAIT (X/Y)
+        if (gamepad1.x) {
             ball1WaitAfter += TIME_INCREMENT;
+            adjusted = true;
         }
-        if (g2Y && !lastG2Y) {
+        if (gamepad1.y) {
             ball1WaitAfter = Math.max(0, ball1WaitAfter - TIME_INCREMENT);
+            adjusted = true;
         }
 
-        // BALL 2 RAMP UP TIME (BUMPERS)
-        if (g2RightBumper && !lastG2RightBumper) {
+        // BALL 2 RAMP UP (Bumper/Trigger right)
+        if (gamepad1.right_bumper) {
             ball2RampUpTime += TIME_INCREMENT;
+            adjusted = true;
         }
-        if (g2LeftBumper && !lastG2LeftBumper) {
+        if (gamepad1.right_trigger > 0.5) {
             ball2RampUpTime = Math.max(0, ball2RampUpTime - TIME_INCREMENT);
+            adjusted = true;
         }
 
-        // BALL 2 WAIT AFTER (LEFT STICK Y)
-        if (g2LeftStickUp && !lastG2LeftStickUp) {
+        // BALL 2 WAIT (Left stick Y)
+        if (gamepad1.left_stick_y > 0.5) {
             ball2WaitAfter += TIME_INCREMENT;
+            adjusted = true;
         }
-        if (g2LeftStickDown && !lastG2LeftStickDown) {
+        if (gamepad1.left_stick_y < -0.5) {
             ball2WaitAfter = Math.max(0, ball2WaitAfter - TIME_INCREMENT);
+            adjusted = true;
         }
 
-        // BALL 3 RAMP UP TIME (RIGHT STICK Y)
-        if (g2RightStickUp && !lastG2RightStickUp) {
+        // BALL 3 RAMP UP (Right stick Y)
+        if (gamepad1.right_stick_y > 0.5) {
             ball3RampUpTime += TIME_INCREMENT;
+            adjusted = true;
         }
-        if (g2RightStickDown && !lastG2RightStickDown) {
+        if (gamepad1.right_stick_y < -0.5) {
             ball3RampUpTime = Math.max(0, ball3RampUpTime - TIME_INCREMENT);
+            adjusted = true;
         }
 
-        // Update last states
-        lastG2A = g2A;
-        lastG2B = g2B;
-        lastG2X = g2X;
-        lastG2Y = g2Y;
-        lastG2DpadUp = g2DpadUp;
-        lastG2DpadDown = g2DpadDown;
-        lastG2LeftBumper = g2LeftBumper;
-        lastG2RightBumper = g2RightBumper;
-        lastG2LeftStickUp = g2LeftStickUp;
-        lastG2LeftStickDown = g2LeftStickDown;
-        lastG2RightStickUp = g2RightStickUp;
-        lastG2RightStickDown = g2RightStickDown;
+        if (adjusted) {
+            adjustmentTimer.reset();
+        }
     }
 
     /**
@@ -348,6 +289,7 @@ public class SHOOTINGSEQUENCETEST extends OpMode {
      */
     private void startShootingSequence() {
         shootingSequenceActive = true;
+        flywheelOnlyMode = false;
         shootTimer.reset();
         currentPhase = ShootPhase.SPINUP;
 
@@ -355,9 +297,6 @@ public class SHOOTINGSEQUENCETEST extends OpMode {
         launcher.setPower(flywheelPower);
         launcher.setHoodPosition(hoodPosition);
         launcher.setSpinning(true);
-
-        telemetry.addLine("🔥 SHOOTING SEQUENCE STARTED!");
-        telemetry.update();
     }
 
     /**
@@ -376,13 +315,29 @@ public class SHOOTINGSEQUENCETEST extends OpMode {
         }
         intakeTransfer.stopIntake();
         intakeTransfer.transferDown();
-
-        telemetry.addLine("🛑 SHOOTING SEQUENCE STOPPED");
-        telemetry.update();
     }
 
     /**
-     * Test version of performShooting() with adjustable timing
+     * Flywheel-only mode - just spin flywheel, no shooting
+     */
+    private void performFlywheelOnly() {
+        // Keep flywheel spinning at current settings
+        if (launcher.flyWheelMotor != null) {
+            launcher.flyWheelMotor.setPower(flywheelPower);
+        }
+        if (launcher.flyWheelMotor2 != null) {
+            launcher.flyWheelMotor2.setPower(flywheelPower);
+        }
+        launcher.setHoodPosition(hoodPosition);
+        launcher.setSpinning(true);
+
+        // Keep ramp down and intake off
+        intakeTransfer.transferDown();
+        intakeTransfer.stopIntake();
+    }
+
+    /**
+     * Shooting sequence with adjustable timing
      */
     private void performShootingTest() {
         // Keep flywheel spinning
@@ -397,7 +352,7 @@ public class SHOOTINGSEQUENCETEST extends OpMode {
 
         double elapsed = shootTimer.seconds();
 
-        // Calculate cumulative times for each phase
+        // Calculate cumulative times
         double ball1Start = spinupTime;
         double ball1End = ball1Start + ball1RampUpTime;
         double ball2Start = ball1End + ball1WaitAfter;
@@ -405,49 +360,42 @@ public class SHOOTINGSEQUENCETEST extends OpMode {
         double ball3Start = ball2End + ball2WaitAfter;
         double ball3End = ball3Start + ball3RampUpTime;
 
-        // PHASE: Spin-up
+        // State machine
         if (elapsed < spinupTime) {
             currentPhase = ShootPhase.SPINUP;
             intakeTransfer.transferDown();
             intakeTransfer.stopIntake();
         }
-        // BALL 1: Ramp UP, Intake ON
         else if (elapsed < ball1End) {
             currentPhase = ShootPhase.BALL1_FEEDING;
             intakeTransfer.transferUp();
             intakeTransfer.startIntake();
         }
-        // BALL 1: Ramp DOWN, wait
         else if (elapsed < ball2Start) {
             currentPhase = ShootPhase.BALL1_WAITING;
             intakeTransfer.transferDown();
-            intakeTransfer.startIntake();  // Keep intake running
+            intakeTransfer.startIntake();
         }
-        // BALL 2: Ramp UP, Intake ON
         else if (elapsed < ball2End) {
             currentPhase = ShootPhase.BALL2_FEEDING;
             intakeTransfer.transferUp();
             intakeTransfer.startIntake();
         }
-        // BALL 2: Ramp DOWN, wait
         else if (elapsed < ball3Start) {
             currentPhase = ShootPhase.BALL2_WAITING;
             intakeTransfer.transferDown();
-            intakeTransfer.startIntake();  // Keep intake running
+            intakeTransfer.startIntake();
         }
-        // BALL 3: Ramp UP, Intake ON
         else if (elapsed < ball3End) {
             currentPhase = ShootPhase.BALL3_FEEDING;
             intakeTransfer.transferUp();
             intakeTransfer.startIntake();
         }
-        // BALL 3: Complete - Ramp DOWN
         else {
             currentPhase = ShootPhase.COMPLETE;
             intakeTransfer.transferDown();
             intakeTransfer.stopIntake();
 
-            // Auto-stop after complete (add 1 second buffer)
             if (elapsed > ball3End + 1.0) {
                 stopShootingSequence();
             }
@@ -455,71 +403,86 @@ public class SHOOTINGSEQUENCETEST extends OpMode {
     }
 
     /**
-     * Update telemetry with all relevant information
+     * DETAILED telemetry display with all controls visible
      */
-    private void updateTelemetry() {
-        telemetry.addLine("=================================");
-        telemetry.addLine("   SHOOTING SEQUENCE TEST");
-        telemetry.addLine("=================================");
+    private void updateDetailedTelemetry() {
+        telemetry.clear();
+
+        // Header
+        telemetry.addLine("╔════════════════════════════════════════╗");
+        telemetry.addLine("║   SHOOTING SEQUENCE TEST - GP1 ONLY   ║");
+        telemetry.addLine("╚════════════════════════════════════════╝");
         telemetry.addLine();
 
-        // Current settings
-        telemetry.addLine("--- SHOOTER SETTINGS (GP1) ---");
-        telemetry.addData("Flywheel", "%.2f (X/Y)", flywheelPower);
-        telemetry.addData("Hood", "%.2f (Bumpers)", hoodPosition);
-        telemetry.addData("Turret", "%.2f (locked)", TURRET_POSITION);
+        // Current Mode
+        telemetry.addLine("━━━━━━━━━━ MODE ━━━━━━━━━━");
+        if (shootingSequenceActive) {
+            telemetry.addLine("🔥 SHOOTING SEQUENCE ACTIVE");
+            telemetry.addData("  Phase", currentPhase);
+            telemetry.addData("  Elapsed", "%.2fs", shootTimer.seconds());
+        } else if (flywheelOnlyMode) {
+            telemetry.addLine("🌀 FLYWHEEL ONLY MODE");
+        } else {
+            telemetry.addLine("⏸  STANDBY");
+        }
         telemetry.addLine();
 
-        // Timing parameters - LIVE ADJUSTABLE
-        telemetry.addLine("--- TIMING (GP2: ±0.05s) ---");
-        telemetry.addData("Spinup", "%.2fs (DPAD ↑↓)", spinupTime);
-        telemetry.addLine();
-        telemetry.addData("Ball 1 Ramp", "%.2fs (A/B)", ball1RampUpTime);
-        telemetry.addData("Ball 1 Wait", "%.2fs (X/Y)", ball1WaitAfter);
-        telemetry.addLine();
-        telemetry.addData("Ball 2 Ramp", "%.2fs (Bumpers)", ball2RampUpTime);
-        telemetry.addData("Ball 2 Wait", "%.2fs (L-Stick)", ball2WaitAfter);
-        telemetry.addLine();
-        telemetry.addData("Ball 3 Ramp", "%.2fs (R-Stick)", ball3RampUpTime);
+        // Hardware Settings
+        telemetry.addLine("━━━━━ HARDWARE SETTINGS ━━━━━");
+        telemetry.addData("Flywheel", "%.2f  [DPAD ←→]", flywheelPower);
+        telemetry.addData("Hood", "%.2f  [DPAD ↑↓]", hoodPosition);
+        telemetry.addData("Turret", "%.2f  [L-STICK X]", turretPosition);
         telemetry.addLine();
 
-        // Calculate total time
+        // Timing Settings
+        telemetry.addLine("━━━━━━ TIMING (seconds) ━━━━━━");
+        telemetry.addData("Spinup", "%.2f  [LB / LT]", spinupTime);
+        telemetry.addLine();
+        telemetry.addData("Ball 1 Ramp", "%.2f  [A / B]", ball1RampUpTime);
+        telemetry.addData("Wait B1→B2", "%.2f  [X / Y]", ball1WaitAfter);
+        telemetry.addLine();
+        telemetry.addData("Ball 2 Ramp", "%.2f  [RB / RT]", ball2RampUpTime);
+        telemetry.addData("Wait B2→B3", "%.2f  [L-STICK Y]", ball2WaitAfter);
+        telemetry.addLine();
+        telemetry.addData("Ball 3 Ramp", "%.2f  [R-STICK Y]", ball3RampUpTime);
+        telemetry.addLine();
+
+        // Total Time
         double totalTime = spinupTime + ball1RampUpTime + ball1WaitAfter +
                 ball2RampUpTime + ball2WaitAfter + ball3RampUpTime + 1.0;
-        telemetry.addData("Total Time", "~%.2fs", totalTime);
+        telemetry.addData("⏱ Total Time", "~%.2fs", totalTime);
         telemetry.addLine();
 
-        // Shooting status
-        telemetry.addLine("--- SHOOTING STATUS ---");
-        telemetry.addData("Active", shootingSequenceActive ? "YES 🔥" : "NO");
-        if (shootingSequenceActive) {
-            telemetry.addData("Phase", currentPhase);
-            telemetry.addData("Elapsed", "%.2fs", shootTimer.seconds());
-            telemetry.addData("Flywheel", launcher.isSpinning() ? "ON" : "OFF");
-        }
+        // Controls Reference
+        telemetry.addLine("━━━━━━━━ CONTROLS ━━━━━━━━");
+        telemetry.addLine("START = Begin Sequence");
+        telemetry.addLine("BACK  = Stop / Flywheel Only");
         telemetry.addLine();
 
-        // Manual controls status
-        if (!shootingSequenceActive) {
-            telemetry.addLine("--- MANUAL CONTROLS (GP1) ---");
-            telemetry.addData("RT (Intake)", gamepad1.right_trigger > 0.1 ? "ON" : "OFF");
-            telemetry.addData("LT (Eject)", gamepad1.left_trigger > 0.1 ? "ON" : "OFF");
-            telemetry.addData("Ramp", gamepad1.dpad_up ? "UP" : (gamepad1.dpad_down ? "DOWN" : "---"));
-            telemetry.addLine();
-        }
-
-        // Quick reference
-        telemetry.addLine("=================================");
-        telemetry.addLine("GP1: A=Start | B=Stop");
-        telemetry.addLine("GP2: Adjust timing live!");
-        telemetry.addLine("=================================");
+        // Current inputs (helpful for debugging)
+        telemetry.addLine("━━━━━ CURRENT INPUTS ━━━━━");
+        telemetry.addData("L-Stick", "X:%.2f Y:%.2f", gamepad1.left_stick_x, gamepad1.left_stick_y);
+        telemetry.addData("R-Stick", "X:%.2f Y:%.2f", gamepad1.right_stick_x, gamepad1.right_stick_y);
+        telemetry.addData("Triggers", "L:%.2f R:%.2f", gamepad1.left_trigger, gamepad1.right_trigger);
+        telemetry.addData("Bumpers", "L:%s R:%s",
+                gamepad1.left_bumper ? "■" : "□",
+                gamepad1.right_bumper ? "■" : "□");
+        telemetry.addData("Buttons", "A:%s B:%s X:%s Y:%s",
+                gamepad1.a ? "■" : "□",
+                gamepad1.b ? "■" : "□",
+                gamepad1.x ? "■" : "□",
+                gamepad1.y ? "■" : "□");
+        telemetry.addData("DPAD", "↑:%s ↓:%s ←:%s →:%s",
+                gamepad1.dpad_up ? "■" : "□",
+                gamepad1.dpad_down ? "■" : "□",
+                gamepad1.dpad_left ? "■" : "□",
+                gamepad1.dpad_right ? "■" : "□");
 
         telemetry.update();
     }
 
     @Override
     public void stop() {
-        // Clean shutdown
         if (launcher != null) {
             launcher.setSpinning(false);
         }
