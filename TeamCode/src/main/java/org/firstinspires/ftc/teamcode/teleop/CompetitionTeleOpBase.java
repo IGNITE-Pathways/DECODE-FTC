@@ -15,6 +15,29 @@ import org.firstinspires.ftc.teamcode.core.util.DistanceCalculator;
 /**
  * Base class for Competition TeleOp - contains all common logic.
  * Blue and Red versions extend this and just set the alliance color.
+ *
+ * GAMEPAD 1 (Driver + Shooter):
+ * - Left Stick: Drive forward/strafe
+ * - Right Stick X: Rotate
+ * - A: Toggle turret auto-tracking ON/OFF
+ * - Y: Toggle flywheel ON/OFF
+ * - B: Lock current distance (calculates from limelight)
+ * - RT: Intake
+ * - LT: Eject
+ *
+ * GAMEPAD 2 (Manual Turret Control):
+ * - Left Stick X: Manual turret control (continuous)
+ * - DPAD Left: Move turret left (small increment)
+ * - DPAD Right: Move turret right (small increment)
+ * - X: Reset turret to center position
+ *
+ * DISTANCE LOCKING WORKFLOW:
+ * 1. Point robot at AprilTag (use A to toggle auto-tracking)
+ * 2. Press B to lock current distance (calculates once, stores it)
+ * 3. Press Y to activate flywheel (uses locked distance to set power & hood)
+ * 4. Flywheel spins at preset power/hood for that distance range
+ *
+ * DEFAULT (no distance locked): 80% power, 0.25 hood (lowest)
  */
 public abstract class CompetitionTeleOpBase extends LinearOpMode {
 
@@ -34,10 +57,21 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
     private String selectedPreset = "DEFAULT";
     private boolean turretTracking = false;
 
-    // Button states for toggle
-    private boolean lastA = false;
-    private boolean lastY = false;
-    private boolean lastB = false;
+    // Gamepad 1 button states
+    private boolean lastGP1_A = false;
+    private boolean lastGP1_Y = false;
+    private boolean lastGP1_B = false;
+
+    // Gamepad 2 button states (manual turret)
+    private boolean lastGP2_X = false;
+    private boolean lastGP2_DpadLeft = false;
+    private boolean lastGP2_DpadRight = false;
+
+    // Manual turret control
+    private static final double TURRET_INCREMENT = 0.02;  // Small increment for DPAD
+    private static final double TURRET_MIN = 0.0;
+    private static final double TURRET_MAX = 1.0;
+    private static final double TURRET_CENTER = 0.5;
 
     // Limelight distance tracking
     private double lockedDistance = -1.0;
@@ -50,6 +84,7 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
         while (opModeIsActive()) {
             handleDriving();
             handleTurret();
+            handleManualTurretControl();
             handleIntake();
             handleDistanceLock();
             handleFlywheelToggle();
@@ -122,16 +157,57 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
     }
 
     private void handleTurret() {
-        if (gamepad1.a && !lastA) {
+        // Gamepad 1 A: Toggle auto-tracking
+        if (gamepad1.a && !lastGP1_A) {
             turretTracking = !turretTracking;
         }
-        lastA = gamepad1.a;
+        lastGP1_A = gamepad1.a;
 
+        // Update turret if auto-tracking is enabled
         if (turretTracking) {
             turret.update();
-        } else {
-            turret.setPositionDirect(TeleOpConstants.TURRET_LOCKED_POSITION);
         }
+        // If auto-tracking is off, manual control from gamepad2 will handle it
+    }
+
+    private void handleManualTurretControl() {
+        // Only allow manual control when auto-tracking is OFF
+        if (turretTracking) {
+            return;
+        }
+
+        double currentPos = turret.getServoPosition();
+
+        // Gamepad 2 Left Stick X: Continuous manual control
+        double stickInput = -gamepad2.left_stick_x;  // Inverted for intuitive control
+        if (Math.abs(stickInput) > 0.1) {
+            double adjustment = stickInput * 0.01;  // Scale down for smooth control
+            currentPos += adjustment;
+        }
+
+        // Gamepad 2 DPAD Left: Small increment left
+        if (gamepad2.dpad_left && !lastGP2_DpadLeft) {
+            currentPos -= TURRET_INCREMENT;
+        }
+        lastGP2_DpadLeft = gamepad2.dpad_left;
+
+        // Gamepad 2 DPAD Right: Small increment right
+        if (gamepad2.dpad_right && !lastGP2_DpadRight) {
+            currentPos += TURRET_INCREMENT;
+        }
+        lastGP2_DpadRight = gamepad2.dpad_right;
+
+        // Gamepad 2 X: Reset to center
+        if (gamepad2.x && !lastGP2_X) {
+            currentPos = TURRET_CENTER;
+        }
+        lastGP2_X = gamepad2.x;
+
+        // Clamp position to valid range
+        currentPos = Math.max(TURRET_MIN, Math.min(TURRET_MAX, currentPos));
+
+        // Apply position
+        turret.setPositionDirect(currentPos);
     }
 
     private void handleIntake() {
@@ -149,7 +225,8 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
     // ========================================
 
     private void handleDistanceLock() {
-        if (gamepad2.b && !lastB) {
+        // Gamepad 1 B: Lock distance
+        if (gamepad1.b && !lastGP1_B) {
             // Only calculate distance when B button is pressed (performance optimization)
             double distance = calculateCurrentDistance();
             if (distance > 0) {
@@ -158,7 +235,7 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
                 launcher.setHoodPosition(hoodPosition);
             }
         }
-        lastB = gamepad2.b;
+        lastGP1_B = gamepad1.b;
     }
 
     private double calculateCurrentDistance() {
@@ -171,32 +248,75 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
     }
 
     private void applyDistancePreset(double distance) {
-        if (distance >= TeleOpConstants.DISTANCE_CLOSE_MIN && distance < TeleOpConstants.DISTANCE_CLOSE_MAX) {
-            flywheelPower = TeleOpConstants.CLOSE_FLYWHEEL_POWER;
-            hoodPosition = TeleOpConstants.CLOSE_HOOD_POSITION;
-            selectedPreset = "AUTO CLOSE";
-        } else if (distance >= TeleOpConstants.DISTANCE_MID_MIN && distance < TeleOpConstants.DISTANCE_MID_MAX) {
-            flywheelPower = TeleOpConstants.MID_FLYWHEEL_POWER;
-            hoodPosition = TeleOpConstants.MID_HOOD_POSITION;
-            selectedPreset = "AUTO MID";
-        } else if (distance >= TeleOpConstants.DISTANCE_FAR_MIN && distance <= TeleOpConstants.DISTANCE_FAR_MAX) {
-            flywheelPower = TeleOpConstants.FAR_FLYWHEEL_POWER;
-            hoodPosition = TeleOpConstants.FAR_HOOD_POSITION;
-            selectedPreset = "AUTO FAR";
+        // Check ranges in order (most specific to least specific)
+        // Note: Some ranges overlap, prioritize based on testing results
+
+        if (distance >= TeleOpConstants.RANGE_1_MIN && distance < TeleOpConstants.RANGE_1_MAX) {
+            // 2.47 - 2.84 ft
+            flywheelPower = TeleOpConstants.RANGE_1_FLYWHEEL_POWER;
+            hoodPosition = TeleOpConstants.RANGE_1_HOOD_POSITION;
+            selectedPreset = String.format("RANGE 1 (%.2fft)", distance);
+
+        } else if (distance >= TeleOpConstants.RANGE_2_MIN && distance < TeleOpConstants.RANGE_2_MAX) {
+            // 2.84 - 3.2 ft
+            flywheelPower = TeleOpConstants.RANGE_2_FLYWHEEL_POWER;
+            hoodPosition = TeleOpConstants.RANGE_2_HOOD_POSITION;
+            selectedPreset = String.format("RANGE 2 (%.2fft)", distance);
+
+        } else if (distance >= TeleOpConstants.RANGE_3_MIN && distance < TeleOpConstants.RANGE_3_MAX) {
+            // 3.21 - 4.0 ft
+            flywheelPower = TeleOpConstants.RANGE_3_FLYWHEEL_POWER;
+            hoodPosition = TeleOpConstants.RANGE_3_HOOD_POSITION;
+            selectedPreset = String.format("RANGE 3 (%.2fft)", distance);
+
+        } else if (distance >= TeleOpConstants.RANGE_4_MIN && distance < TeleOpConstants.RANGE_4_MAX) {
+            // 4.0 - 4.5 ft
+            flywheelPower = TeleOpConstants.RANGE_4_FLYWHEEL_POWER;
+            hoodPosition = TeleOpConstants.RANGE_4_HOOD_POSITION;
+            selectedPreset = String.format("RANGE 4 (%.2fft)", distance);
+
+        } else if (distance >= TeleOpConstants.RANGE_6_MIN && distance < TeleOpConstants.RANGE_6_MAX) {
+            // 4.84 - 5.25 ft (prioritize this over Range 5 due to overlap)
+            flywheelPower = TeleOpConstants.RANGE_6_FLYWHEEL_POWER;
+            hoodPosition = TeleOpConstants.RANGE_6_HOOD_POSITION;
+            selectedPreset = String.format("RANGE 6 (%.2fft)", distance);
+
+        } else if (distance >= TeleOpConstants.RANGE_5_MIN && distance < TeleOpConstants.RANGE_5_MAX) {
+            // 4.6 - 5.0 ft
+            flywheelPower = TeleOpConstants.RANGE_5_FLYWHEEL_POWER;
+            hoodPosition = TeleOpConstants.RANGE_5_HOOD_POSITION;
+            selectedPreset = String.format("RANGE 5 (%.2fft)", distance);
+
+        } else if (distance >= TeleOpConstants.RANGE_7_MIN && distance < TeleOpConstants.RANGE_7_MAX) {
+            // 5.2 - 5.7 ft
+            flywheelPower = TeleOpConstants.RANGE_7_FLYWHEEL_POWER;
+            hoodPosition = TeleOpConstants.RANGE_7_HOOD_POSITION;
+            selectedPreset = String.format("RANGE 7 (%.2fft)", distance);
+
+        } else if (distance >= TeleOpConstants.RANGE_FAR_MIN) {
+            // Far shooting zone (> 5.7 ft)
+            flywheelPower = TeleOpConstants.RANGE_FAR_FLYWHEEL_POWER;
+            hoodPosition = TeleOpConstants.RANGE_FAR_HOOD_POSITION;
+            selectedPreset = String.format("FAR ZONE (%.2fft)", distance);
+
         } else {
-            selectedPreset = "OUT OF RANGE";
+            // Below minimum range
+            flywheelPower = TeleOpConstants.DEFAULT_FLYWHEEL_POWER;
+            hoodPosition = TeleOpConstants.DEFAULT_HOOD_POSITION;
+            selectedPreset = "OUT OF RANGE - DEFAULT";
         }
     }
 
     private void handleFlywheelToggle() {
-        if (gamepad2.y && !lastY) {
+        // Gamepad 1 Y: Toggle flywheel
+        if (gamepad1.y && !lastGP1_Y) {
             if (!flywheelOn) {
                 activateFlywheel();
             } else {
                 deactivateFlywheel();
             }
         }
-        lastY = gamepad2.y;
+        lastGP1_Y = gamepad1.y;
     }
 
     private void activateFlywheel() {
@@ -219,14 +339,36 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
 
     private void updateTelemetry() {
         telemetry.addLine("=== " + alliance.name() + " TELEOP ===");
-        telemetry.addData("Preset", selectedPreset);
-        telemetry.addData("Flywheel", flywheelOn ? "ON " + (int)(flywheelPower*100) + "%" : "OFF");
-        telemetry.addData("Hood", "%.2f", hoodPosition);
-        telemetry.addData("Transfer Ramp", intakeTransfer.isTransferUp() ? "UP" : "DOWN");
-        telemetry.addData("Ramp Position", "%.2f", intakeTransfer.getTransferPosition());
-        telemetry.addData("Turret", turretTracking ? (turret.isLocked() ? "LOCKED ON" : "TRACKING") : "MANUAL");
         telemetry.addLine();
-        telemetry.addData("Locked Distance", lockedDistance > 0 ? String.format("%.2f ft", lockedDistance) : "NOT SET");
+
+        // Distance & Preset Info
+        telemetry.addLine("--- SHOOTING ---");
+        telemetry.addData("Locked Distance", lockedDistance > 0 ? String.format("%.2f ft", lockedDistance) : "NONE (GP1-B)");
+        telemetry.addData("Preset", selectedPreset);
+        telemetry.addLine();
+
+        // Shooter Status
+        telemetry.addData("Flywheel", flywheelOn ? String.format("ON %d%%", (int)(flywheelPower*100)) : "OFF (GP1-Y)");
+        telemetry.addData("Hood Position", "%.2f", hoodPosition);
+        telemetry.addData("Transfer Ramp", intakeTransfer.isTransferUp() ? "UP" : "DOWN");
+        telemetry.addLine();
+
+        // Turret Status
+        String turretStatus = turretTracking ? (turret.isLocked() ? "AUTO-LOCKED" : "AUTO-TRACKING") : "MANUAL";
+        telemetry.addData("Turret Mode", turretStatus + " (GP1-A)");
+        telemetry.addData("Turret Position", "%.2f", turret.getServoPosition());
+        telemetry.addLine();
+
+        // Controls Reminder
+        telemetry.addLine("--- GAMEPAD 1 (Driver/Shooter) ---");
+        telemetry.addLine("Sticks: Drive | A: Turret auto");
+        telemetry.addLine("Y: Flywheel | B: Lock distance");
+        telemetry.addLine("RT: Intake | LT: Eject");
+        telemetry.addLine();
+        telemetry.addLine("--- GAMEPAD 2 (Manual Turret) ---");
+        telemetry.addLine("L-Stick X: Move turret");
+        telemetry.addLine("DPAD L/R: Fine adjust | X: Center");
+
         telemetry.update();
     }
 
