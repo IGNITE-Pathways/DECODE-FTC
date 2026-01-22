@@ -32,17 +32,55 @@ public class BlueFarImprovedArjun2 extends OpMode {
     // ==================== SHOOTING CONSTANTS ====================
     // 10ft preset for shooting
     private static final double FLYWHEEL_POWER = 1.0;
-    private static final double HOOD_POSITION = 0.65;
+    private static final double HOOD_POSITION = 0.6;
     private static final double SHOOT_TIME_SECONDS = 6.0;
 
     // Turret locked position
-    private static final double TURRET_LOCKED_POSITION = 0.55;
+    private static final double TURRET_LOCKED_POSITION = 0.6;
 
     // Path speed (45%)
     private static final double PATH_SPEED = 0.45;
 
     // Path timeout (15 seconds per path)
     private static final double PATH_TIMEOUT = 15.0;
+
+    // ==================== POSE CONSTANTS ====================
+    // Common heading
+    private static final double HEADING_180 = Math.toRadians(180);
+
+    // Starting and shooting positions
+    private static final Pose START_POSE = new Pose(60.845, 7.910, HEADING_180);
+    private static final Pose SHOOT_POSE = new Pose(55, 15);
+    private static final Pose SHOOT_POSE_OFFSET = new Pose(55, 15);
+
+    // First spike mark positions (Set 1)
+    private static final Pose SPIKE1_APPROACH = new Pose(41.172, 33.034);
+    private static final Pose SPIKE1_BALL1 = new Pose(35.392, 32.899);
+    private static final Pose SPIKE1_BALL2 = new Pose(29.358, 32.899);
+    private static final Pose SPIKE1_BALL3 = new Pose(22.487, 32.899);
+    private static final Pose SPIKE1_RETURN_START = new Pose(22.487, 30.899);
+
+    // Second spike mark positions (Set 2)
+    private static final Pose SPIKE2_APPROACH = new Pose(39.752, 56.831);
+    private static final Pose SPIKE2_BALL1 = new Pose(34.580, 56.730);
+    private static final Pose SPIKE2_BALL2 = new Pose(30.068, 56.780);
+    private static final Pose SPIKE2_BALL3 = new Pose(24.566, 57.008);
+
+    // Curve control points for spike 2 approach
+    private static final Pose SPIKE2_CURVE_CONTROL = new Pose(40.606, 42.856);
+
+    // Third spike mark positions (Set 3)
+    private static final Pose SPIKE3_APPROACH = new Pose(40.158, 81.169);
+    private static final Pose SPIKE3_BALL1 = new Pose(34.885, 81.169);
+    private static final Pose SPIKE3_BALL2 = new Pose(30.070, 81.118);
+    private static final Pose SPIKE3_BALL3 = new Pose(24.513, 80.989);
+
+    // Curve control points for spike 3 approach
+    private static final Pose SPIKE3_CURVE_CONTROL = new Pose(41.666, 54.846);
+
+    // Final position
+    private static final Pose FINAL_CURVE_CONTROL = new Pose(32.543, 92.571);
+    private static final Pose FINAL_POSE = new Pose(40.994, 101.603);
 
     // ==================== ROBOT COMPONENTS ====================
     private Follower follower;
@@ -130,7 +168,7 @@ public class BlueFarImprovedArjun2 extends OpMode {
 
         // Initialize Pedro Pathing Follower
         follower = Constants.createFollower(hardwareMap);
-        follower.setStartingPose(new Pose(60.845, 7.910, Math.toRadians(180)));
+        follower.setStartingPose(START_POSE);
         follower.setMaxPower(PATH_SPEED);
 
 
@@ -593,7 +631,7 @@ public class BlueFarImprovedArjun2 extends OpMode {
      * PATH DEFINITIONS - Inner Class
      * ========================================
      *
-     * All paths from BlueFarImprovedArjun2
+     * All paths use extracted Pose constants for maintainability
      */
     public static class Paths {
         // First Ball Set
@@ -618,136 +656,100 @@ public class BlueFarImprovedArjun2 extends OpMode {
         public PathChain path15;
 
         /**
-         * Constructor - Build all paths
+         * Constructor - Build all paths using pose constants
          */
         public Paths(Follower follower) {
             // ========== FIRST BALL SET PATHS ==========
 
             goingToNearestBalls = follower.pathBuilder()
-                    .addPath(new BezierLine(
-                            new Pose(60.845, 7.910),
-                            new Pose(41.172, 33.034)  // Changed from 36.034
-                    ))
-                    .setConstantHeadingInterpolation(Math.toRadians(180))
+                    .addPath(new BezierLine(SHOOT_POSE, SPIKE1_APPROACH))
+                    .setConstantHeadingInterpolation(HEADING_180)
                     .build();
 
             gettingFirstBallSet1 = follower.pathBuilder()
-                    .addPath(new BezierLine(
-                            new Pose(41.172, 33.034),  // Changed from 36.034
-                            new Pose(35.392, 32.899)   // Changed from 35.899
-                    ))
+                    .addPath(new BezierLine(SPIKE1_APPROACH, SPIKE1_BALL1))
                     .setTangentHeadingInterpolation()
                     .build();
 
             gettingSecondBallSet1 = follower.pathBuilder()
-                    .addPath(new BezierLine(
-                            new Pose(35.392, 32.899),  // Changed from 35.899
-                            new Pose(29.358, 32.899)   // Changed from 35.899
-                    ))
+                    .addPath(new BezierLine(SPIKE1_BALL1, SPIKE1_BALL2))
                     .setTangentHeadingInterpolation()
                     .build();
 
             gettingThirdBallSet1 = follower.pathBuilder()
-                    .addPath(new BezierLine(
-                            new Pose(29.358, 32.899),  // Changed from 35.899
-                            new Pose(22.487, 32.899)   // Changed from 35.899
-                    ))
+                    .addPath(new BezierLine(SPIKE1_BALL2, SPIKE1_BALL3))
                     .setTangentHeadingInterpolation()
                     .build();
 
             goingBackToShootSet1 = follower.pathBuilder()
-                    .addPath(new BezierLine(
-                            new Pose(22.487, 30.899),  // Changed from 33.899
-                            new Pose(60.845, 5.910)
-                    ))
-                    .setConstantHeadingInterpolation(Math.toRadians(180))
+                    .addPath(new BezierLine(SPIKE1_RETURN_START, SHOOT_POSE_OFFSET))
+                    .setConstantHeadingInterpolation(HEADING_180)
                     .build();
 
             // ========== SECOND BALL SET PATHS ==========
 
             gettingNextSetOfBalls = follower.pathBuilder()
                     .addPath(new BezierCurve(
-                            new Pose(60.845, 7.910),
-                            new Pose(40.606, 42.856),  // Changed from 45.856
-                            new Pose(39.752, 56.831)   // Changed from 59.831
+                            SHOOT_POSE,
+                            SPIKE2_CURVE_CONTROL,
+                            SPIKE2_APPROACH
                     ))
-                    .setConstantHeadingInterpolation(Math.toRadians(180))
+                    .setConstantHeadingInterpolation(HEADING_180)
                     .build();
 
             gettingFirstBallSet2 = follower.pathBuilder()
-                    .addPath(new BezierLine(
-                            new Pose(39.752, 56.831),  // Changed from 59.831
-                            new Pose(34.580, 56.730)   // Changed from 59.730
-                    ))
+                    .addPath(new BezierLine(SPIKE2_APPROACH, SPIKE2_BALL1))
                     .setTangentHeadingInterpolation()
                     .build();
 
             gettingSecondBallSet2 = follower.pathBuilder()
-                    .addPath(new BezierLine(
-                            new Pose(34.580, 56.730),  // Changed from 59.730
-                            new Pose(30.068, 56.780)   // Changed from 59.780
-                    ))
+                    .addPath(new BezierLine(SPIKE2_BALL1, SPIKE2_BALL2))
                     .setTangentHeadingInterpolation()
                     .build();
 
             gettingThirdBallSet2 = follower.pathBuilder()
-                    .addPath(new BezierLine(
-                            new Pose(30.068, 56.780),  // Changed from 59.780
-                            new Pose(24.566, 57.008)   // Changed from 60.008
-                    ))
+                    .addPath(new BezierLine(SPIKE2_BALL2, SPIKE2_BALL3))
                     .setTangentHeadingInterpolation()
                     .build();
 
             goingBackToShootSet2 = follower.pathBuilder()
-                    .addPath(new BezierLine(
-                            new Pose(24.566, 57.008),  // Changed from 60.008
-                            new Pose(60.845, 7.910)
-                    ))
-                    .setConstantHeadingInterpolation(Math.toRadians(180))
+                    .addPath(new BezierLine(SPIKE2_BALL3, SHOOT_POSE))
+                    .setConstantHeadingInterpolation(HEADING_180)
                     .build();
 
             // ========== THIRD BALL SET PATHS ==========
 
             gettingThirdSetOfBalls = follower.pathBuilder()
                     .addPath(new BezierCurve(
-                            new Pose(60.845, 7.910),
-                            new Pose(41.666, 54.846),  // Changed from 57.846
-                            new Pose(40.158, 81.169)   // Changed from 84.169
+                            SHOOT_POSE,
+                            SPIKE3_CURVE_CONTROL,
+                            SPIKE3_APPROACH
                     ))
-                    .setConstantHeadingInterpolation(Math.toRadians(180))
+                    .setConstantHeadingInterpolation(HEADING_180)
                     .build();
 
             gettingFirstBallSet3 = follower.pathBuilder()
-                    .addPath(new BezierLine(
-                            new Pose(40.158, 81.169),  // Changed from 84.169
-                            new Pose(34.885, 81.169)   // Changed from 84.169
-                    ))
-                    .setConstantHeadingInterpolation(Math.toRadians(180))
+                    .addPath(new BezierLine(SPIKE3_APPROACH, SPIKE3_BALL1))
+                    .setConstantHeadingInterpolation(HEADING_180)
                     .build();
 
             gettingSecondBallSet3 = follower.pathBuilder()
-                    .addPath(new BezierLine(
-                            new Pose(34.885, 81.169),  // Changed from 84.169
-                            new Pose(30.070, 81.118)   // Changed from 84.118
-                    ))
+                    .addPath(new BezierLine(SPIKE3_BALL1, SPIKE3_BALL2))
                     .setTangentHeadingInterpolation()
                     .build();
 
             gettingThirdBallSet3 = follower.pathBuilder()
-                    .addPath(new BezierLine(
-                            new Pose(30.070, 81.118),  // Changed from 84.118
-                            new Pose(24.513, 80.989)   // Changed from 83.989
-                    ))
+                    .addPath(new BezierLine(SPIKE3_BALL2, SPIKE3_BALL3))
                     .setTangentHeadingInterpolation()
                     .build();
 
             path15 = follower.pathBuilder()
                     .addPath(new BezierCurve(
-                            new Pose(24.513, 80.989),  // Changed from 83.989
-                            new Pose(32.543, 92.571),  // Unchanged - final position path
-                            new Pose(40.994, 101.603)  // Unchanged - final position
+                            SPIKE3_BALL3,
+                            FINAL_CURVE_CONTROL,
+                            FINAL_POSE
                     ))
-                    .setConstantHeadingInterpolation(Math.toRadians(180))
+                    .setConstantHeadingInterpolation(HEADING_180)
                     .build();
         }
     }
