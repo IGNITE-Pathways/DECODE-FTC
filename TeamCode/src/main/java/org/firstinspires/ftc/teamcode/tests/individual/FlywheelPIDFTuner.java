@@ -9,20 +9,27 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.core.components.IntakeTransfer;
 import org.firstinspires.ftc.teamcode.core.constants.HardwareConfig;
+import org.firstinspires.ftc.teamcode.core.constants.ShooterConstants;
 
 /**
- * Flywheel PIDF Tuning Tool - OPTIMIZED FOR 6000 RPM MOTORS
+ * *** FLYWHEEL PIDF TUNER ***
  *
- * Implements closed-loop velocity control for consistent flywheel performance.
- * This solves the problem of open-loop control not recovering fast enough after shots.
+ * HOW TO USE THIS TUNER:
+ * ======================
+ * 1. Run this OpMode
+ * 2. Use controls below to tune kP, kI, kD, kF gains
+ * 3. When satisfied (error < 30 RPM, recovery < 200ms):
+ *    - Press B to save gains to telemetry log
+ *    - Write down the kP, kI, kD, kF values shown
+ * 4. Go to ShooterConstants.java (line 17-24)
+ * 5. Update FLYWHEEL_KP, FLYWHEEL_KI, FLYWHEEL_KD, FLYWHEEL_KF
+ * 6. Recompile - gains now automatically used in teleop!
  *
  * RECOMMENDED RPM TARGETS (for 6000 RPM motors):
  * - Close shots (2-4 ft): 2500-3000 RPM
  * - Mid shots (4-6 ft): 3200-3800 RPM
  * - Far shots (6-8 ft): 4000-4500 RPM
  * - Max distance (8+ ft): 4800-5500 RPM
- *
- * NOTE: Start with 3500 RPM and adjust based on your testing
  *
  * CONTROLS:
  * =========
@@ -82,15 +89,16 @@ public class FlywheelPIDFTuner extends LinearOpMode {
     private static final double CRITICAL_VOLTAGE = 10.5; // Emergency shutoff only
     private double currentVoltage = 13.0;
 
-    // PIDF Gains - TUNED FOR 6000 RPM MOTORS
-    // These are optimized starting values - fine-tune to your specific robot
-    private double kP = 0.00035;   // Proportional - responds to error
-    private double kI = 0.000025;  // Integral - eliminates steady-state error
-    private double kD = 0.00015;   // Derivative - reduces oscillation
-    private double kF = 0.000215;  // Feedforward - provides base power for target velocity
+    // PIDF Gains - loaded from ShooterConstants
+    // Adjust these using the tuner controls, then press B to save
+    // Copy saved values to ShooterConstants.java for automatic use in teleop
+    private double kP = ShooterConstants.FLYWHEEL_KP;
+    private double kI = ShooterConstants.FLYWHEEL_KI;
+    private double kD = ShooterConstants.FLYWHEEL_KD;
+    private double kF = ShooterConstants.FLYWHEEL_KF;
 
     // Target and control
-    private double targetRPM = 3500;  // Target flywheel speed (60% of max for good control)
+    private double targetRPM = ShooterConstants.DEFAULT_TARGET_RPM;
     private boolean flywheelOn = false;
 
     // PID state
@@ -377,12 +385,14 @@ public class FlywheelPIDFTuner extends LinearOpMode {
 
         // Save gains to telemetry
         if (gamepad1.b && !lastB) {
-            telemetry.log().add("SAVED GAINS:");
-            telemetry.log().add(String.format("kP = %.6f", kP));
-            telemetry.log().add(String.format("kI = %.6f", kI));
-            telemetry.log().add(String.format("kD = %.6f", kD));
-            telemetry.log().add(String.format("kF = %.6f", kF));
-            telemetry.log().add(String.format("Target RPM = %.0f", targetRPM));
+            telemetry.log().add("=== TUNED GAINS - COPY TO ShooterConstants.java ===");
+            telemetry.log().add(String.format("FLYWHEEL_KP = %.6f;", kP));
+            telemetry.log().add(String.format("FLYWHEEL_KI = %.6f;", kI));
+            telemetry.log().add(String.format("FLYWHEEL_KD = %.6f;", kD));
+            telemetry.log().add(String.format("FLYWHEEL_KF = %.6f;", kF));
+            telemetry.log().add(String.format("DEFAULT_TARGET_RPM = %.0f;", targetRPM));
+            telemetry.log().add("Update these in ShooterConstants.java lines 17-24!");
+            telemetry.log().add("Then recompile - teleop will use new values automatically");
         }
         lastB = gamepad1.b;
     }

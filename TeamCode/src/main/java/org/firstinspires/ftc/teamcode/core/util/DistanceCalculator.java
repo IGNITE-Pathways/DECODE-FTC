@@ -1,7 +1,7 @@
 package org.firstinspires.ftc.teamcode.core.util;
 
 import com.qualcomm.hardware.limelightvision.LLResult;
-import org.firstinspires.ftc.teamcode.core.constants.TeleOpConstants;
+import org.firstinspires.ftc.teamcode.core.constants.ShooterConstants;
 
 /**
  * Utility class for calculating distance from Limelight AprilTag detection.
@@ -20,11 +20,11 @@ public class DistanceCalculator {
 
     static {
         // Calculate focal length in pixels (this never changes)
-        FOCAL_LENGTH_PIXELS = (TeleOpConstants.IMAGE_HEIGHT_PIXELS / 2.0)
-            / Math.tan(Math.toRadians(TeleOpConstants.CAMERA_VERTICAL_FOV_DEGREES / 2.0));
+        FOCAL_LENGTH_PIXELS = (ShooterConstants.IMAGE_HEIGHT_PIXELS / 2.0)
+            / Math.tan(Math.toRadians(ShooterConstants.CAMERA_VERTICAL_FOV_DEGREES / 2.0));
 
         // Total pixels in image
-        TOTAL_IMAGE_PIXELS = TeleOpConstants.IMAGE_WIDTH_PIXELS * TeleOpConstants.IMAGE_HEIGHT_PIXELS;
+        TOTAL_IMAGE_PIXELS = ShooterConstants.IMAGE_WIDTH_PIXELS * ShooterConstants.IMAGE_HEIGHT_PIXELS;
     }
 
     /**
@@ -50,7 +50,7 @@ public class DistanceCalculator {
         double tagPixelHeight = Math.sqrt(pixelArea);
 
         // Calculate distance using pinhole camera model
-        double distanceMeters = (TeleOpConstants.APRILTAG_REAL_HEIGHT_METERS * FOCAL_LENGTH_PIXELS) / tagPixelHeight;
+        double distanceMeters = (ShooterConstants.APRILTAG_REAL_HEIGHT_METERS * FOCAL_LENGTH_PIXELS) / tagPixelHeight;
 
         // Convert to feet
         return distanceMeters * METERS_TO_FEET;

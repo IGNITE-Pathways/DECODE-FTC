@@ -33,15 +33,15 @@ public class Launcher {
     private static final double CRITICAL_VOLTAGE = 10.5; // Emergency shutoff for PIDF mode
 
     // ==================== PIDF VELOCITY CONTROL ====================
-    private boolean useVelocityControl = false;  // Toggle between open-loop and closed-loop
-    private double targetRPM = 3500;             // Target velocity in RPM (60% of 6000 RPM max)
+    // All PIDF values come from ShooterConstants - update there after tuning!
+    private boolean useVelocityControl = ShooterConstants.USE_VELOCITY_CONTROL;
+    private double targetRPM = ShooterConstants.DEFAULT_TARGET_RPM;
 
-    // PIDF Gains - TUNED FOR 6000 RPM MOTORS
-    // Fine-tune these values using FlywheelPIDFTuner if needed
-    private double kP = 0.0004;   // Proportional gain
-    private double kI = 0.00003;  // Integral gain
-    private double kD = 0.0002;   // Derivative gain
-    private double kF = 0.00020;  // Feedforward gain
+    // PIDF Gains - loaded from ShooterConstants (tune using FlywheelPIDFTuner)
+    private double kP = ShooterConstants.FLYWHEEL_KP;
+    private double kI = ShooterConstants.FLYWHEEL_KI;
+    private double kD = ShooterConstants.FLYWHEEL_KD;
+    private double kF = ShooterConstants.FLYWHEEL_KF;
 
     // PID state
     private double integral = 0.0;

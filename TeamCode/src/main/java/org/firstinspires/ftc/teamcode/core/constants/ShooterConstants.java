@@ -1,8 +1,14 @@
 package org.firstinspires.ftc.teamcode.core.constants;
 
 /**
- * Centralized shooter configuration constants.
- * Includes flywheel power, hood positions, and distance-based adjustments.
+ * *** MASTER SHOOTER CONSTANTS ***
+ * ALL shooter and teleop settings are here - single source of truth!
+ *
+ * AFTER TUNING PIDF:
+ * 1. Run FlywheelPIDFTuner, press B to save gains to telemetry log
+ * 2. Copy the values from telemetry log
+ * 3. Update the PIDF constants below
+ * 4. Recompile and test in teleop
  */
 public class ShooterConstants {
 
@@ -10,7 +16,20 @@ public class ShooterConstants {
         throw new IllegalStateException("Utility class");
     }
 
-    // ==================== FLYWHEEL POWER ====================
+    // ==================== PIDF VELOCITY CONTROL (TUNE THESE!) ====================
+    // Use FlywheelPIDFTuner to find optimal values, then update here
+    // These values are used by BOTH the tuner and competition teleop
+
+    public static final boolean USE_VELOCITY_CONTROL = true;  // Set false to use power mode (fallback)
+    public static final double DEFAULT_TARGET_RPM = 3500;     // Default flywheel speed
+
+    // PIDF Gains - TUNE USING FlywheelPIDFTuner!
+    public static final double FLYWHEEL_KP = 0.00035;   // Proportional gain
+    public static final double FLYWHEEL_KI = 0.000025;  // Integral gain
+    public static final double FLYWHEEL_KD = 0.00015;   // Derivative gain
+    public static final double FLYWHEEL_KF = 0.000215;  // Feedforward gain
+
+    // ==================== FLYWHEEL POWER (Legacy - only used if velocity control OFF) ====================
     public static final double FLYWHEEL_DEFAULT_POWER = 0.8;
     public static final double FLYWHEEL_SHOOTING_POWER = 0.8;
     public static final double FLYWHEEL_LOW_POWER = 0.5;
@@ -27,8 +46,78 @@ public class ShooterConstants {
     public static final double INTAKE_SHOOTING_POWER = 1.0;
 
     // ==================== TRANSFER POSITIONS ====================
-    public static final double TRANSFER_UP_POSITION = 0.75;  // Raised higher for better feeding
+    public static final double TRANSFER_UP_POSITION = 0.75;  // Max height - servo limit
     public static final double TRANSFER_DOWN_POSITION = 0.5;
+
+    // ==================== LIMELIGHT DISTANCE-BASED SHOOTING PRESETS ====================
+    // After testing at each distance, adjust these RPM values for accurate shooting
+    // Range format: MIN distance, MAX distance, Target RPM, Hood position
+
+    // Range 1: 2.47 - 2.84 ft (Close range)
+    public static final double RANGE_1_MIN = 2.47;
+    public static final double RANGE_1_MAX = 2.84;
+    public static final double RANGE_1_FLYWHEEL_RPM = 2600;
+    public static final double RANGE_1_HOOD_POSITION = 0.40;
+
+    // Range 2: 2.84 - 3.2 ft (Close range)
+    public static final double RANGE_2_MIN = 2.84;
+    public static final double RANGE_2_MAX = 3.20;
+    public static final double RANGE_2_FLYWHEEL_RPM = 2800;
+    public static final double RANGE_2_HOOD_POSITION = 0.55;
+
+    // Range 3: 3.21 - 4.0 ft (Close-Mid transition)
+    public static final double RANGE_3_MIN = 3.21;
+    public static final double RANGE_3_MAX = 4.00;
+    public static final double RANGE_3_FLYWHEEL_RPM = 3000;
+    public static final double RANGE_3_HOOD_POSITION = 0.50;
+
+    // Range 4: 4.0 - 4.5 ft (Mid range)
+    public static final double RANGE_4_MIN = 4.00;
+    public static final double RANGE_4_MAX = 4.50;
+    public static final double RANGE_4_FLYWHEEL_RPM = 3400;
+    public static final double RANGE_4_HOOD_POSITION = 0.50;
+
+    // Range 5: 4.6 - 5.0 ft (Mid range)
+    public static final double RANGE_5_MIN = 4.60;
+    public static final double RANGE_5_MAX = 5.00;
+    public static final double RANGE_5_FLYWHEEL_RPM = 3600;
+    public static final double RANGE_5_HOOD_POSITION = 0.70;
+
+    // Range 6: 4.84 - 5.25 ft (Mid-Far transition)
+    public static final double RANGE_6_MIN = 4.84;
+    public static final double RANGE_6_MAX = 5.25;
+    public static final double RANGE_6_FLYWHEEL_RPM = 3800;
+    public static final double RANGE_6_HOOD_POSITION = 0.65;
+
+    // Range 7: 5.2 - 5.7 ft (Far range)
+    public static final double RANGE_7_MIN = 5.20;
+    public static final double RANGE_7_MAX = 5.70;
+    public static final double RANGE_7_FLYWHEEL_RPM = 4000;
+    public static final double RANGE_7_HOOD_POSITION = 0.65;
+
+    // Far shooting zone (beyond 5.7 ft) - Maximum distance on field
+    public static final double RANGE_FAR_MIN = 5.70;
+    public static final double RANGE_FAR_FLYWHEEL_RPM = 4500;
+    public static final double RANGE_FAR_HOOD_POSITION = 0.67;
+
+    // ==================== LIMELIGHT CAMERA SPECS ====================
+    public static final double APRILTAG_REAL_HEIGHT_METERS = 0.2032;  // 8 inches
+    public static final double CAMERA_VERTICAL_FOV_DEGREES = 49.5;
+    public static final int IMAGE_WIDTH_PIXELS = 1280;
+    public static final int IMAGE_HEIGHT_PIXELS = 720;
+
+    // ==================== DRIVE CONTROL SETTINGS ====================
+    public static final double SPEED_SHOOTING_MULTIPLIER = 0.85;  // Reduce speed while flywheel on
+    public static final double JOYSTICK_DEAD_ZONE = 0.05;
+    public static final double TRIGGER_DEADZONE = 0.1;
+
+    // ==================== TURRET MANUAL CONTROL ====================
+    public static final double TURRET_MANUAL_INCREMENT = 0.02;          // DPAD increment
+    public static final double TURRET_MANUAL_STICK_DEADZONE = 0.1;     // Stick deadzone
+    public static final double TURRET_MANUAL_STICK_SENSITIVITY = 0.01; // Stick scaling
+    public static final double TURRET_MIN_POSITION = 0.0;
+    public static final double TURRET_MAX_POSITION = 1.0;
+    public static final double TURRET_CENTER_POSITION = 0.3;
 
     // ==================== DISTANCE-BASED HOOD LOOKUP TABLE ====================
     // Distance in feet -> Hood position
