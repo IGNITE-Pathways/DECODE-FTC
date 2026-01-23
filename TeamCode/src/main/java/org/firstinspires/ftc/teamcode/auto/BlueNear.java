@@ -35,8 +35,8 @@ public class BlueNear extends OpMode {
 
     // ==================== SHOOTING CONSTANTS ====================
     // These constants define the 10ft shooting preset configuration
-    private static final double FLYWHEEL_POWER = 1.0;  // Full power for flywheel motors
-    private static final double HOOD_POSITION = 0.6;   // Hood servo position for 10ft shots
+    private static final double FLYWHEEL_POWER = 0.75;  // Full power for flywheel motors
+    private static final double HOOD_POSITION = 0.55;   // Hood servo position for 10ft shots
     private static final double SHOOT_TIME_SECONDS = 6.0;  // Total time allocated for each shooting sequence
 
     // Turret servo position - locked to prevent rotation during autonomous

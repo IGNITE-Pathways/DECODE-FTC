@@ -40,7 +40,7 @@ public class RedFar extends OpMode {
     private static final double SHOOT_TIME_SECONDS = 6.0;  // Total time allocated for each shooting sequence
 
     // Turret servo position - locked to prevent rotation during autonomous
-    private static final double TURRET_LOCKED_POSITION = 0.6;
+    private static final double TURRET_LOCKED_POSITION = 0.3;
 
     // Path speed configuration - default speed for ball collection (45% power)
     private static final double PATH_SPEED = 0.45;
