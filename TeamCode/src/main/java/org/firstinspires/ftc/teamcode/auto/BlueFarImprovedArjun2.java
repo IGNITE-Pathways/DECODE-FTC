@@ -17,146 +17,199 @@ import org.firstinspires.ftc.teamcode.core.constants.HardwareConfig;
 /**
  * Combined Autonomous OpMode for Ball Collection Routine
  *
- * This autonomous routine:
- * 1. Shoots 3 preloaded balls (6 second wait)
- * 2. Collects 3 balls from the first zone
- * 3. Returns to shoot position and shoots
- * 4. Collects 3 balls from the second zone
- * 5. Returns to shoot position and shoots
- * 6. Collects 3 balls from the third zone
- * 7. Moves to final position
+ * This autonomous routine performs the following sequence:
+ * 1. Shoots 3 preloaded balls (6 second shooting sequence)
+ * 2. Collects 3 balls from the first zone (spike mark 1)
+ * 3. Returns to shoot position and shoots those 3 balls
+ * 4. Collects 3 balls from the second zone (spike mark 2)
+ * 5. Returns to shoot position and shoots those 3 balls
+ * 6. Program ends after shooting the second set
+ *
+ * The robot uses dynamic speed control:
+ * - Fast speed (80%) when approaching spike marks
+ * - Slow speed (45%) during precise ball collection
+ * - Full speed (100%) when returning to shooting position
  */
 @Autonomous(name = "Blue Far ACTUAL", group = "Autonomous")
 public class BlueFarImprovedArjun2 extends OpMode {
 
     // ==================== SHOOTING CONSTANTS ====================
-    // 10ft preset for shooting
-    private static final double FLYWHEEL_POWER = 1.0;
-    private static final double HOOD_POSITION = 0.6;
-    private static final double SHOOT_TIME_SECONDS = 6.0;
+    // These constants define the 10ft shooting preset configuration
+    private static final double FLYWHEEL_POWER = 1.0;  // Full power for flywheel motors
+    private static final double HOOD_POSITION = 0.6;   // Hood servo position for 10ft shots
+    private static final double SHOOT_TIME_SECONDS = 6.0;  // Total time allocated for each shooting sequence
 
-    // Turret locked position
+    // Turret servo position - locked to prevent rotation during autonomous
     private static final double TURRET_LOCKED_POSITION = 0.6;
 
-    // Path speed (45%)
+    // Path speed configuration - default speed for ball collection (45% power)
     private static final double PATH_SPEED = 0.45;
 
-    // Path timeout (15 seconds per path)
+    // ==================== SHOOTING SEQUENCE TIMING ====================
+    // Configure the precise timing for the 3-ball shooting sequence
+    // All times are in seconds - TUNE THESE VALUES to optimize shooting performance
+
+    // ===== SPINUP PHASE =====
+    // Initial flywheel spin-up period
+    private static final double SPINUP_TIME = 2.0;           // How long to wait for flywheel to reach full speed
+    private static final boolean SPINUP_INTAKE_ON = false;   // Should intake be ON during spinup? (false = OFF)
+    private static final boolean SPINUP_EJECT_ON = false;    // Should eject be ON during spinup? (false = normal)
+
+    // ===== BALL 1 FEED PHASE =====
+    private static final double BALL1_FEED_TIME = 0.15;      // How long ramp is UP to feed ball 1
+    private static final boolean BALL1_FEED_INTAKE_ON = true;  // Should intake be ON during ball 1 feed?
+    private static final boolean BALL1_FEED_EJECT_ON = false;  // Should eject be ON during ball 1 feed?
+
+    // ===== BALL 1 RECOVERY PHASE =====
+    private static final double BALL1_RECOVERY_TIME = 1.5;   // Wait time after ball 1 shoots (ramp down)
+    private static final boolean BALL1_RECOVERY_INTAKE_ON = true;  // Should intake be ON during ball 1 recovery?
+    private static final boolean BALL1_RECOVERY_EJECT_ON = false;  // Should eject be ON during ball 1 recovery?
+
+    // ===== BALL 2 FEED PHASE =====
+    private static final double BALL2_FEED_TIME = 0.15;       // How long ramp is UP to feed ball 2
+    private static final boolean BALL2_FEED_INTAKE_ON = true;  // Should intake be ON during ball 2 feed?
+    private static final boolean BALL2_FEED_EJECT_ON = false;  // Should eject be ON during ball 2 feed?
+
+    // ===== BALL 2 RECOVERY PHASE =====
+    private static final double BALL2_RECOVERY_TIME = 1.5;   // Wait time after ball 2 shoots (ramp down)
+    private static final boolean BALL2_RECOVERY_INTAKE_ON = true;  // Should intake be ON during ball 2 recovery?
+    private static final boolean BALL2_RECOVERY_EJECT_ON = false;  // Should eject be ON during ball 2 recovery?
+
+    // ===== BALL 3 FEED PHASE =====
+    private static final double BALL3_FEED_TIME = 0.15;       // How long ramp is UP to feed ball 3
+    private static final boolean BALL3_FEED_INTAKE_ON = true;  // Should intake be ON during ball 3 feed?
+    private static final boolean BALL3_FEED_EJECT_ON = false;  // Should eject be ON during ball 3 feed?
+
+    // ===== FINISH PHASE =====
+    // No recovery time needed after ball 3 since sequence ends
+    private static final boolean FINISH_INTAKE_ON = false;   // Should intake be ON after all balls shot?
+    private static final boolean FINISH_EJECT_ON = false;    // Should eject be ON after all balls shot?
+
+    // CALCULATED TIME MARKERS (DO NOT MODIFY - these are auto-calculated from above values)
+    // These mark the exact timestamps when each action should occur
+    private static final double BALL1_START = SPINUP_TIME;
+    private static final double BALL1_END = BALL1_START + BALL1_FEED_TIME;
+    private static final double BALL2_START = BALL1_END + BALL1_RECOVERY_TIME;
+    private static final double BALL2_END = BALL2_START + BALL2_FEED_TIME;
+    private static final double BALL3_START = BALL2_END + BALL2_RECOVERY_TIME;
+    private static final double BALL3_END = BALL3_START + BALL3_FEED_TIME;
+
+    // Safety timeout to prevent infinite loops if paths get stuck (15 seconds per path)
     private static final double PATH_TIMEOUT = 15.0;
 
     // ==================== POSE CONSTANTS ====================
-    // Common heading
+    // All positions are in inches, heading is in radians
+    // The field uses a coordinate system where (0,0) is a corner of the field
+
+    // Common heading for all positions - facing 180 degrees (backwards)
     private static final double HEADING_180 = Math.toRadians(180);
 
-    // Starting and shooting positions
+    // Starting position - where the robot begins autonomous
     private static final Pose START_POSE = new Pose(60.845, 7.910, HEADING_180);
+
+    // Shooting position - where robot returns to shoot collected balls
     private static final Pose SHOOT_POSE = new Pose(55, 15);
-    private static final Pose SHOOT_POSE_OFFSET = new Pose(55, 15);
+    private static final Pose SHOOT_POSE_OFFSET = new Pose(55, 15);  // Slight offset for path variation
 
-    // First spike mark positions (Set 1)
-    private static final Pose SPIKE1_APPROACH = new Pose(41.172, 33.034);
-    private static final Pose SPIKE1_BALL1 = new Pose(35.392, 32.899);
-    private static final Pose SPIKE1_BALL2 = new Pose(29.358, 32.899);
-    private static final Pose SPIKE1_BALL3 = new Pose(22.487, 32.899);
-    private static final Pose SPIKE1_RETURN_START = new Pose(22.487, 30.899);
+    // First spike mark positions (Set 1) - closest to starting position
+    private static final Pose SPIKE1_APPROACH = new Pose(41.172, 33.034);  // Approach point before collecting
+    private static final Pose SPIKE1_BALL1 = new Pose(35.392, 32.899);     // First ball location
+    private static final Pose SPIKE1_BALL2 = new Pose(29.358, 32.899);     // Second ball location
+    private static final Pose SPIKE1_BALL3 = new Pose(22.487, 32.899);     // Third ball location
+    private static final Pose SPIKE1_RETURN_START = new Pose(22.487, 30.899);  // Starting point for return path
 
-    // Second spike mark positions (Set 2)
-    private static final Pose SPIKE2_APPROACH = new Pose(39.752, 56.831);
-    private static final Pose SPIKE2_BALL1 = new Pose(34.580, 56.730);
-    private static final Pose SPIKE2_BALL2 = new Pose(30.068, 56.780);
-    private static final Pose SPIKE2_BALL3 = new Pose(24.566, 57.008);
+    // Second spike mark positions (Set 2) - middle spike mark
+    private static final Pose SPIKE2_APPROACH = new Pose(39.752, 56.831);  // Approach point
+    private static final Pose SPIKE2_BALL1 = new Pose(34.580, 56.730);     // First ball
+    private static final Pose SPIKE2_BALL2 = new Pose(30.068, 56.780);     // Second ball
+    private static final Pose SPIKE2_BALL3 = new Pose(24.566, 57.008);     // Third ball
 
-    // Curve control points for spike 2 approach
+    // Curve control point for smooth path to spike 2 (creates curved approach instead of straight line)
     private static final Pose SPIKE2_CURVE_CONTROL = new Pose(40.606, 42.856);
 
-    // Third spike mark positions (Set 3)
-    private static final Pose SPIKE3_APPROACH = new Pose(40.158, 81.169);
-    private static final Pose SPIKE3_BALL1 = new Pose(34.885, 81.169);
-    private static final Pose SPIKE3_BALL2 = new Pose(30.070, 81.118);
-    private static final Pose SPIKE3_BALL3 = new Pose(24.513, 80.989);
-
-    // Curve control points for spike 3 approach
-    private static final Pose SPIKE3_CURVE_CONTROL = new Pose(41.666, 54.846);
-
-    // Final position
-    private static final Pose FINAL_CURVE_CONTROL = new Pose(32.543, 92.571);
-    private static final Pose FINAL_POSE = new Pose(40.994, 101.603);
-
     // ==================== ROBOT COMPONENTS ====================
+    // Pedro Pathing follower - handles path following and autonomous navigation
     private Follower follower;
+    // Path definitions object - contains all pre-built paths
     private Paths paths;
 
-    // Robot components
-    private IntakeTransfer intakeTransfer;
-    private Launcher launcher;
-    private Servo turretServo;
+    // Robot subsystems
+    private IntakeTransfer intakeTransfer;  // Controls intake motors and transfer ramp
+    private Launcher launcher;              // Controls flywheel and hood for shooting
+    private Servo turretServo;              // Turret servo (locked during autonomous)
 
-    // State Management
+    // ==================== STATE MANAGEMENT ====================
+    // Current state in the autonomous sequence
     private PathState pathState = PathState.PRELOAD_SHOOT_SETUP;
-    private Timer pathTimer;
-    private Timer opModeTimer;
-    private Timer shootTimer;
-    private Timer ejectTimer;  // Timer for eject/reintake sequence
-    private Timer rampTimer;  // Timer for ramp down/up sequence
-    private boolean ejectReintakeDone = false;  // Track if eject/reintake has been done for current shooting sequence
-    private boolean ejectReintakeStarted = false;  // Track if eject/reintake sequence has started
-    private boolean rampSequenceDone = false;  // Track if ramp down/up sequence has been done for current shooting sequence
-    private boolean rampSequenceStarted = false;  // Track if ramp sequence has started
-    private boolean rampDownCalled = false;  // Track if ramp down has been called for current sequence
-    private double currentSpeed = PATH_SPEED;  // Track current speed for telemetry
+
+    // Timers for various operations
+    private Timer pathTimer;     // Tracks time in current path state (for timeout detection)
+    private Timer opModeTimer;   // Tracks total autonomous runtime
+    private Timer shootTimer;    // Tracks shooting sequence timing
+    private Timer ejectTimer;    // Timer for eject/reintake sequence (currently unused)
+    private Timer rampTimer;     // Timer for ramp down/up sequence (currently unused)
+
+    // Flags for shooting sequence control (currently unused but kept for future modifications)
+    private boolean ejectReintakeDone = false;      // Track if eject/reintake has been done
+    private boolean ejectReintakeStarted = false;   // Track if eject/reintake sequence has started
+    private boolean rampSequenceDone = false;       // Track if ramp down/up sequence has been done
+    private boolean rampSequenceStarted = false;    // Track if ramp sequence has started
+    private boolean rampDownCalled = false;         // Track if ramp down has been called
+
+    // Current robot speed - tracked for telemetry display
+    private double currentSpeed = PATH_SPEED;
 
     /**
      * Path State Enumeration
      * Defines all possible states in the autonomous routine
+     * The state machine progresses through these states in order
      */
     public enum PathState {
-        // Preload shooting
-        PRELOAD_SHOOT_SETUP,
-        PRELOAD_SHOOTING,
+        // ========== PRELOAD SHOOTING ==========
+        PRELOAD_SHOOT_SETUP,   // Set up shooter and prepare for preload shooting
+        PRELOAD_SHOOTING,      // Execute 6-second preload shooting sequence
 
-        // First Ball Set (Starting Zone)
-        GOING_TO_NEAREST_BALLS,
-        GETTING_FIRST_BALL_SET_1,
-        GETTING_SECOND_BALL_SET_1,
-        GETTING_THIRD_BALL_SET_1,
-        GOING_BACK_TO_SHOOT_SET_1,
-        SHOOTING_SET_1,
+        // ========== FIRST BALL SET (Starting Zone) ==========
+        GOING_TO_NEAREST_BALLS,     // Fast approach to first spike mark
+        GETTING_FIRST_BALL_SET_1,   // Collect first ball from spike 1
+        GETTING_SECOND_BALL_SET_1,  // Collect second ball from spike 1
+        GETTING_THIRD_BALL_SET_1,   // Collect third ball from spike 1
+        GOING_BACK_TO_SHOOT_SET_1,  // Fast return to shooting position
+        SHOOTING_SET_1,             // Shoot the 3 collected balls
 
-        // Second Ball Set
-        GETTING_NEXT_SET_OF_BALLS,
-        GETTING_FIRST_BALL_SET_2,
-        GETTING_SECOND_BALL_SET_2,
-        GETTING_THIRD_BALL_SET_2,
-        GOING_BACK_TO_SHOOT_SET_2,
-        SHOOTING_SET_2,
+        // ========== SECOND BALL SET ==========
+        GETTING_NEXT_SET_OF_BALLS,  // Fast approach to second spike mark
+        GETTING_FIRST_BALL_SET_2,   // Collect first ball from spike 2
+        GETTING_SECOND_BALL_SET_2,  // Collect second ball from spike 2
+        GETTING_THIRD_BALL_SET_2,   // Collect third ball from spike 2
+        GOING_BACK_TO_SHOOT_SET_2,  // Fast return to shooting position
+        SHOOTING_SET_2,             // Shoot the 3 collected balls
 
-        // Third Ball Set
-        GETTING_THIRD_SET_OF_BALLS,
-        GETTING_FIRST_BALL_SET_3,
-        GETTING_SECOND_BALL_SET_3,
-        GETTING_THIRD_BALL_SET_3,
-        GOING_TO_FINAL_POSITION,
-
-        IDLE
+        IDLE  // Autonomous complete - all systems off
     }
 
+    /**
+     * Initialization method - called once when autonomous is selected
+     * Sets up all robot components and prepares for autonomous execution
+     */
     @Override
     public void init() {
-        // Initialize timers
+        // Initialize all timers
         pathTimer = new Timer();
         opModeTimer = new Timer();
         shootTimer = new Timer();
         ejectTimer = new Timer();
         rampTimer = new Timer();
 
-        // Initialize robot components
+        // Initialize intake/transfer subsystem
         intakeTransfer = new IntakeTransfer();
         intakeTransfer.initialize(hardwareMap, telemetry);
 
+        // Initialize launcher subsystem (flywheel + hood)
         launcher = new Launcher();
         launcher.initialize(hardwareMap, telemetry);
 
-        // Initialize turret servo
+        // Initialize turret servo and lock it in position
         try {
             turretServo = hardwareMap.get(Servo.class, HardwareConfig.TURRET_SERVO);
             turretServo.setPosition(TURRET_LOCKED_POSITION);
@@ -166,24 +219,42 @@ public class BlueFarImprovedArjun2 extends OpMode {
             telemetry.addLine("Turret Servo: NOT FOUND");
         }
 
-        // Initialize Pedro Pathing Follower
+        // Initialize Pedro Pathing Follower for autonomous navigation
         follower = Constants.createFollower(hardwareMap);
-        follower.setStartingPose(START_POSE);
-        follower.setMaxPower(PATH_SPEED);
+        follower.setStartingPose(START_POSE);  // Set initial robot position
+        follower.setMaxPower(PATH_SPEED);      // Set default path following speed
 
-
-        // Activate all PIDFs so the tuned PIDF constants are used during following
+        // Activate all PID controllers so tuned PIDF constants are used
         follower.activateAllPIDFs();
 
-
-        // Create path objects
+        // Create all path objects
         paths = new Paths(follower);
 
+        // Display initialization status
         telemetry.addLine("Blue Far Combined Auto Initialized");
         telemetry.addData("Path Speed", "%.0f%%", PATH_SPEED * 100);
+        telemetry.addLine();
+        telemetry.addLine("=== Shooting Timing ===");
+        telemetry.addData("Spinup", "%.2fs (I:%s E:%s)", SPINUP_TIME,
+                SPINUP_INTAKE_ON ? "ON" : "OFF", SPINUP_EJECT_ON ? "ON" : "OFF");
+        telemetry.addData("Ball 1 Feed", "%.2fs (I:%s E:%s)", BALL1_FEED_TIME,
+                BALL1_FEED_INTAKE_ON ? "ON" : "OFF", BALL1_FEED_EJECT_ON ? "ON" : "OFF");
+        telemetry.addData("Ball 1 Recovery", "%.2fs (I:%s E:%s)", BALL1_RECOVERY_TIME,
+                BALL1_RECOVERY_INTAKE_ON ? "ON" : "OFF", BALL1_RECOVERY_EJECT_ON ? "ON" : "OFF");
+        telemetry.addData("Ball 2 Feed", "%.2fs (I:%s E:%s)", BALL2_FEED_TIME,
+                BALL2_FEED_INTAKE_ON ? "ON" : "OFF", BALL2_FEED_EJECT_ON ? "ON" : "OFF");
+        telemetry.addData("Ball 2 Recovery", "%.2fs (I:%s E:%s)", BALL2_RECOVERY_TIME,
+                BALL2_RECOVERY_INTAKE_ON ? "ON" : "OFF", BALL2_RECOVERY_EJECT_ON ? "ON" : "OFF");
+        telemetry.addData("Ball 3 Feed", "%.2fs (I:%s E:%s)", BALL3_FEED_TIME,
+                BALL3_FEED_INTAKE_ON ? "ON" : "OFF", BALL3_FEED_EJECT_ON ? "ON" : "OFF");
+        telemetry.addData("Total Sequence", "%.2fs", BALL3_END);
         telemetry.update();
     }
 
+    /**
+     * Init loop - called repeatedly after init() until START is pressed
+     * Keeps turret locked during initialization phase
+     */
     @Override
     public void init_loop() {
         // Keep turret locked during init
@@ -192,69 +263,90 @@ public class BlueFarImprovedArjun2 extends OpMode {
         }
     }
 
+    /**
+     * Start method - called once when START button is pressed
+     * Resets all timers and begins autonomous sequence
+     */
     @Override
     public void start() {
         opModeTimer.resetTimer();
         pathTimer.resetTimer();
         shootTimer.resetTimer();
-        pathState = PathState.PRELOAD_SHOOT_SETUP;
+        pathState = PathState.PRELOAD_SHOOT_SETUP;  // Begin with preload shooting
     }
 
+    /**
+     * Main loop - called repeatedly during autonomous execution
+     * Updates all systems and progresses through state machine
+     */
     @Override
     public void loop() {
-        // CRITICAL: Update follower and launcher every loop
+        // CRITICAL: Update follower and launcher every loop iteration
+        // Follower update processes path following and motor control
         follower.update();
+        // Launcher update handles flywheel ramping and hood positioning
         launcher.update();
 
-        // Keep turret locked
+        // Keep turret locked throughout autonomous
         if (turretServo != null) {
             turretServo.setPosition(TURRET_LOCKED_POSITION);
         }
 
-        // Execute current path state
+        // Execute current path state logic
         autonomousPathUpdate();
 
-        // Telemetry
+        // Update driver station telemetry
         updateTelemetry();
     }
 
     /**
      * State machine for autonomous path execution
+     * This method contains the core logic for transitioning between states
+     * and executing actions for each state
      */
     private void autonomousPathUpdate() {
         switch (pathState) {
             // ========== PRELOAD SHOOTING ==========
             case PRELOAD_SHOOT_SETUP:
-                // Set up shooter at 10ft preset
+                // Configure shooter for 10ft preset
                 launcher.setPower(FLYWHEEL_POWER);
                 launcher.setHoodPosition(HOOD_POSITION);
-                launcher.setSpinning(true);
+                launcher.setSpinning(true);  // Start flywheel spinning
 
-                // Ramp up and start feeding balls
+                // Raise transfer ramp and start intake to feed balls
                 intakeTransfer.transferUp();
                 intakeTransfer.startIntake();
 
+                // Reset shooting timer and flags
                 shootTimer.resetTimer();
-                ejectReintakeDone = false;  // Reset eject/reintake flag for preload shooting
-                ejectReintakeStarted = false;  // Reset eject/reintake started flag
-                rampSequenceDone = false;  // Reset ramp sequence flag for preload shooting
-                rampSequenceStarted = false;  // Reset ramp sequence started flag
-                rampDownCalled = false;  // Reset ramp down called flag
+                ejectReintakeDone = false;
+                ejectReintakeStarted = false;
+                rampSequenceDone = false;
+                rampSequenceStarted = false;
+                rampDownCalled = false;
+
+                // Transition to shooting state
                 setPathState(PathState.PRELOAD_SHOOTING);
                 break;
 
             case PRELOAD_SHOOTING:
-                // Use performShooting() which includes eject/reintake for third ball
+                // Execute timed shooting sequence for 3 preloaded balls
                 performShooting();
 
-                // Wait for preload shoot to complete
+                // Wait for full shooting duration (6 seconds)
                 double elapsed = shootTimer.getElapsedTimeSeconds();
                 if (elapsed >= SHOOT_TIME_SECONDS) {
+                    // Shooting complete - turn off shooter systems
                     stopShooting();
-                    // Start approaching first spike mark with FAST SPEED
-                    currentSpeed = 0.8;  // Fast approach to spike mark
+
+                    // Start approaching first spike mark with FAST SPEED (80%)
+                    currentSpeed = 0.8;
                     follower.setMaxPower(0.8);
+
+                    // Start intake to collect balls during approach
                     intakeTransfer.startIntake();
+
+                    // Begin following path to first spike mark
                     follower.followPath(paths.goingToNearestBalls);
                     setPathState(PathState.GOING_TO_NEAREST_BALLS);
                 }
@@ -262,59 +354,78 @@ public class BlueFarImprovedArjun2 extends OpMode {
 
             // ========== FIRST BALL SET ==========
             case GOING_TO_NEAREST_BALLS:
-                // Keep intake running
+                // Keep intake running while approaching spike mark
                 if (!follower.isBusy()) {
-                    // Now SLOW DOWN for precise ball collection
+                    // Path complete - now SLOW DOWN for precise ball collection (45%)
                     currentSpeed = PATH_SPEED;
                     follower.setMaxPower(PATH_SPEED);
+
+                    // Begin collecting first ball
                     follower.followPath(paths.gettingFirstBallSet1);
                     setPathState(PathState.GETTING_FIRST_BALL_SET_1);
                 }
                 break;
 
             case GETTING_FIRST_BALL_SET_1:
-                // Keep intake running
+                // Keep intake running to collect ball
                 if (!follower.isBusy()) {
+                    // First ball collected - move to second ball
                     follower.followPath(paths.gettingSecondBallSet1);
                     setPathState(PathState.GETTING_SECOND_BALL_SET_1);
                 }
                 break;
 
             case GETTING_SECOND_BALL_SET_1:
-                // Keep intake running
+                // Keep intake running to collect ball
                 if (!follower.isBusy()) {
+                    // Second ball collected - move to third ball
                     follower.followPath(paths.gettingThirdBallSet1);
                     setPathState(PathState.GETTING_THIRD_BALL_SET_1);
                 }
                 break;
 
             case GETTING_THIRD_BALL_SET_1:
-                // Keep intake running
+                // Keep intake running to collect ball
                 if (!follower.isBusy()) {
-                    // Stop intake for return path, GO MAX SPEED
+                    // All 3 balls collected - stop intake and return to shooting position
                     intakeTransfer.stopIntake();
+
+                    // GO MAX SPEED (100%) for fast return
                     currentSpeed = 1.0;
-                    follower.setMaxPower(1.0);  // Full speed to shooting position
+                    follower.setMaxPower(1.0);
+
+                    // Follow return path to shooting position
                     follower.followPath(paths.goingBackToShootSet1);
                     setPathState(PathState.GOING_BACK_TO_SHOOT_SET_1);
                 }
                 break;
 
             case GOING_BACK_TO_SHOOT_SET_1:
+                // Wait for robot to reach shooting position
                 if (!follower.isBusy()) {
+                    // At shooting position - start shooting sequence
                     startShooting();
                     setPathState(PathState.SHOOTING_SET_1);
                 }
                 break;
 
             case SHOOTING_SET_1:
+                // Execute timed shooting sequence
                 performShooting();
+
+                // Wait for shooting to complete
                 if (shootTimer.getElapsedTimeSeconds() >= SHOOT_TIME_SECONDS) {
+                    // First set shot - turn off shooter
                     stopShooting();
-                    // Start approaching second spike mark with FAST SPEED
-                    currentSpeed = 0.8;  // Fast approach to spike mark
+
+                    // Start approaching second spike mark with FAST SPEED (80%)
+                    currentSpeed = 0.8;
                     follower.setMaxPower(0.8);
+
+                    // Start intake for next collection
                     intakeTransfer.startIntake();
+
+                    // Follow curved path to second spike mark
                     follower.followPath(paths.gettingNextSetOfBalls);
                     setPathState(PathState.GETTING_NEXT_SET_OF_BALLS);
                 }
@@ -322,116 +433,79 @@ public class BlueFarImprovedArjun2 extends OpMode {
 
             // ========== SECOND BALL SET ==========
             case GETTING_NEXT_SET_OF_BALLS:
-                // Keep intake running
+                // Keep intake running while approaching spike mark
                 if (!follower.isBusy()) {
-                    // Now SLOW DOWN for precise ball collection
+                    // Path complete - now SLOW DOWN for precise ball collection (45%)
                     currentSpeed = PATH_SPEED;
                     follower.setMaxPower(PATH_SPEED);
+
+                    // Begin collecting first ball from spike 2
                     follower.followPath(paths.gettingFirstBallSet2);
                     setPathState(PathState.GETTING_FIRST_BALL_SET_2);
                 }
                 break;
 
             case GETTING_FIRST_BALL_SET_2:
-                // Keep intake running
+                // Keep intake running to collect ball
                 if (!follower.isBusy()) {
+                    // First ball collected - move to second ball
                     follower.followPath(paths.gettingSecondBallSet2);
                     setPathState(PathState.GETTING_SECOND_BALL_SET_2);
                 }
                 break;
 
             case GETTING_SECOND_BALL_SET_2:
-                // Keep intake running
+                // Keep intake running to collect ball
                 if (!follower.isBusy()) {
+                    // Second ball collected - move to third ball
                     follower.followPath(paths.gettingThirdBallSet2);
                     setPathState(PathState.GETTING_THIRD_BALL_SET_2);
                 }
                 break;
 
             case GETTING_THIRD_BALL_SET_2:
-                // Keep intake running
+                // Keep intake running to collect ball
                 if (!follower.isBusy()) {
-                    // Stop intake for return path, GO MAX SPEED
+                    // All 3 balls collected - stop intake and return to shooting position
                     intakeTransfer.stopIntake();
+
+                    // GO MAX SPEED (100%) for fast return
                     currentSpeed = 1.0;
-                    follower.setMaxPower(1.0);  // Full speed to shooting position
+                    follower.setMaxPower(1.0);
+
+                    // Follow return path to shooting position
                     follower.followPath(paths.goingBackToShootSet2);
                     setPathState(PathState.GOING_BACK_TO_SHOOT_SET_2);
                 }
                 break;
 
             case GOING_BACK_TO_SHOOT_SET_2:
+                // Wait for robot to reach shooting position
                 if (!follower.isBusy()) {
+                    // At shooting position - start shooting sequence
                     startShooting();
                     setPathState(PathState.SHOOTING_SET_2);
                 }
                 break;
 
             case SHOOTING_SET_2:
+                // Execute timed shooting sequence
                 performShooting();
+
+                // Wait for shooting to complete
                 if (shootTimer.getElapsedTimeSeconds() >= SHOOT_TIME_SECONDS) {
+                    // Second set shot - turn off all systems and go idle
                     stopShooting();
-                    // Start approaching third spike mark with FAST SPEED
-                    currentSpeed = 0.8;  // Fast approach to spike mark
-                    follower.setMaxPower(0.8);
-                    intakeTransfer.startIntake();
-                    follower.followPath(paths.gettingThirdSetOfBalls);
-                    setPathState(PathState.GETTING_THIRD_SET_OF_BALLS);
-                }
-                break;
-
-            // ========== THIRD BALL SET ==========
-            case GETTING_THIRD_SET_OF_BALLS:
-                // Keep intake running
-                if (!follower.isBusy()) {
-                    // Now SLOW DOWN for precise ball collection
-                    currentSpeed = PATH_SPEED;
-                    follower.setMaxPower(PATH_SPEED);
-                    follower.followPath(paths.gettingFirstBallSet3);
-                    setPathState(PathState.GETTING_FIRST_BALL_SET_3);
-                }
-                break;
-
-            case GETTING_FIRST_BALL_SET_3:
-                // Keep intake running
-                if (!follower.isBusy()) {
-                    follower.followPath(paths.gettingSecondBallSet3);
-                    setPathState(PathState.GETTING_SECOND_BALL_SET_3);
-                }
-                break;
-
-            case GETTING_SECOND_BALL_SET_3:
-                // Keep intake running
-                if (!follower.isBusy()) {
-                    follower.followPath(paths.gettingThirdBallSet3);
-                    setPathState(PathState.GETTING_THIRD_BALL_SET_3);
-                }
-                break;
-
-            case GETTING_THIRD_BALL_SET_3:
-                // Keep intake running
-                if (!follower.isBusy()) {
-                    // Stop intake for final path, GO MAX SPEED
-                    intakeTransfer.stopIntake();
-                    currentSpeed = 1.0;
-                    follower.setMaxPower(1.0);  // Full speed to final position
-                    follower.followPath(paths.path15);
-                    setPathState(PathState.GOING_TO_FINAL_POSITION);
-                }
-                break;
-
-            case GOING_TO_FINAL_POSITION:
-                if (!follower.isBusy()) {
                     setPathState(PathState.IDLE);
                 }
                 break;
 
             case IDLE:
-                // Autonomous complete
+                // Autonomous complete - all systems off
                 break;
         }
 
-        // Safety timeout - prevent infinite loops
+        // Safety timeout - prevent infinite loops if a path gets stuck
         if (pathTimer.getElapsedTimeSeconds() > PATH_TIMEOUT && pathState != PathState.IDLE) {
             telemetry.addLine("WARNING: Path timeout exceeded!");
             setPathState(PathState.IDLE);
@@ -440,25 +514,33 @@ public class BlueFarImprovedArjun2 extends OpMode {
 
     /**
      * Start shooting sequence
+     * Sets up shooter configuration, raises transfer ramp, and starts intake
      */
     private void startShooting() {
+        // Configure shooter for 10ft preset
         launcher.setPower(FLYWHEEL_POWER);
         launcher.setHoodPosition(HOOD_POSITION);
         launcher.setSpinning(true);
+
+        // Raise transfer ramp and start intake to feed balls
         intakeTransfer.transferUp();
         intakeTransfer.startIntake();
+
+        // Reset timer and flags for new shooting sequence
         shootTimer.resetTimer();
-        ejectReintakeDone = false;  // Reset eject/reintake flag for new shooting sequence
-        ejectReintakeStarted = false;  // Reset eject/reintake started flag
-        rampSequenceDone = false;  // Reset ramp sequence flag for new shooting sequence
-        rampSequenceStarted = false;  // Reset ramp sequence started flag
-        rampDownCalled = false;  // Reset ramp down called flag
+        ejectReintakeDone = false;
+        ejectReintakeStarted = false;
+        rampSequenceDone = false;
+        rampSequenceStarted = false;
+        rampDownCalled = false;
     }
 
     /**
      * Eject ball for 0.2 seconds then reintake
      * This helps clear any stuck balls and ensures the third ball feeds properly
      * The ramp stays UP during this sequence to allow ball transfer
+     *
+     * NOTE: This method is currently unused but kept for future modifications
      */
     private void performEjectReintake() {
         // Keep ramp UP during eject/reintake sequence
@@ -480,6 +562,8 @@ public class BlueFarImprovedArjun2 extends OpMode {
      * Move ramp down, eject, reintake, then ramp up for third ball shooting
      * Sequence: Ramp down → Eject (0.2s) → Reintake (0.2s) → Ramp up
      * This helps ensure the third ball feeds properly by cycling the ramp and clearing any stuck balls
+     *
+     * NOTE: This method is currently unused but kept for future modifications
      */
     private void performRampDownUp() {
         double elapsed = rampTimer.getElapsedTimeSeconds();
@@ -502,13 +586,94 @@ public class BlueFarImprovedArjun2 extends OpMode {
             rampSequenceDone = true;  // Mark as complete
         }
     }
+
     /**
-     * Perform shooting with timed sequence for 3 balls
-     * Sequence per ball: Ramp UP + Intake ON → 0.3s → Intake OFF + Ramp DOWN → Intake ON → 0.5s → Repeat
-     * Flywheel stays on the entire time
+     * ========================================================================
+     * PERFORM SHOOTING - MAIN SHOOTING SEQUENCE
+     * ========================================================================
+     *
+     * This method executes the timed 3-ball shooting sequence using the timing
+     * constants defined at the top of the class.
+     *
+     * TO TUNE THE SHOOTING SEQUENCE:
+     * 1. Modify the timing constants at the top of this file:
+     *    TIME CONSTANTS:
+     *      - SPINUP_TIME: How long to wait for flywheel to reach full speed
+     *      - BALL1_FEED_TIME: How long ramp is UP for ball 1
+     *      - BALL1_RECOVERY_TIME: Wait time after ball 1 shoots
+     *      - BALL2_FEED_TIME: How long ramp is UP for ball 2
+     *      - BALL2_RECOVERY_TIME: Wait time after ball 2 shoots
+     *      - BALL3_FEED_TIME: How long ramp is UP for ball 3
+     *
+     *    INTAKE CONTROL (true = ON, false = OFF):
+     *      - SPINUP_INTAKE_ON: Intake during spinup phase
+     *      - BALL1_FEED_INTAKE_ON: Intake during ball 1 feed
+     *      - BALL1_RECOVERY_INTAKE_ON: Intake during ball 1 recovery
+     *      - BALL2_FEED_INTAKE_ON: Intake during ball 2 feed
+     *      - BALL2_RECOVERY_INTAKE_ON: Intake during ball 2 recovery
+     *      - BALL3_FEED_INTAKE_ON: Intake during ball 3 feed
+     *      - FINISH_INTAKE_ON: Intake after all balls shot
+     *
+     *    EJECT CONTROL (true = EJECT, false = NORMAL):
+     *      - SPINUP_EJECT_ON: Eject during spinup phase
+     *      - BALL1_FEED_EJECT_ON: Eject during ball 1 feed
+     *      - BALL1_RECOVERY_EJECT_ON: Eject during ball 1 recovery
+     *      - BALL2_FEED_EJECT_ON: Eject during ball 2 feed
+     *      - BALL2_RECOVERY_EJECT_ON: Eject during ball 2 recovery
+     *      - BALL3_FEED_EJECT_ON: Eject during ball 3 feed
+     *      - FINISH_EJECT_ON: Eject after all balls shot
+     *
+     * 2. The calculated time markers (BALL1_START, BALL1_END, etc.) will
+     *    automatically update based on your timing constants
+     *
+     * SEQUENCE BREAKDOWN:
+     * Phase 1: Spinup (0s to SPINUP_TIME)
+     *   - Ramp: DOWN
+     *   - Intake: Controlled by SPINUP_INTAKE_ON
+     *   - Eject: Controlled by SPINUP_EJECT_ON
+     *   - Purpose: Let flywheel reach full speed
+     *
+     * Phase 2: Ball 1 Feed (BALL1_START to BALL1_END)
+     *   - Ramp: UP
+     *   - Intake: Controlled by BALL1_FEED_INTAKE_ON
+     *   - Eject: Controlled by BALL1_FEED_EJECT_ON
+     *   - Purpose: Feed ball 1 into flywheel
+     *
+     * Phase 3: Ball 1 Recovery (BALL1_END to BALL2_START)
+     *   - Ramp: DOWN
+     *   - Intake: Controlled by BALL1_RECOVERY_INTAKE_ON
+     *   - Eject: Controlled by BALL1_RECOVERY_EJECT_ON
+     *   - Purpose: Wait for ball 1 to clear, prepare next ball
+     *
+     * Phase 4: Ball 2 Feed (BALL2_START to BALL2_END)
+     *   - Ramp: UP
+     *   - Intake: Controlled by BALL2_FEED_INTAKE_ON
+     *   - Eject: Controlled by BALL2_FEED_EJECT_ON
+     *   - Purpose: Feed ball 2 into flywheel
+     *
+     * Phase 5: Ball 2 Recovery (BALL2_END to BALL3_START)
+     *   - Ramp: DOWN
+     *   - Intake: Controlled by BALL2_RECOVERY_INTAKE_ON
+     *   - Eject: Controlled by BALL2_RECOVERY_EJECT_ON
+     *   - Purpose: Wait for ball 2 to clear, prepare next ball
+     *
+     * Phase 6: Ball 3 Feed (BALL3_START to BALL3_END)
+     *   - Ramp: UP
+     *   - Intake: Controlled by BALL3_FEED_INTAKE_ON
+     *   - Eject: Controlled by BALL3_FEED_EJECT_ON
+     *   - Purpose: Feed ball 3 into flywheel
+     *
+     * Phase 7: Finish (BALL3_END onwards)
+     *   - Ramp: DOWN
+     *   - Intake: Controlled by FINISH_INTAKE_ON
+     *   - Eject: Controlled by FINISH_EJECT_ON
+     *   - Purpose: Shooting complete
+     *
+     * The flywheel stays at full power throughout the ENTIRE sequence
      */
     private void performShooting() {
-        // Keep flywheel spinning the entire time
+        // Keep flywheel spinning at full power the entire time
+        // This ensures consistent shot velocity for all 3 balls
         if (launcher.flyWheelMotor != null) {
             launcher.flyWheelMotor.setPower(FLYWHEEL_POWER);
         }
@@ -518,46 +683,118 @@ public class BlueFarImprovedArjun2 extends OpMode {
         launcher.setHoodPosition(HOOD_POSITION);
         launcher.setSpinning(true);
 
+        // Get current time in shooting sequence
         double elapsed = shootTimer.getElapsedTimeSeconds();
 
-        // Spin-up period (0-2.0s) - ramp down, no intake yet to let flywheel reach full speed
-        if (elapsed < 2.0) {
-            intakeTransfer.transferDown();
-            intakeTransfer.stopIntake();
+        // ========== PHASE 1: SPINUP ==========
+        // Wait for flywheel to reach full speed before feeding any balls
+        if (elapsed < SPINUP_TIME) {
+            intakeTransfer.transferDown();  // Ramp DOWN - no balls fed yet
+
+            // Control intake based on SPINUP_INTAKE_ON constant
+            if (SPINUP_EJECT_ON) {
+                intakeTransfer.startEject(1.0);  // Eject if enabled
+            } else if (SPINUP_INTAKE_ON) {
+                intakeTransfer.startIntake();     // Intake ON if enabled
+            } else {
+                intakeTransfer.stopIntake();      // Intake OFF if disabled
+            }
         }
-        // BALL 1: Ramp UP, Intake ON (2.0s - 2.15s)
-        else if (elapsed >= 2.0 && elapsed < 2.15) {
-            intakeTransfer.transferUp();
-            intakeTransfer.startIntake();
+
+        // ========== PHASE 2: BALL 1 FEED ==========
+        // Feed ball 1 into the flywheel
+        else if (elapsed >= BALL1_START && elapsed < BALL1_END) {
+            intakeTransfer.transferUp();    // Ramp UP - ball can transfer to flywheel
+
+            // Control intake based on BALL1_FEED_INTAKE_ON constant
+            if (BALL1_FEED_EJECT_ON) {
+                intakeTransfer.startEject(1.0);  // Eject if enabled
+            } else if (BALL1_FEED_INTAKE_ON) {
+                intakeTransfer.startIntake();     // Intake ON if enabled
+            } else {
+                intakeTransfer.stopIntake();      // Intake OFF if disabled
+            }
         }
-        // BALL 1: After 0.3s, Intake OFF, Ramp DOWN, then Intake ON (2.15s - 2.65s)
-        else if (elapsed >= 2.15 && elapsed < 2.65) {
-            intakeTransfer.transferDown();
-            intakeTransfer.startIntake();  // Intake turns back on immediately
+
+        // ========== PHASE 3: BALL 1 RECOVERY ==========
+        // Wait for ball 1 to fully clear the system
+        else if (elapsed >= BALL1_END && elapsed < BALL2_START) {
+            intakeTransfer.transferDown();  // Ramp DOWN - prevent premature feeding
+
+            // Control intake based on BALL1_RECOVERY_INTAKE_ON constant
+            if (BALL1_RECOVERY_EJECT_ON) {
+                intakeTransfer.startEject(1.0);  // Eject if enabled
+            } else if (BALL1_RECOVERY_INTAKE_ON) {
+                intakeTransfer.startIntake();     // Intake ON if enabled
+            } else {
+                intakeTransfer.stopIntake();      // Intake OFF if disabled
+            }
         }
-        // BALL 2: After 0.5s, Ramp UP (2.65s - 2.95s)
-        else if (elapsed >= 2.65 && elapsed < 2.95) {
-            intakeTransfer.transferUp();
-            intakeTransfer.startIntake();  // Keep intake on
+
+        // ========== PHASE 4: BALL 2 FEED ==========
+        // Feed ball 2 into the flywheel
+        else if (elapsed >= BALL2_START && elapsed < BALL2_END) {
+            intakeTransfer.transferUp();    // Ramp UP - ball can transfer to flywheel
+
+            // Control intake based on BALL2_FEED_INTAKE_ON constant
+            if (BALL2_FEED_EJECT_ON) {
+                intakeTransfer.startEject(1.0);  // Eject if enabled
+            } else if (BALL2_FEED_INTAKE_ON) {
+                intakeTransfer.startIntake();     // Intake ON if enabled
+            } else {
+                intakeTransfer.stopIntake();      // Intake OFF if disabled
+            }
         }
-        // BALL 2: After 0.3s, Intake OFF, Ramp DOWN, then Intake ON (2.95s - 3.45s)
-        else if (elapsed >= 2.95 && elapsed < 3.45) {
-            intakeTransfer.transferDown();
-            intakeTransfer.startIntake();  // Intake turns back on immediately
+
+        // ========== PHASE 5: BALL 2 RECOVERY ==========
+        // Wait for ball 2 to fully clear the system
+        else if (elapsed >= BALL2_END && elapsed < BALL3_START) {
+            intakeTransfer.transferDown();  // Ramp DOWN - prevent premature feeding
+
+            // Control intake based on BALL2_RECOVERY_INTAKE_ON constant
+            if (BALL2_RECOVERY_EJECT_ON) {
+                intakeTransfer.startEject(1.0);  // Eject if enabled
+            } else if (BALL2_RECOVERY_INTAKE_ON) {
+                intakeTransfer.startIntake();     // Intake ON if enabled
+            } else {
+                intakeTransfer.stopIntake();      // Intake OFF if disabled
+            }
         }
-        // BALL 3: After 0.5s, Ramp UP (3.45s - 3.75s)
-        else if (elapsed >= 3.45 && elapsed < 3.75) {
-            intakeTransfer.transferUp();
-            intakeTransfer.startIntake();  // Keep intake on
+
+        // ========== PHASE 6: BALL 3 FEED ==========
+        // Feed ball 3 into the flywheel
+        else if (elapsed >= BALL3_START && elapsed < BALL3_END) {
+            intakeTransfer.transferUp();    // Ramp UP - ball can transfer to flywheel
+
+            // Control intake based on BALL3_FEED_INTAKE_ON constant
+            if (BALL3_FEED_EJECT_ON) {
+                intakeTransfer.startEject(1.0);  // Eject if enabled
+            } else if (BALL3_FEED_INTAKE_ON) {
+                intakeTransfer.startIntake();     // Intake ON if enabled
+            } else {
+                intakeTransfer.stopIntake();      // Intake OFF if disabled
+            }
         }
-        // BALL 3: After 0.3s, Intake OFF, Ramp DOWN (3.75s+)
-        else if (elapsed >= 3.75) {
-            intakeTransfer.transferDown();
-            intakeTransfer.stopIntake();
+
+        // ========== PHASE 7: FINISH ==========
+        // All balls shot - turn off systems
+        else if (elapsed >= BALL3_END) {
+            intakeTransfer.transferDown();  // Ramp DOWN - shooting complete
+
+            // Control intake based on FINISH_INTAKE_ON constant
+            if (FINISH_EJECT_ON) {
+                intakeTransfer.startEject(1.0);  // Eject if enabled
+            } else if (FINISH_INTAKE_ON) {
+                intakeTransfer.startIntake();     // Intake ON if enabled
+            } else {
+                intakeTransfer.stopIntake();      // Intake OFF if disabled
+            }
         }
     }
+
     /**
-     * Stop shooting and turn off systems
+     * Stop shooting and turn off all shooter systems
+     * Turns off flywheel motors, stops intake, and lowers transfer ramp
      */
     private void stopShooting() {
         launcher.setSpinning(false);
@@ -573,6 +810,7 @@ public class BlueFarImprovedArjun2 extends OpMode {
 
     /**
      * Helper method to transition between path states
+     * Resets the path timer when switching to a new state
      */
     private void setPathState(PathState newState) {
         if (pathState != newState) {
@@ -583,8 +821,10 @@ public class BlueFarImprovedArjun2 extends OpMode {
 
     /**
      * Update telemetry with robot state and debugging information
+     * Displays autonomous status, shooter status, and robot position
      */
     private void updateTelemetry() {
+        // Display current autonomous state
         telemetry.addLine("=== Autonomous Status ===");
         telemetry.addData("Path State", pathState);
         telemetry.addData("Follower Busy", follower.isBusy());
@@ -592,12 +832,39 @@ public class BlueFarImprovedArjun2 extends OpMode {
         telemetry.addData("Path Time (s)", String.format("%.2f", pathTimer.getElapsedTimeSeconds()));
         telemetry.addData("OpMode Time (s)", String.format("%.2f", opModeTimer.getElapsedTimeSeconds()));
 
+        // Display shooter system status with detailed timing during shooting
         telemetry.addLine();
         telemetry.addLine("=== Shooter Status ===");
         telemetry.addData("Flywheel", launcher.isSpinning() ? "ON" : "OFF");
         telemetry.addData("Hood Position", String.format("%.2f", launcher.getHoodPosition()));
         telemetry.addData("Turret", String.format("%.2f (locked)", TURRET_LOCKED_POSITION));
 
+        // If currently shooting, display detailed timing information
+        if (pathState == PathState.PRELOAD_SHOOTING ||
+                pathState == PathState.SHOOTING_SET_1 ||
+                pathState == PathState.SHOOTING_SET_2) {
+            double elapsed = shootTimer.getElapsedTimeSeconds();
+            telemetry.addData("Shoot Timer", String.format("%.2fs", elapsed));
+
+            // Display current phase of shooting sequence
+            if (elapsed < SPINUP_TIME) {
+                telemetry.addData("Phase", "SPINUP");
+            } else if (elapsed < BALL1_END) {
+                telemetry.addData("Phase", "BALL 1 FEED");
+            } else if (elapsed < BALL2_START) {
+                telemetry.addData("Phase", "BALL 1 RECOVERY");
+            } else if (elapsed < BALL2_END) {
+                telemetry.addData("Phase", "BALL 2 FEED");
+            } else if (elapsed < BALL3_START) {
+                telemetry.addData("Phase", "BALL 2 RECOVERY");
+            } else if (elapsed < BALL3_END) {
+                telemetry.addData("Phase", "BALL 3 FEED");
+            } else {
+                telemetry.addData("Phase", "FINISH");
+            }
+        }
+
+        // Display current robot position
         telemetry.addLine();
         telemetry.addLine("=== Robot Position ===");
         Pose currentPose = follower.getPose();
@@ -605,6 +872,7 @@ public class BlueFarImprovedArjun2 extends OpMode {
         telemetry.addData("Y", String.format("%.2f", currentPose.getY()));
         telemetry.addData("Heading (deg)", String.format("%.2f", Math.toDegrees(currentPose.getHeading())));
 
+        // Display warning if approaching autonomous timeout
         telemetry.addLine();
         if (opModeTimer.getElapsedTimeSeconds() > 27) {
             telemetry.addLine("WARNING: Approaching 30-second autonomous timeout!");
@@ -613,16 +881,22 @@ public class BlueFarImprovedArjun2 extends OpMode {
         telemetry.update();
     }
 
+    /**
+     * Stop method - called when autonomous ends
+     * Turns off all robot systems and stops path following
+     */
     @Override
     public void stop() {
-        // Turn off all systems
+        // Turn off launcher
         if (launcher != null) {
             launcher.setSpinning(false);
         }
+        // Turn off intake and lower ramp
         if (intakeTransfer != null) {
             intakeTransfer.stopIntake();
             intakeTransfer.transferDown();
         }
+        // Stop following paths
         follower.breakFollowing();
     }
 
@@ -632,124 +906,98 @@ public class BlueFarImprovedArjun2 extends OpMode {
      * ========================================
      *
      * All paths use extracted Pose constants for maintainability
+     * This inner class builds all the paths used during autonomous
      */
     public static class Paths {
-        // First Ball Set
-        public PathChain goingToNearestBalls;
-        public PathChain gettingFirstBallSet1;
-        public PathChain gettingSecondBallSet1;
-        public PathChain gettingThirdBallSet1;
-        public PathChain goingBackToShootSet1;
+        // ========== FIRST BALL SET PATHS ==========
+        public PathChain goingToNearestBalls;     // Fast approach to spike 1
+        public PathChain gettingFirstBallSet1;    // Collect ball 1 from spike 1
+        public PathChain gettingSecondBallSet1;   // Collect ball 2 from spike 1
+        public PathChain gettingThirdBallSet1;    // Collect ball 3 from spike 1
+        public PathChain goingBackToShootSet1;    // Return to shooting position
 
-        // Second Ball Set
-        public PathChain gettingNextSetOfBalls;
-        public PathChain gettingFirstBallSet2;
-        public PathChain gettingSecondBallSet2;
-        public PathChain gettingThirdBallSet2;
-        public PathChain goingBackToShootSet2;
-
-        // Third Ball Set
-        public PathChain gettingThirdSetOfBalls;
-        public PathChain gettingFirstBallSet3;
-        public PathChain gettingSecondBallSet3;
-        public PathChain gettingThirdBallSet3;
-        public PathChain path15;
+        // ========== SECOND BALL SET PATHS ==========
+        public PathChain gettingNextSetOfBalls;   // Curved approach to spike 2
+        public PathChain gettingFirstBallSet2;    // Collect ball 1 from spike 2
+        public PathChain gettingSecondBallSet2;   // Collect ball 2 from spike 2
+        public PathChain gettingThirdBallSet2;    // Collect ball 3 from spike 2
+        public PathChain goingBackToShootSet2;    // Return to shooting position
 
         /**
          * Constructor - Build all paths using pose constants
+         * Paths are built using either BezierLine (straight) or BezierCurve (curved)
+         * Heading interpolation determines how the robot rotates during the path:
+         * - setConstantHeadingInterpolation: Robot maintains constant heading
+         * - setTangentHeadingInterpolation: Robot heading follows path tangent
          */
         public Paths(Follower follower) {
             // ========== FIRST BALL SET PATHS ==========
 
+            // Path 1: Fast straight-line approach from shooting position to spike 1 approach point
             goingToNearestBalls = follower.pathBuilder()
                     .addPath(new BezierLine(SHOOT_POSE, SPIKE1_APPROACH))
-                    .setConstantHeadingInterpolation(HEADING_180)
+                    .setConstantHeadingInterpolation(HEADING_180)  // Maintain 180° heading
                     .build();
 
+            // Path 2: Slow precise movement to first ball
             gettingFirstBallSet1 = follower.pathBuilder()
                     .addPath(new BezierLine(SPIKE1_APPROACH, SPIKE1_BALL1))
-                    .setTangentHeadingInterpolation()
+                    .setTangentHeadingInterpolation()  // Follow path direction
                     .build();
 
+            // Path 3: Slow precise movement to second ball
             gettingSecondBallSet1 = follower.pathBuilder()
                     .addPath(new BezierLine(SPIKE1_BALL1, SPIKE1_BALL2))
                     .setTangentHeadingInterpolation()
                     .build();
 
+            // Path 4: Slow precise movement to third ball
             gettingThirdBallSet1 = follower.pathBuilder()
                     .addPath(new BezierLine(SPIKE1_BALL2, SPIKE1_BALL3))
                     .setTangentHeadingInterpolation()
                     .build();
 
+            // Path 5: Fast return to shooting position
             goingBackToShootSet1 = follower.pathBuilder()
                     .addPath(new BezierLine(SPIKE1_RETURN_START, SHOOT_POSE_OFFSET))
-                    .setConstantHeadingInterpolation(HEADING_180)
+                    .setConstantHeadingInterpolation(HEADING_180)  // Maintain 180° heading
                     .build();
 
             // ========== SECOND BALL SET PATHS ==========
 
+            // Path 6: Fast curved approach from shooting position to spike 2 approach point
+            // Uses Bezier curve with control point for smooth curved path
             gettingNextSetOfBalls = follower.pathBuilder()
                     .addPath(new BezierCurve(
-                            SHOOT_POSE,
-                            SPIKE2_CURVE_CONTROL,
-                            SPIKE2_APPROACH
+                            SHOOT_POSE,              // Start point
+                            SPIKE2_CURVE_CONTROL,    // Control point (determines curve shape)
+                            SPIKE2_APPROACH          // End point
                     ))
-                    .setConstantHeadingInterpolation(HEADING_180)
+                    .setConstantHeadingInterpolation(HEADING_180)  // Maintain 180° heading
                     .build();
 
+            // Path 7: Slow precise movement to first ball of spike 2
             gettingFirstBallSet2 = follower.pathBuilder()
                     .addPath(new BezierLine(SPIKE2_APPROACH, SPIKE2_BALL1))
                     .setTangentHeadingInterpolation()
                     .build();
 
+            // Path 8: Slow precise movement to second ball of spike 2
             gettingSecondBallSet2 = follower.pathBuilder()
                     .addPath(new BezierLine(SPIKE2_BALL1, SPIKE2_BALL2))
                     .setTangentHeadingInterpolation()
                     .build();
 
+            // Path 9: Slow precise movement to third ball of spike 2
             gettingThirdBallSet2 = follower.pathBuilder()
                     .addPath(new BezierLine(SPIKE2_BALL2, SPIKE2_BALL3))
                     .setTangentHeadingInterpolation()
                     .build();
 
+            // Path 10: Fast return to shooting position
             goingBackToShootSet2 = follower.pathBuilder()
                     .addPath(new BezierLine(SPIKE2_BALL3, SHOOT_POSE))
-                    .setConstantHeadingInterpolation(HEADING_180)
-                    .build();
-
-            // ========== THIRD BALL SET PATHS ==========
-
-            gettingThirdSetOfBalls = follower.pathBuilder()
-                    .addPath(new BezierCurve(
-                            SHOOT_POSE,
-                            SPIKE3_CURVE_CONTROL,
-                            SPIKE3_APPROACH
-                    ))
-                    .setConstantHeadingInterpolation(HEADING_180)
-                    .build();
-
-            gettingFirstBallSet3 = follower.pathBuilder()
-                    .addPath(new BezierLine(SPIKE3_APPROACH, SPIKE3_BALL1))
-                    .setConstantHeadingInterpolation(HEADING_180)
-                    .build();
-
-            gettingSecondBallSet3 = follower.pathBuilder()
-                    .addPath(new BezierLine(SPIKE3_BALL1, SPIKE3_BALL2))
-                    .setTangentHeadingInterpolation()
-                    .build();
-
-            gettingThirdBallSet3 = follower.pathBuilder()
-                    .addPath(new BezierLine(SPIKE3_BALL2, SPIKE3_BALL3))
-                    .setTangentHeadingInterpolation()
-                    .build();
-
-            path15 = follower.pathBuilder()
-                    .addPath(new BezierCurve(
-                            SPIKE3_BALL3,
-                            FINAL_CURVE_CONTROL,
-                            FINAL_POSE
-                    ))
-                    .setConstantHeadingInterpolation(HEADING_180)
+                    .setConstantHeadingInterpolation(HEADING_180)  // Maintain 180° heading
                     .build();
         }
     }
