@@ -24,7 +24,6 @@ import org.firstinspires.ftc.teamcode.core.constants.HardwareConfig;
  * MANUAL INTAKE/EJECT (when NOT shooting):
  * - RIGHT TRIGGER: Manual intake (hold to run)
  * - LEFT TRIGGER: Manual eject (hold to run)
- *
  * PARAMETER SELECTION (D-PAD):
  * - D-PAD LEFT: Previous parameter
  * - D-PAD RIGHT: Next parameter
@@ -272,7 +271,7 @@ public class SHOOTINGSEQUENCETEST extends OpMode {
      * Adjust the selected parameter
      */
     private void adjustParameter(Parameter param, boolean increase) {
-        double delta = increase ? 0.05 : -0.05;
+        double delta = increase ? 0.01 : -0.01;
 
         switch (param) {
             case FLYWHEEL_POWER:

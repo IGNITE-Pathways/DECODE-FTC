@@ -14,6 +14,14 @@ import org.firstinspires.ftc.teamcode.core.components.IntakeTransfer;
 import org.firstinspires.ftc.teamcode.core.components.Launcher;
 import org.firstinspires.ftc.teamcode.core.constants.HardwareConfig;
 
+
+
+
+// NOTES FOR AUTON POSITIONS
+
+// IN PRELOAD MAKE FLYWHEEL POWER 0.58
+
+
 /**
  * Combined Autonomous OpMode for Ball Collection Routine
  *
@@ -34,13 +42,28 @@ import org.firstinspires.ftc.teamcode.core.constants.HardwareConfig;
 public class BlueNear extends OpMode {
 
     // ==================== SHOOTING CONSTANTS ====================
-    // These constants define the 10ft shooting preset configuration
-    private static final double FLYWHEEL_POWER = 0.75;  // Full power for flywheel motors
-    private static final double HOOD_POSITION = 0.55;   // Hood servo position for 10ft shots
-    private static final double SHOOT_TIME_SECONDS = 6.0;  // Total time allocated for each shooting sequence
+// PRELOAD SHOOTING CONFIGURATION
+    private static final double PRELOAD_FLYWHEEL_POWER = 0.6;  // Per note: use 0.58 for preload
+    private static final double PRELOAD_HOOD_POSITION = 0.35;
+    private static final double PRELOAD_TURRET_POSITION = 0.75;
 
-    // Turret servo position - locked to prevent rotation during autonomous
-    private static final double TURRET_LOCKED_POSITION = 0.6;
+    // FIRST SPIKE MARK SHOOTING CONFIGURATION
+    private static final double SET1_FLYWHEEL_POWER = 0.6;
+    private static final double SET1_HOOD_POSITION = 0.7;
+    private static final double SET1_TURRET_POSITION = 0.6;
+
+    // SECOND SPIKE MARK SHOOTING CONFIGURATION
+    private static final double SET2_FLYWHEEL_POWER = 0.55;
+    private static final double SET2_HOOD_POSITION = 0.6;
+    private static final double SET2_TURRET_POSITION = 0.6;
+
+    // Shared shooting timing constants (same for all sets)
+    private static final double SHOOT_TIME_SECONDS = 6.0;
+
+    // Active shooting configuration (will be updated based on current set)
+    private double activeFlywheelPower = PRELOAD_FLYWHEEL_POWER;
+    private double activeHoodPosition = PRELOAD_HOOD_POSITION;
+    private double activeTurretPosition = PRELOAD_TURRET_POSITION;
 
     // Path speed configuration - default speed for ball collection (45% power)
     private static final double PATH_SPEED = 0.45;
@@ -214,7 +237,6 @@ public class BlueNear extends OpMode {
         // Initialize turret servo and lock it in position
         try {
             turretServo = hardwareMap.get(Servo.class, HardwareConfig.TURRET_SERVO);
-            turretServo.setPosition(TURRET_LOCKED_POSITION);
             telemetry.addLine("Turret Servo: OK");
         } catch (Exception e) {
             turretServo = null;
@@ -259,10 +281,7 @@ public class BlueNear extends OpMode {
      */
     @Override
     public void init_loop() {
-        // Keep turret locked during init
-        if (turretServo != null) {
-            turretServo.setPosition(TURRET_LOCKED_POSITION);
-        }
+
     }
 
     /**
@@ -289,10 +308,6 @@ public class BlueNear extends OpMode {
         // Launcher update handles flywheel ramping and hood positioning
         launcher.update();
 
-        // Keep turret locked throughout autonomous
-        if (turretServo != null) {
-            turretServo.setPosition(TURRET_LOCKED_POSITION);
-        }
 
         // Execute current path state logic
         autonomousPathUpdate();
@@ -310,9 +325,10 @@ public class BlueNear extends OpMode {
         switch (pathState) {
             // ========== PRELOAD SHOOTING ==========
             case PRELOAD_SHOOT_SETUP:
-                // Configure shooter for 10ft preset
-                launcher.setPower(FLYWHEEL_POWER);
-                launcher.setHoodPosition(HOOD_POSITION);
+                setShootingConfiguration(PathState.PRELOAD_SHOOTING);
+                launcher.setPower(activeFlywheelPower);
+                launcher.setHoodPosition(activeHoodPosition);
+
                 launcher.setSpinning(true);  // Start flywheel spinning
 
                 // Raise transfer ramp and start intake to feed balls
@@ -403,10 +419,8 @@ public class BlueNear extends OpMode {
                 break;
 
             case GOING_BACK_TO_SHOOT_SET_1:
-                // Wait for robot to reach shooting position
                 if (!follower.isBusy()) {
-                    // At shooting position - start shooting sequence
-                    startShooting();
+                    startShooting(PathState.SHOOTING_SET_1);
                     setPathState(PathState.SHOOTING_SET_1);
                 }
                 break;
@@ -482,10 +496,8 @@ public class BlueNear extends OpMode {
                 break;
 
             case GOING_BACK_TO_SHOOT_SET_2:
-                // Wait for robot to reach shooting position
                 if (!follower.isBusy()) {
-                    // At shooting position - start shooting sequence
-                    startShooting();
+                    startShooting(PathState.SHOOTING_SET_2);
                     setPathState(PathState.SHOOTING_SET_2);
                 }
                 break;
@@ -513,16 +525,43 @@ public class BlueNear extends OpMode {
             setPathState(PathState.IDLE);
         }
     }
+    /**
+     * Set shooting configuration based on which set of balls is being shot
+     */
+    private void setShootingConfiguration(PathState state) {
+        if (state == PathState.PRELOAD_SHOOTING) {
+            activeFlywheelPower = PRELOAD_FLYWHEEL_POWER;
+            activeHoodPosition = PRELOAD_HOOD_POSITION;
+            activeTurretPosition = PRELOAD_TURRET_POSITION;
+        } else if (state == PathState.SHOOTING_SET_1) {
+            activeFlywheelPower = SET1_FLYWHEEL_POWER;
+            activeHoodPosition = SET1_HOOD_POSITION;
+            activeTurretPosition = SET1_TURRET_POSITION;
+        } else if (state == PathState.SHOOTING_SET_2) {
+            activeFlywheelPower = SET2_FLYWHEEL_POWER;
+            activeHoodPosition = SET2_HOOD_POSITION;
+            activeTurretPosition = SET2_TURRET_POSITION;
+        }
+    }
+
 
     /**
      * Start shooting sequence
      * Sets up shooter configuration, raises transfer ramp, and starts intake
      */
-    private void startShooting() {
-        // Configure shooter for 10ft preset
-        launcher.setPower(FLYWHEEL_POWER);
-        launcher.setHoodPosition(HOOD_POSITION);
+    private void startShooting(PathState shootingState) {
+        // Set the appropriate shooting configuration
+        setShootingConfiguration(shootingState);
+
+        // Configure shooter with active configuration
+        launcher.setPower(activeFlywheelPower);
+        launcher.setHoodPosition(activeHoodPosition);
         launcher.setSpinning(true);
+
+        // Set turret to active position
+        if (turretServo != null) {
+            turretServo.setPosition(activeTurretPosition);
+        }
 
         // Raise transfer ramp and start intake to feed balls
         intakeTransfer.transferUp();
@@ -674,15 +713,22 @@ public class BlueNear extends OpMode {
      * The flywheel stays at full power throughout the ENTIRE sequence
      */
     private void performShooting() {
-        // Keep flywheel spinning at full power the entire time
-        // This ensures consistent shot velocity for all 3 balls
+
+
+
+        // Keep turret at active position
+        if (turretServo != null) {
+            turretServo.setPosition(activeTurretPosition);
+        }
+// Keep flywheel spinning at active power the entire time
+// This ensures consistent shot velocity for all 3 balls
         if (launcher.flyWheelMotor != null) {
-            launcher.flyWheelMotor.setPower(FLYWHEEL_POWER);
+            launcher.flyWheelMotor.setPower(activeFlywheelPower);  // ✅ CORRECT
         }
         if (launcher.flyWheelMotor2 != null) {
-            launcher.flyWheelMotor2.setPower(FLYWHEEL_POWER);
+            launcher.flyWheelMotor2.setPower(activeFlywheelPower);  // ✅ CORRECT
         }
-        launcher.setHoodPosition(HOOD_POSITION);
+        launcher.setHoodPosition(activeHoodPosition);  // ✅ CORRECT
         launcher.setSpinning(true);
 
         // Get current time in shooting sequence
@@ -839,8 +885,7 @@ public class BlueNear extends OpMode {
         telemetry.addLine("=== Shooter Status ===");
         telemetry.addData("Flywheel", launcher.isSpinning() ? "ON" : "OFF");
         telemetry.addData("Hood Position", String.format("%.2f", launcher.getHoodPosition()));
-        telemetry.addData("Turret", String.format("%.2f (locked)", TURRET_LOCKED_POSITION));
-
+        telemetry.addData("Turret", String.format("%.2f", activeTurretPosition));
         // If currently shooting, display detailed timing information
         if (pathState == PathState.PRELOAD_SHOOTING ||
                 pathState == PathState.SHOOTING_SET_1 ||
