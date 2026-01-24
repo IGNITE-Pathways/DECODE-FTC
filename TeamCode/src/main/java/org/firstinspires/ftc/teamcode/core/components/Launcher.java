@@ -10,7 +10,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.core.constants.HardwareConfig;
-import org.firstinspires.ftc.teamcode.core.constants.ShooterConstants;
+import org.firstinspires.ftc.teamcode.core.constants.RobotConstants;
 
 public class Launcher {
     // private ProgrammingBoardOTHER board;
@@ -19,9 +19,9 @@ public class Launcher {
     public DcMotorEx flyWheelMotor = null;
     public DcMotorEx flyWheelMotor2 = null;
 
-    private double flywheelPower = ShooterConstants.FLYWHEEL_DEFAULT_POWER;
+    private double flywheelPower = RobotConstants.FLYWHEEL_DEFAULT_POWER;
     private boolean spinning = false;
-    private double hoodPosition = ShooterConstants.HOOD_DEFAULT_POSITION;
+    private double hoodPosition = RobotConstants.HOOD_DEFAULT_POSITION;
     private boolean autoHoodEnabled = false;  // Enable distance-based hood adjustment
     private double lastDistance = -1;         // Last known distance for auto-hood
 
@@ -33,15 +33,15 @@ public class Launcher {
     private static final double CRITICAL_VOLTAGE = 10.5; // Emergency shutoff for PIDF mode
 
     // ==================== PIDF VELOCITY CONTROL ====================
-    // All PIDF values come from ShooterConstants - update there after tuning!
-    private boolean useVelocityControl = ShooterConstants.USE_VELOCITY_CONTROL;
-    private double targetRPM = ShooterConstants.DEFAULT_TARGET_RPM;
+    // All PIDF values come from RobotConstants - update there after tuning!
+    private boolean useVelocityControl = RobotConstants.USE_VELOCITY_CONTROL;
+    private double targetRPM = RobotConstants.DEFAULT_TARGET_RPM;
 
-    // PIDF Gains - loaded from ShooterConstants (tune using FlywheelPIDFTuner)
-    private double kP = ShooterConstants.FLYWHEEL_KP;
-    private double kI = ShooterConstants.FLYWHEEL_KI;
-    private double kD = ShooterConstants.FLYWHEEL_KD;
-    private double kF = ShooterConstants.FLYWHEEL_KF;
+    // PIDF Gains - loaded from RobotConstants (tune using FlywheelPIDFTuner)
+    private double kP = RobotConstants.FLYWHEEL_KP;
+    private double kI = RobotConstants.FLYWHEEL_KI;
+    private double kD = RobotConstants.FLYWHEEL_KD;
+    private double kF = RobotConstants.FLYWHEEL_KF;
 
     // PID state
     private double integral = 0.0;
@@ -233,7 +233,7 @@ public class Launcher {
     }
 
     public void decrementHood() {
-        adjustHoodPosition(-ShooterConstants.HOOD_INCREMENT);
+        adjustHoodPosition(-RobotConstants.HOOD_INCREMENT);
     }
 
     // ==================== DISTANCE-BASED HOOD ADJUSTMENT ====================
@@ -252,7 +252,7 @@ public class Launcher {
 
     /**
      * Update hood position based on distance to target.
-     * Uses lookup table from ShooterConstants for optimal angle.
+     * Uses lookup table from RobotConstants for optimal angle.
      *
      * @param distanceFeet Distance to target in feet (from turret/limelight)
      */
@@ -262,7 +262,7 @@ public class Launcher {
         }
 
         lastDistance = distanceFeet;
-        double optimalPosition = ShooterConstants.getHoodPositionForDistance(distanceFeet);
+        double optimalPosition = RobotConstants.getHoodPositionForDistance(distanceFeet);
         setHoodPosition(optimalPosition);
     }
 
@@ -280,11 +280,11 @@ public class Launcher {
         lastDistance = distanceFeet;
 
         if (autoHoodEnabled) {
-            double optimalHood = ShooterConstants.getHoodPositionForDistance(distanceFeet);
+            double optimalHood = RobotConstants.getHoodPositionForDistance(distanceFeet);
             setHoodPosition(optimalHood);
         }
 
-        double optimalPower = ShooterConstants.getFlywheelPowerForDistance(distanceFeet);
+        double optimalPower = RobotConstants.getFlywheelPowerForDistance(distanceFeet);
         setPower(optimalPower);
     }
 

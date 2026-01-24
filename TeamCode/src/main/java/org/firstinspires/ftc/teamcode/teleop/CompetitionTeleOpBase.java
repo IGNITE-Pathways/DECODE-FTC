@@ -9,13 +9,13 @@ import org.firstinspires.ftc.teamcode.core.components.Launcher;
 import org.firstinspires.ftc.teamcode.core.components.IntakeTransfer;
 import org.firstinspires.ftc.teamcode.core.components.TurretLockOptimized;
 import org.firstinspires.ftc.teamcode.core.constants.AllianceColor;
-import org.firstinspires.ftc.teamcode.core.constants.ShooterConstants;
+import org.firstinspires.ftc.teamcode.core.constants.RobotConstants;
 import org.firstinspires.ftc.teamcode.core.util.DistanceCalculator;
 
 /**
  * *** COMPETITION TELEOP ***
  *
- * ALL SETTINGS (PIDF gains, RPM ranges, hood positions) are in ShooterConstants.java!
+ * ALL SETTINGS (PIDF gains, RPM ranges, hood positions) are in RobotConstants.java!
  * After tuning, update values there - they automatically apply here.
  *
  * === GAMEPAD 1 (Driver/Shooter) ===
@@ -53,8 +53,8 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
 
     // State
     private boolean flywheelOn = false;
-    private double flywheelRPM = ShooterConstants.DEFAULT_TARGET_RPM;  // Loaded from ShooterConstants
-    private double hoodPosition = ShooterConstants.HOOD_DEFAULT_POSITION;
+    private double flywheelRPM = RobotConstants.DEFAULT_TARGET_RPM;  // Loaded from ShooterConstants
+    private double hoodPosition = RobotConstants.HOOD_DEFAULT_POSITION;
     private String selectedPreset = "DEFAULT";
     private boolean turretTracking = false;
     private boolean distanceDetectionEnabled = false;  // Default: OFF
@@ -117,12 +117,17 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
         driveTrain = new DriveTrain();
         driveTrain.initialize(hardwareMap, telemetry);
 
+        // Apply driver comfort settings from ShooterConstants
+        driveTrain.setInputCurve(RobotConstants.DRIVE_INPUT_CURVE);
+        driveTrain.setRotationSensitivity(RobotConstants.ROTATION_SENSITIVITY);
+        driveTrain.setBatteryCompensationEnabled(RobotConstants.ENABLE_BATTERY_COMPENSATION);
+
         launcher = new Launcher();
         launcher.initialize(hardwareMap, telemetry);
 
         // PIDF velocity control enabled/disabled from ShooterConstants
-        // Tune gains using FlywheelPIDFTuner, then update ShooterConstants.java
-        launcher.setVelocityControlEnabled(ShooterConstants.USE_VELOCITY_CONTROL);
+        // Tune gains using FlywheelPIDFTuner, then update RobotConstants.java
+        launcher.setVelocityControlEnabled(RobotConstants.USE_VELOCITY_CONTROL);
 
         intakeTransfer = new IntakeTransfer();
         intakeTransfer.initialize(hardwareMap, telemetry);
@@ -182,14 +187,14 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
         // Reduce speed while flywheel is active for better shooting accuracy
         double speedMult = 1.0;
         if (flywheelOn) {
-            speedMult = ShooterConstants.SPEED_SHOOTING_MULTIPLIER;
+            speedMult = RobotConstants.SPEED_SHOOTING_MULTIPLIER;
         }
 
         driveTrain.driveRaw(fwd * speedMult, str * speedMult, rot * speedMult);
     }
 
     private double applyDeadzone(double input) {
-        if (Math.abs(input) < ShooterConstants.JOYSTICK_DEAD_ZONE) {
+        if (Math.abs(input) < RobotConstants.JOYSTICK_DEAD_ZONE) {
             return 0;
         }
         return input;
@@ -217,32 +222,32 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
 
         // Gamepad 2 Left Stick X: Continuous manual control
         double stickInput = -gamepad2.left_stick_x;  // Inverted for intuitive control
-        if (Math.abs(stickInput) > ShooterConstants.TURRET_MANUAL_STICK_DEADZONE) {
-            double adjustment = stickInput * ShooterConstants.TURRET_MANUAL_STICK_SENSITIVITY;
+        if (Math.abs(stickInput) > RobotConstants.TURRET_MANUAL_STICK_DEADZONE) {
+            double adjustment = stickInput * RobotConstants.TURRET_MANUAL_STICK_SENSITIVITY;
             currentPos += adjustment;
         }
 
         // Gamepad 2 DPAD Left: Small increment left
         if (gamepad2.dpad_left && !lastGP2_DpadLeft) {
-            currentPos -= ShooterConstants.TURRET_MANUAL_INCREMENT;
+            currentPos -= RobotConstants.TURRET_MANUAL_INCREMENT;
         }
         lastGP2_DpadLeft = gamepad2.dpad_left;
 
         // Gamepad 2 DPAD Right: Small increment right
         if (gamepad2.dpad_right && !lastGP2_DpadRight) {
-            currentPos += ShooterConstants.TURRET_MANUAL_INCREMENT;
+            currentPos += RobotConstants.TURRET_MANUAL_INCREMENT;
         }
         lastGP2_DpadRight = gamepad2.dpad_right;
 
         // Gamepad 2 X: Reset to center
         if (gamepad2.x && !lastGP2_X) {
-            currentPos = ShooterConstants.TURRET_CENTER_POSITION;
+            currentPos = RobotConstants.TURRET_CENTER_POSITION;
         }
         lastGP2_X = gamepad2.x;
 
         // Clamp position to valid range
-        currentPos = Math.max(ShooterConstants.TURRET_MIN_POSITION,
-                             Math.min(ShooterConstants.TURRET_MAX_POSITION, currentPos));
+        currentPos = Math.max(RobotConstants.TURRET_MIN_POSITION,
+                             Math.min(RobotConstants.TURRET_MAX_POSITION, currentPos));
 
         // Apply position
         turret.setPositionDirect(currentPos);
@@ -250,9 +255,9 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
 
     // GP1: RT = Intake, LT = Eject
     private void handleIntake() {
-        if (gamepad1.right_trigger > ShooterConstants.TRIGGER_DEADZONE) {
+        if (gamepad1.right_trigger > RobotConstants.TRIGGER_DEADZONE) {
             intakeTransfer.startIntake(gamepad1.right_trigger);
-        } else if (gamepad1.left_trigger > ShooterConstants.TRIGGER_DEADZONE) {
+        } else if (gamepad1.left_trigger > RobotConstants.TRIGGER_DEADZONE) {
             intakeTransfer.startEject(gamepad1.left_trigger);
         } else {
             intakeTransfer.stopIntake();
@@ -276,8 +281,8 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
             distanceDetectionEnabled = false;
             currentDistance = -1.0;
             lockedDistance = -1.0;
-            flywheelRPM = ShooterConstants.DEFAULT_TARGET_RPM;
-            hoodPosition = ShooterConstants.HOOD_DEFAULT_POSITION;
+            flywheelRPM = RobotConstants.DEFAULT_TARGET_RPM;
+            hoodPosition = RobotConstants.HOOD_DEFAULT_POSITION;
             selectedPreset = "DEFAULT";
             if (flywheelOn) {
                 launcher.setTargetRPM(flywheelRPM);
@@ -289,9 +294,9 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
         // DPAD LEFT: Quick far zone preset (5.7+ ft, max distance)
         if (gamepad1.dpad_left && !lastGP1_DpadLeft) {
             distanceDetectionEnabled = false;
-            lockedDistance = ShooterConstants.RANGE_FAR_MIN;
-            flywheelRPM = ShooterConstants.RANGE_FAR_FLYWHEEL_RPM;
-            hoodPosition = ShooterConstants.RANGE_FAR_HOOD_POSITION;
+            lockedDistance = RobotConstants.RANGE_FAR_MIN;
+            flywheelRPM = RobotConstants.RANGE_FAR_FLYWHEEL_RPM;
+            hoodPosition = RobotConstants.RANGE_FAR_HOOD_POSITION;
             selectedPreset = "FAR ZONE (Manual)";
             if (flywheelOn) {
                 launcher.setTargetRPM(flywheelRPM);
@@ -360,51 +365,51 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
         // All range values loaded from ShooterConstants - update there after testing!
         // Check ranges in order (most specific to least specific)
 
-        if (distance >= ShooterConstants.RANGE_1_MIN && distance < ShooterConstants.RANGE_1_MAX) {
-            flywheelRPM = ShooterConstants.RANGE_1_FLYWHEEL_RPM;
-            hoodPosition = ShooterConstants.RANGE_1_HOOD_POSITION;
+        if (distance >= RobotConstants.RANGE_1_MIN && distance < RobotConstants.RANGE_1_MAX) {
+            flywheelRPM = RobotConstants.RANGE_1_FLYWHEEL_RPM;
+            hoodPosition = RobotConstants.RANGE_1_HOOD_POSITION;
             selectedPreset = String.format("RANGE 1 (%.2fft @ %.0fRPM)", distance, flywheelRPM);
 
-        } else if (distance >= ShooterConstants.RANGE_2_MIN && distance < ShooterConstants.RANGE_2_MAX) {
-            flywheelRPM = ShooterConstants.RANGE_2_FLYWHEEL_RPM;
-            hoodPosition = ShooterConstants.RANGE_2_HOOD_POSITION;
+        } else if (distance >= RobotConstants.RANGE_2_MIN && distance < RobotConstants.RANGE_2_MAX) {
+            flywheelRPM = RobotConstants.RANGE_2_FLYWHEEL_RPM;
+            hoodPosition = RobotConstants.RANGE_2_HOOD_POSITION;
             selectedPreset = String.format("RANGE 2 (%.2fft @ %.0fRPM)", distance, flywheelRPM);
 
-        } else if (distance >= ShooterConstants.RANGE_3_MIN && distance < ShooterConstants.RANGE_3_MAX) {
-            flywheelRPM = ShooterConstants.RANGE_3_FLYWHEEL_RPM;
-            hoodPosition = ShooterConstants.RANGE_3_HOOD_POSITION;
+        } else if (distance >= RobotConstants.RANGE_3_MIN && distance < RobotConstants.RANGE_3_MAX) {
+            flywheelRPM = RobotConstants.RANGE_3_FLYWHEEL_RPM;
+            hoodPosition = RobotConstants.RANGE_3_HOOD_POSITION;
             selectedPreset = String.format("RANGE 3 (%.2fft @ %.0fRPM)", distance, flywheelRPM);
 
-        } else if (distance >= ShooterConstants.RANGE_4_MIN && distance < ShooterConstants.RANGE_4_MAX) {
-            flywheelRPM = ShooterConstants.RANGE_4_FLYWHEEL_RPM;
-            hoodPosition = ShooterConstants.RANGE_4_HOOD_POSITION;
+        } else if (distance >= RobotConstants.RANGE_4_MIN && distance < RobotConstants.RANGE_4_MAX) {
+            flywheelRPM = RobotConstants.RANGE_4_FLYWHEEL_RPM;
+            hoodPosition = RobotConstants.RANGE_4_HOOD_POSITION;
             selectedPreset = String.format("RANGE 4 (%.2fft @ %.0fRPM)", distance, flywheelRPM);
 
-        } else if (distance >= ShooterConstants.RANGE_6_MIN && distance < ShooterConstants.RANGE_6_MAX) {
+        } else if (distance >= RobotConstants.RANGE_6_MIN && distance < RobotConstants.RANGE_6_MAX) {
             // Prioritize Range 6 over Range 5 due to overlap
-            flywheelRPM = ShooterConstants.RANGE_6_FLYWHEEL_RPM;
-            hoodPosition = ShooterConstants.RANGE_6_HOOD_POSITION;
+            flywheelRPM = RobotConstants.RANGE_6_FLYWHEEL_RPM;
+            hoodPosition = RobotConstants.RANGE_6_HOOD_POSITION;
             selectedPreset = String.format("RANGE 6 (%.2fft @ %.0fRPM)", distance, flywheelRPM);
 
-        } else if (distance >= ShooterConstants.RANGE_5_MIN && distance < ShooterConstants.RANGE_5_MAX) {
-            flywheelRPM = ShooterConstants.RANGE_5_FLYWHEEL_RPM;
-            hoodPosition = ShooterConstants.RANGE_5_HOOD_POSITION;
+        } else if (distance >= RobotConstants.RANGE_5_MIN && distance < RobotConstants.RANGE_5_MAX) {
+            flywheelRPM = RobotConstants.RANGE_5_FLYWHEEL_RPM;
+            hoodPosition = RobotConstants.RANGE_5_HOOD_POSITION;
             selectedPreset = String.format("RANGE 5 (%.2fft @ %.0fRPM)", distance, flywheelRPM);
 
-        } else if (distance >= ShooterConstants.RANGE_7_MIN && distance < ShooterConstants.RANGE_7_MAX) {
-            flywheelRPM = ShooterConstants.RANGE_7_FLYWHEEL_RPM;
-            hoodPosition = ShooterConstants.RANGE_7_HOOD_POSITION;
+        } else if (distance >= RobotConstants.RANGE_7_MIN && distance < RobotConstants.RANGE_7_MAX) {
+            flywheelRPM = RobotConstants.RANGE_7_FLYWHEEL_RPM;
+            hoodPosition = RobotConstants.RANGE_7_HOOD_POSITION;
             selectedPreset = String.format("RANGE 7 (%.2fft @ %.0fRPM)", distance, flywheelRPM);
 
-        } else if (distance >= ShooterConstants.RANGE_FAR_MIN) {
-            flywheelRPM = ShooterConstants.RANGE_FAR_FLYWHEEL_RPM;
-            hoodPosition = ShooterConstants.RANGE_FAR_HOOD_POSITION;
+        } else if (distance >= RobotConstants.RANGE_FAR_MIN) {
+            flywheelRPM = RobotConstants.RANGE_FAR_FLYWHEEL_RPM;
+            hoodPosition = RobotConstants.RANGE_FAR_HOOD_POSITION;
             selectedPreset = String.format("FAR ZONE (%.2fft @ %.0fRPM)", distance, flywheelRPM);
 
         } else {
             // Below minimum range - use defaults
-            flywheelRPM = ShooterConstants.DEFAULT_TARGET_RPM;
-            hoodPosition = ShooterConstants.HOOD_DEFAULT_POSITION;
+            flywheelRPM = RobotConstants.DEFAULT_TARGET_RPM;
+            hoodPosition = RobotConstants.HOOD_DEFAULT_POSITION;
             selectedPreset = "OUT OF RANGE - DEFAULT";
         }
     }
@@ -448,8 +453,8 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
             distanceDetectionEnabled = false;
             currentDistance = -1.0;
             lockedDistance = -1.0;
-            flywheelRPM = ShooterConstants.DEFAULT_TARGET_RPM;
-            hoodPosition = ShooterConstants.HOOD_DEFAULT_POSITION;
+            flywheelRPM = RobotConstants.DEFAULT_TARGET_RPM;
+            hoodPosition = RobotConstants.HOOD_DEFAULT_POSITION;
             selectedPreset = "DEFAULT";
             turretTracking = false;
             launcher.setHoodPosition(hoodPosition);

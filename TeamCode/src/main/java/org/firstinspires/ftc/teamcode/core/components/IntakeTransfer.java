@@ -8,12 +8,12 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.core.constants.HardwareConfig;
-import org.firstinspires.ftc.teamcode.core.constants.ShooterConstants;
+import org.firstinspires.ftc.teamcode.core.constants.RobotConstants;
 
 public class IntakeTransfer {
 
     // Motor settings
-    public static final double EJECT_POWER = ShooterConstants.INTAKE_DEFAULT_POWER;
+    public static final double EJECT_POWER = RobotConstants.INTAKE_DEFAULT_POWER;
     public static final double INTAKE_POWER = 1.0;
 
     // Eject-then-intake sequence timing
@@ -43,7 +43,7 @@ public class IntakeTransfer {
 
         try {
             transferServo = hardwareMap.get(Servo.class, HardwareConfig.TRANSFER_SERVO);
-            transferServo.setPosition(ShooterConstants.TRANSFER_DOWN_POSITION);
+            transferServo.setPosition(RobotConstants.TRANSFER_DOWN_POSITION);
             telemetry.addLine("Transfer Servo: OK");
         } catch (Exception e) {
             telemetry.addLine("Transfer Servo: NOT FOUND - " + HardwareConfig.TRANSFER_SERVO);
@@ -114,7 +114,7 @@ public class IntakeTransfer {
      */
     public void transferUp() {
         if (transferServo != null) {
-            transferServo.setPosition(ShooterConstants.TRANSFER_UP_POSITION);
+            transferServo.setPosition(RobotConstants.TRANSFER_UP_POSITION);
         }
     }
 
@@ -124,7 +124,7 @@ public class IntakeTransfer {
      */
     public void transferDown() {
         if (transferServo != null) {
-            transferServo.setPosition(ShooterConstants.TRANSFER_DOWN_POSITION);
+            transferServo.setPosition(RobotConstants.TRANSFER_DOWN_POSITION);
         }
     }
 
@@ -143,7 +143,7 @@ public class IntakeTransfer {
 
     public boolean isTransferUp() {
         if (transferServo != null) {
-            return Math.abs(transferServo.getPosition() - ShooterConstants.TRANSFER_UP_POSITION) < 0.05;
+            return Math.abs(transferServo.getPosition() - RobotConstants.TRANSFER_UP_POSITION) < 0.05;
         }
         return false;
     }

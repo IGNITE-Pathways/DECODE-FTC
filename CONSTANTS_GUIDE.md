@@ -7,7 +7,7 @@
 ## ⚠️ IMPORTANT: WHERE TO UPDATE VALUES
 
 ### ✅ **USE THIS FILE FOR EVERYTHING:**
-📁 **`ShooterConstants.java`** (TeamCode/src/main/java/org/firstinspires/ftc/teamcode/core/constants/)
+📁 **`RobotConstants.java`** (TeamCode/src/main/java/org/firstinspires/ftc/teamcode/core/constants/)
 
 All competition teleop settings are here:
 - PIDF gains (kP, kI, kD, kF)
@@ -32,7 +32,7 @@ All competition teleop settings are here:
 1. Run `FlywheelPIDFTuner` OpMode
 2. Tune gains using gamepad controls
 3. Press **B** to save gains to telemetry log
-4. Open **ShooterConstants.java**
+4. Open **RobotConstants.java**
 5. Go to **lines 20-23**
 6. Update these values:
    ```java
@@ -45,13 +45,13 @@ All competition teleop settings are here:
 
 **Telemetry log format:**
 ```
-=== TUNED GAINS - COPY TO ShooterConstants.java ===
+=== TUNED GAINS - COPY TO RobotConstants.java ===
 FLYWHEEL_KP = 0.000350;
 FLYWHEEL_KI = 0.000025;
 FLYWHEEL_KD = 0.000150;
 FLYWHEEL_KF = 0.000215;
 DEFAULT_TARGET_RPM = 3500;
-Update these in ShooterConstants.java lines 20-23!
+Update these in RobotConstants.java lines 20-23!
 ```
 
 ---
@@ -63,7 +63,7 @@ Update these in ShooterConstants.java lines 20-23!
 2. Use distance lock and shoot
 3. If shots fall short → Increase RPM
 4. If shots overshoot → Decrease RPM
-5. Open **ShooterConstants.java**
+5. Open **RobotConstants.java**
 6. Find the appropriate range (e.g., RANGE_4 at line 60)
 7. Update RPM value:
    ```java
@@ -75,7 +75,7 @@ Update these in ShooterConstants.java lines 20-23!
    ```
 8. Recompile and re-test
 
-**Range locations in ShooterConstants.java:**
+**Range locations in RobotConstants.java:**
 - Range 1 (2.47-2.84 ft): Lines 40-43
 - Range 2 (2.84-3.2 ft): Lines 46-49
 - Range 3 (3.21-4.0 ft): Lines 52-55
@@ -105,7 +105,7 @@ Update these in ShooterConstants.java lines 20-23!
 
 If PIDF velocity control causes problems during competition:
 
-**ShooterConstants.java line 15:**
+**RobotConstants.java line 15:**
 ```java
 // Change this:
 public static final boolean USE_VELOCITY_CONTROL = true;
@@ -124,7 +124,7 @@ Recompile - flywheel will use old power percentage mode instead.
 ```
 TeamCode/
   └── src/main/java/org/firstinspires/ftc/teamcode/core/constants/
-      └── ShooterConstants.java  ← UPDATE HERE ONLY!
+      └── RobotConstants.java  ← UPDATE HERE ONLY!
 ```
 
 **Files that AUTO-USE these values:**
@@ -133,7 +133,7 @@ TeamCode/
 - ✅ `FlywheelPIDFTuner.java` (tuning program)
 - ✅ `DistanceCalculator.java` (limelight distance)
 
-**After updating ShooterConstants.java:**
+**After updating RobotConstants.java:**
 1. Save file
 2. Recompile (Build → Make Project)
 3. Deploy to robot
@@ -143,7 +143,7 @@ TeamCode/
 
 ## 📋 PRE-COMPETITION CHECKLIST:
 
-- [ ] PIDF gains tuned and updated in ShooterConstants.java
+- [ ] PIDF gains tuned and updated in RobotConstants.java
 - [ ] All 7 shooting ranges tested and RPM values confirmed
 - [ ] Hood positions verified for each range
 - [ ] Default values set correctly
@@ -152,5 +152,5 @@ TeamCode/
 
 ---
 
-**Remember:** ShooterConstants.java is your SINGLE SOURCE OF TRUTH!
+**Remember:** RobotConstants.java is your SINGLE SOURCE OF TRUTH!
 Update values there, recompile, and everything else updates automatically.

@@ -7,7 +7,7 @@ import com.pedropathing.paths.PathChain;
 import com.pedropathing.util.Timer;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import org.firstinspires.ftc.teamcode.core.constants.AllianceColor;
-import org.firstinspires.ftc.teamcode.core.constants.ShooterConstants;
+import org.firstinspires.ftc.teamcode.core.constants.RobotConstants;
 import org.firstinspires.ftc.teamcode.core.components.Robot;
 
 /**
@@ -124,9 +124,9 @@ public class AutoOpMain extends OpMode {
             case 1: // Wait for path, then start shooting prep
                 if (!follower.isBusy()) {
                     // Start flywheel spin-up
-                    robot.setFlywheelPower(ShooterConstants.FLYWHEEL_SHOOTING_POWER);
+                    robot.setFlywheelPower(RobotConstants.FLYWHEEL_SHOOTING_POWER);
                     robot.startFlywheel();
-                    robot.setHoodPosition(ShooterConstants.HOOD_DEFAULT_POSITION);
+                    robot.setHoodPosition(RobotConstants.HOOD_DEFAULT_POSITION);
 
                     // Lock turret position
                     robot.getTurret().setPositionDirect(0.6);

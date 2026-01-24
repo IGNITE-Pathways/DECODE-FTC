@@ -9,7 +9,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.core.components.IntakeTransfer;
 import org.firstinspires.ftc.teamcode.core.constants.HardwareConfig;
-import org.firstinspires.ftc.teamcode.core.constants.ShooterConstants;
+import org.firstinspires.ftc.teamcode.core.constants.RobotConstants;
 
 /**
  * *** FLYWHEEL PIDF TUNER ***
@@ -21,7 +21,7 @@ import org.firstinspires.ftc.teamcode.core.constants.ShooterConstants;
  * 3. When satisfied (error < 30 RPM, recovery < 200ms):
  *    - Press B to save gains to telemetry log
  *    - Write down the kP, kI, kD, kF values shown
- * 4. Go to ShooterConstants.java (line 17-24)
+ * 4. Go to RobotConstants.java (line 17-24)
  * 5. Update FLYWHEEL_KP, FLYWHEEL_KI, FLYWHEEL_KD, FLYWHEEL_KF
  * 6. Recompile - gains now automatically used in teleop!
  *
@@ -89,16 +89,16 @@ public class FlywheelPIDFTuner extends LinearOpMode {
     private static final double CRITICAL_VOLTAGE = 10.5; // Emergency shutoff only
     private double currentVoltage = 13.0;
 
-    // PIDF Gains - loaded from ShooterConstants
+    // PIDF Gains - loaded from RobotConstants
     // Adjust these using the tuner controls, then press B to save
-    // Copy saved values to ShooterConstants.java for automatic use in teleop
-    private double kP = ShooterConstants.FLYWHEEL_KP;
-    private double kI = ShooterConstants.FLYWHEEL_KI;
-    private double kD = ShooterConstants.FLYWHEEL_KD;
-    private double kF = ShooterConstants.FLYWHEEL_KF;
+    // Copy saved values to RobotConstants.java for automatic use in teleop
+    private double kP = RobotConstants.FLYWHEEL_KP;
+    private double kI = RobotConstants.FLYWHEEL_KI;
+    private double kD = RobotConstants.FLYWHEEL_KD;
+    private double kF = RobotConstants.FLYWHEEL_KF;
 
     // Target and control
-    private double targetRPM = ShooterConstants.DEFAULT_TARGET_RPM;
+    private double targetRPM = RobotConstants.DEFAULT_TARGET_RPM;
     private boolean flywheelOn = false;
 
     // PID state
@@ -385,13 +385,13 @@ public class FlywheelPIDFTuner extends LinearOpMode {
 
         // Save gains to telemetry
         if (gamepad1.b && !lastB) {
-            telemetry.log().add("=== TUNED GAINS - COPY TO ShooterConstants.java ===");
+            telemetry.log().add("=== TUNED GAINS - COPY TO RobotConstants.java ===");
             telemetry.log().add(String.format("FLYWHEEL_KP = %.6f;", kP));
             telemetry.log().add(String.format("FLYWHEEL_KI = %.6f;", kI));
             telemetry.log().add(String.format("FLYWHEEL_KD = %.6f;", kD));
             telemetry.log().add(String.format("FLYWHEEL_KF = %.6f;", kF));
             telemetry.log().add(String.format("DEFAULT_TARGET_RPM = %.0f;", targetRPM));
-            telemetry.log().add("Update these in ShooterConstants.java lines 17-24!");
+            telemetry.log().add("Update these in RobotConstants.java lines 17-24!");
             telemetry.log().add("Then recompile - teleop will use new values automatically");
         }
         lastB = gamepad1.b;

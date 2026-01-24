@@ -9,7 +9,7 @@ import com.qualcomm.hardware.limelightvision.LLResult;
 import org.firstinspires.ftc.teamcode.core.components.Launcher;
 import org.firstinspires.ftc.teamcode.core.components.IntakeTransfer;
 import org.firstinspires.ftc.teamcode.core.constants.HardwareConfig;
-import org.firstinspires.ftc.teamcode.core.constants.ShooterConstants;
+import org.firstinspires.ftc.teamcode.core.constants.RobotConstants;
 
 /**
  * Shooter Distance Test Program
@@ -263,9 +263,9 @@ public class ShooterDistanceTest extends OpMode {
     private void setDistancePreset(double distanceFeet, String presetName) {
         currentPreset = presetName;
 
-        // Get optimal values from ShooterConstants
-        flywheelPower = ShooterConstants.getFlywheelPowerForDistance(distanceFeet);
-        hoodPosition = ShooterConstants.getHoodPositionForDistance(distanceFeet);
+        // Get optimal values from RobotConstants
+        flywheelPower = RobotConstants.getFlywheelPowerForDistance(distanceFeet);
+        hoodPosition = RobotConstants.getHoodPositionForDistance(distanceFeet);
 
         // Apply to launcher
         launcher.setPower(flywheelPower);
@@ -315,14 +315,14 @@ public class ShooterDistanceTest extends OpMode {
 
         telemetry.addLine("--- PRESETS ---");
         telemetry.addData("2ft (D-Up)", "Power: %.0f%%, Hood: %.2f",
-            ShooterConstants.getFlywheelPowerForDistance(DISTANCE_1) * 100,
-            ShooterConstants.getHoodPositionForDistance(DISTANCE_1));
+            RobotConstants.getFlywheelPowerForDistance(DISTANCE_1) * 100,
+            RobotConstants.getHoodPositionForDistance(DISTANCE_1));
         telemetry.addData("6ft (D-Down)", "Power: %.0f%%, Hood: %.2f",
-            ShooterConstants.getFlywheelPowerForDistance(DISTANCE_2) * 100,
-            ShooterConstants.getHoodPositionForDistance(DISTANCE_2));
+            RobotConstants.getFlywheelPowerForDistance(DISTANCE_2) * 100,
+            RobotConstants.getHoodPositionForDistance(DISTANCE_2));
         telemetry.addData("10ft (D-Left)", "Power: %.0f%%, Hood: %.2f",
-            ShooterConstants.getFlywheelPowerForDistance(DISTANCE_3) * 100,
-            ShooterConstants.getHoodPositionForDistance(DISTANCE_3));
+            RobotConstants.getFlywheelPowerForDistance(DISTANCE_3) * 100,
+            RobotConstants.getHoodPositionForDistance(DISTANCE_3));
 
         telemetry.update();
     }
