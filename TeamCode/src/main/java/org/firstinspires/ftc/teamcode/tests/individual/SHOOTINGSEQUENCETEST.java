@@ -69,20 +69,26 @@ public class SHOOTINGSEQUENCETEST extends OpMode {
     private double BALL1_FEED_TIME = 0.15;
     private boolean BALL1_FEED_INTAKE_ON = true;
     private boolean BALL1_FEED_EJECT_ON = false;
+
+
     private double BALL1_RECOVERY_TIME = 1.5;
     private boolean BALL1_RECOVERY_INTAKE_ON = true;
     private boolean BALL1_RECOVERY_EJECT_ON = false;
 
+
+
     // Ball 2 timing and control
-    private double BALL2_FEED_TIME = 0.15;
+    private double BALL2_FEED_TIME = 0.3;
     private boolean BALL2_FEED_INTAKE_ON = true;
     private boolean BALL2_FEED_EJECT_ON = false;
-    private double BALL2_RECOVERY_TIME = 1.5;
+
+
+    private double BALL2_RECOVERY_TIME = 0.5;
     private boolean BALL2_RECOVERY_INTAKE_ON = true;
     private boolean BALL2_RECOVERY_EJECT_ON = false;
 
     // Ball 3 timing and control
-    private double BALL3_FEED_TIME = 0.15;
+    private double BALL3_FEED_TIME = 0.3;
     private boolean BALL3_FEED_INTAKE_ON = true;
     private boolean BALL3_FEED_EJECT_ON = false;
 

@@ -43,7 +43,7 @@ public class BlueNear extends OpMode {
 
     // ==================== SHOOTING CONSTANTS ====================
 // PRELOAD SHOOTING CONFIGURATION
-    private static final double PRELOAD_FLYWHEEL_POWER = 0.6;  // Per note: use 0.58 for preload
+    private static final double PRELOAD_FLYWHEEL_POWER = 0.58;
     private static final double PRELOAD_HOOD_POSITION = 0.35;
     private static final double PRELOAD_TURRET_POSITION = 0.75;
 
@@ -55,7 +55,7 @@ public class BlueNear extends OpMode {
     // SECOND SPIKE MARK SHOOTING CONFIGURATION
     private static final double SET2_FLYWHEEL_POWER = 0.55;
     private static final double SET2_HOOD_POSITION = 0.6;
-    private static final double SET2_TURRET_POSITION = 0.6;
+    private static final double SET2_TURRET_POSITION = 0.55;
 
     // Shared shooting timing constants (same for all sets)
     private static final double SHOOT_TIME_SECONDS = 6.0;
@@ -84,22 +84,22 @@ public class BlueNear extends OpMode {
     private static final boolean BALL1_FEED_EJECT_ON = false;  // Should eject be ON during ball 1 feed?
 
     // ===== BALL 1 RECOVERY PHASE =====
-    private static final double BALL1_RECOVERY_TIME = 0.5;   // Wait time after ball 1 shoots (ramp down)
+    private static final double BALL1_RECOVERY_TIME = 1.5;   // Wait time after ball 1 shoots (ramp down)
     private static final boolean BALL1_RECOVERY_INTAKE_ON = true;  // Should intake be ON during ball 1 recovery?
     private static final boolean BALL1_RECOVERY_EJECT_ON = false;  // Should eject be ON during ball 1 recovery?
 
     // ===== BALL 2 FEED PHASE =====
-    private static final double BALL2_FEED_TIME = 0.3;       // How long ramp is UP to feed ball 2
+    private static final double BALL2_FEED_TIME = 0.15;       // How long ramp is UP to feed ball 2
     private static final boolean BALL2_FEED_INTAKE_ON = true;  // Should intake be ON during ball 2 feed?
     private static final boolean BALL2_FEED_EJECT_ON = false;  // Should eject be ON during ball 2 feed?
 
     // ===== BALL 2 RECOVERY PHASE =====
-    private static final double BALL2_RECOVERY_TIME = 0.5;   // Wait time after ball 2 shoots (ramp down)
+    private static final double BALL2_RECOVERY_TIME = 1.5;   // Wait time after ball 2 shoots (ramp down)
     private static final boolean BALL2_RECOVERY_INTAKE_ON = true;  // Should intake be ON during ball 2 recovery?
     private static final boolean BALL2_RECOVERY_EJECT_ON = false;  // Should eject be ON during ball 2 recovery?
 
     // ===== BALL 3 FEED PHASE =====
-    private static final double BALL3_FEED_TIME = 0.3;       // How long ramp is UP to feed ball 3
+    private static final double BALL3_FEED_TIME = 0.15;       // How long ramp is UP to feed ball 3
     private static final boolean BALL3_FEED_INTAKE_ON = true;  // Should intake be ON during ball 3 feed?
     private static final boolean BALL3_FEED_EJECT_ON = false;  // Should eject be ON during ball 3 feed?
 
@@ -141,16 +141,20 @@ public class BlueNear extends OpMode {
     private static final Pose SPIKE1_BALL3 = new Pose(25.408, 84.117);     // Third ball location
 
     // Second spike mark positions (Set 2) - middle spike mark
-    private static final Pose SPIKE2_APPROACH = new Pose(41.314, 60.444);  // Approach point
-    private static final Pose SPIKE2_BALL1 = new Pose(36.265, 60.283);     // First ball
-    private static final Pose SPIKE2_BALL2 = new Pose(31.090, 60.157);     // Second ball
-    private static final Pose SPIKE2_BALL3 = new Pose(25.906, 60.184);     // Third ball
+    private static final Pose SPIKE2_APPROACH = new Pose(41.314, 63.444);  // Approach point
+    private static final Pose SPIKE2_BALL1 = new Pose(36.265, 63.283);     // First ball
+    private static final Pose SPIKE2_BALL2 = new Pose(31.090, 63.157);     // Second ball
+    private static final Pose SPIKE2_BALL3 = new Pose(25.906, 63.184);     // Third ball
 
     // Final shooting position
     private static final Pose FINAL_SHOOT_POSE = new Pose(60.673, 81.327);
 
     // Curve control point for path from start to spike 1
     private static final Pose SPIKE1_CURVE_CONTROL = new Pose(48.215, 96.000);
+
+
+    // Curve control point for path from start to spike 2
+    private static final Pose SPIKE2_CURVE_CONTROL = new Pose(55.517695550602824, 63.52260948954108);
 
     // ==================== ROBOT COMPONENTS ====================
     // Pedro Pathing follower - handles path following and autonomous navigation
@@ -983,10 +987,7 @@ public class BlueNear extends OpMode {
 
             // Path 1: Curved approach from starting position to spike 1 approach point
             goingToNearestBalls = follower.pathBuilder()
-                    .addPath(new BezierCurve(
-                            new Pose(24.143, 125.525),
-                            SPIKE1_CURVE_CONTROL,
-                            SPIKE1_APPROACH
+                    .addPath(new BezierCurve(new Pose(24.143, 125.525), SPIKE1_CURVE_CONTROL, SPIKE1_APPROACH
                     ))
                     .setLinearHeadingInterpolation(HEADING_233, HEADING_180)
                     .build();
@@ -1025,7 +1026,7 @@ public class BlueNear extends OpMode {
 
             // Path 7: Slow precise movement to first ball of spike 2
             gettingFirstBallSet2 = follower.pathBuilder()
-                    .addPath(new BezierLine(SPIKE2_APPROACH, SPIKE2_BALL1))
+                    .addPath(new BezierCurve(SPIKE2_APPROACH, SPIKE2_CURVE_CONTROL, SPIKE2_BALL1))
                     .setTangentHeadingInterpolation()
                     .build();
 
