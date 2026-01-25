@@ -1,11 +1,10 @@
-package org.firstinspires.ftc.teamcode.auto;
+package org.firstinspires.ftc.teamcode.auto.Pedro;
 
 import com.pedropathing.follower.Follower;
 import com.pedropathing.geometry.*;
 import com.pedropathing.paths.*;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import org.firstinspires.ftc.teamcode.auto.Constants;
 
 /**
  * Simple autonomous program that moves the robot in a 3 feet square clockwise
