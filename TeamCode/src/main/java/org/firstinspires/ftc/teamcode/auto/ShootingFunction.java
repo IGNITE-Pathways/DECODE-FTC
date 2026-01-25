@@ -6,6 +6,9 @@ import com.pedropathing.util.Timer;
 
 /**
  * Centralized Shooting Configuration System
+ *
+ * NOW SUPPORTS PER-BALL FLYWHEEL POWER AND HOOD POSITION!
+ * Each ball in the sequence can have its own unique power and hood settings.
  */
 public class ShootingFunction {
 
@@ -22,20 +25,46 @@ public class ShootingFunction {
         SET_2
     }
 
+    /**
+     * Complete shooting configuration for a specific position
+     * NOW WITH PER-BALL SETTINGS!
+     */
     public static class Configuration {
-        public final double flywheelPower;
-        public final double hoodPosition;
+        // Per-ball hardware settings
+        public final double ball1FlywheelPower;
+        public final double ball1HoodPosition;
+        public final double ball2FlywheelPower;
+        public final double ball2HoodPosition;
+        public final double ball3FlywheelPower;
+        public final double ball3HoodPosition;
+
+        // Common settings
         public final double turretPosition;
         public final double shootTimeSeconds;
         public final TimingConfig timing;
 
-        public Configuration(double flywheelPower, double hoodPosition, double turretPosition,
-                             double shootTimeSeconds, TimingConfig timing) {
-            this.flywheelPower = flywheelPower;
-            this.hoodPosition = hoodPosition;
+        public Configuration(double ball1FlywheelPower, double ball1HoodPosition,
+                             double ball2FlywheelPower, double ball2HoodPosition,
+                             double ball3FlywheelPower, double ball3HoodPosition,
+                             double turretPosition, double shootTimeSeconds, TimingConfig timing) {
+            this.ball1FlywheelPower = ball1FlywheelPower;
+            this.ball1HoodPosition = ball1HoodPosition;
+            this.ball2FlywheelPower = ball2FlywheelPower;
+            this.ball2HoodPosition = ball2HoodPosition;
+            this.ball3FlywheelPower = ball3FlywheelPower;
+            this.ball3HoodPosition = ball3HoodPosition;
             this.turretPosition = turretPosition;
             this.shootTimeSeconds = shootTimeSeconds;
             this.timing = timing;
+        }
+
+        // Convenience constructor for when all balls use the same settings
+        public Configuration(double flywheelPower, double hoodPosition,
+                             double turretPosition, double shootTimeSeconds, TimingConfig timing) {
+            this(flywheelPower, hoodPosition,
+                    flywheelPower, hoodPosition,
+                    flywheelPower, hoodPosition,
+                    turretPosition, shootTimeSeconds, timing);
         }
     }
 
@@ -113,13 +142,13 @@ public class ShootingFunction {
     }
 
     private static final TimingConfig STANDARD_TIMING = new TimingConfig(
-            3.0, 0.15, 1.5, 0.15, 1.5, 0.15,
+            2.0, 0.15, 1.5, 0.15, 1.5, 0.15,
             false, true, true, true, true, true, false,
             false, false, false, false, false, false, false
     );
 
     private static final TimingConfig FAST_RECOVERY_TIMING = new TimingConfig(
-            3.0, 0.15, 0.5, 0.3, 0.5, 0.3,
+            2.0, 0.15, 0.5, 0.3, 0.5, 0.3,
             false, true, true, true, true, true, false,
             false, false, false, false, false, false, false
     );
@@ -139,69 +168,138 @@ public class ShootingFunction {
         }
     }
 
+    // ==================== BLUE FAR CONFIGURATIONS ====================
+
     private static Configuration getBlueFarConfiguration(ShootingPosition position) {
+        // Blue Far uses same settings for all balls and all positions
         return new Configuration(1.0, 0.6, 0.6, 6.0, STANDARD_TIMING);
     }
+
+    // ==================== BLUE NEAR CONFIGURATIONS ====================
 
     private static Configuration getBlueNearConfiguration(ShootingPosition position) {
         switch (position) {
             case PRELOAD:
-                return new Configuration(0.5, 0.33, 1.0, 6.0, STANDARD_TIMING);
+                // All balls use same settings for preload
+                return new Configuration(0.58, 0.35, 0.75, 6.0, STANDARD_TIMING);
+
             case SET_1:
-                return new Configuration(0., 0.33, 1.0, 6.0, STANDARD_TIMING);
+                // All balls use same settings for set 1
+                return new Configuration(0.6, 0.7, 0.6, 6.0, STANDARD_TIMING);
+
             case SET_2:
-                return new Configuration(0.5, 0.33, 1.0, 6.0, STANDARD_TIMING);
+                // All balls use same settings for set 2
+                return new Configuration(0.55, 0.6, 0.55, 6.0, STANDARD_TIMING);
+
             default:
                 throw new IllegalArgumentException("Unknown shooting position: " + position);
         }
     }
 
+    // ==================== RED FAR CONFIGURATIONS ====================
+
     private static Configuration getRedFarConfiguration(ShootingPosition position) {
+        // Red Far uses same settings for all balls and all positions
         return new Configuration(1.0, 0.6, 0.3, 6.0, FAST_RECOVERY_TIMING);
     }
 
+    // ==================== RED NEAR CONFIGURATIONS ====================
+
     private static Configuration getRedNearConfiguration(ShootingPosition position) {
-        return new Configuration(0.75, 0.55, 0.6, 6.0, FAST_RECOVERY_TIMING);
+        switch (position) {
+            case PRELOAD:
+                // All balls use same settings for preload
+                return new Configuration(0.58, 0.35, 0.75, 6.0, STANDARD_TIMING);
+
+            case SET_1:
+                // All balls use same settings for set 1
+                return new Configuration(0.6, 0.7, 0.6, 6.0, STANDARD_TIMING);
+
+            case SET_2:
+                // All balls use same settings for set 2
+                return new Configuration(0.55, 0.6, 0.55, 6.0, STANDARD_TIMING);
+
+            default:
+                throw new IllegalArgumentException("Unknown shooting position: " + position);
+        }
     }
 
+    // ==================== SHOOTING EXECUTION ====================
+
+    /**
+     * Execute the shooting sequence using the provided configuration
+     * NOW DYNAMICALLY ADJUSTS FLYWHEEL POWER AND HOOD POSITION PER BALL!
+     */
     public static void performShooting(Launcher launcher, IntakeTransfer intakeTransfer,
                                        Timer shootTimer, Configuration config) {
-        if (launcher.flyWheelMotor != null) {
-            launcher.flyWheelMotor.setPower(config.flywheelPower);
-        }
-        if (launcher.flyWheelMotor2 != null) {
-            launcher.flyWheelMotor2.setPower(config.flywheelPower);
-        }
-        launcher.setHoodPosition(config.hoodPosition);
-        launcher.setSpinning(true);
-
         double elapsed = shootTimer.getElapsedTimeSeconds();
         TimingConfig timing = config.timing;
 
+        // Determine which ball we're currently shooting and set appropriate power/hood
+        double currentFlywheelPower;
+        double currentHoodPosition;
+
+        if (elapsed < timing.ball2Start) {
+            // Ball 1 phase (spinup, feed, recovery)
+            currentFlywheelPower = config.ball1FlywheelPower;
+            currentHoodPosition = config.ball1HoodPosition;
+        } else if (elapsed < timing.ball3Start) {
+            // Ball 2 phase (feed, recovery)
+            currentFlywheelPower = config.ball2FlywheelPower;
+            currentHoodPosition = config.ball2HoodPosition;
+        } else {
+            // Ball 3 phase (feed, finish)
+            currentFlywheelPower = config.ball3FlywheelPower;
+            currentHoodPosition = config.ball3HoodPosition;
+        }
+
+        // Apply current flywheel power and hood position
+        if (launcher.flyWheelMotor != null) {
+            launcher.flyWheelMotor.setPower(currentFlywheelPower);
+        }
+        if (launcher.flyWheelMotor2 != null) {
+            launcher.flyWheelMotor2.setPower(currentFlywheelPower);
+        }
+        launcher.setHoodPosition(currentHoodPosition);
+        launcher.setSpinning(true);
+
+        // ========== PHASE 1: SPINUP ==========
         if (elapsed < timing.spinupTime) {
             intakeTransfer.transferDown();
             controlIntakeEject(intakeTransfer, timing.spinupIntakeOn, timing.spinupEjectOn);
         }
+
+        // ========== PHASE 2: BALL 1 FEED ==========
         else if (elapsed >= timing.ball1Start && elapsed < timing.ball1End) {
             intakeTransfer.transferUp();
             controlIntakeEject(intakeTransfer, timing.ball1FeedIntakeOn, timing.ball1FeedEjectOn);
         }
+
+        // ========== PHASE 3: BALL 1 RECOVERY ==========
         else if (elapsed >= timing.ball1End && elapsed < timing.ball2Start) {
             intakeTransfer.transferDown();
             controlIntakeEject(intakeTransfer, timing.ball1RecoveryIntakeOn, timing.ball1RecoveryEjectOn);
         }
+
+        // ========== PHASE 4: BALL 2 FEED ==========
         else if (elapsed >= timing.ball2Start && elapsed < timing.ball2End) {
             intakeTransfer.transferUp();
             controlIntakeEject(intakeTransfer, timing.ball2FeedIntakeOn, timing.ball2FeedEjectOn);
         }
+
+        // ========== PHASE 5: BALL 2 RECOVERY ==========
         else if (elapsed >= timing.ball2End && elapsed < timing.ball3Start) {
             intakeTransfer.transferDown();
             controlIntakeEject(intakeTransfer, timing.ball2RecoveryIntakeOn, timing.ball2RecoveryEjectOn);
         }
+
+        // ========== PHASE 6: BALL 3 FEED ==========
         else if (elapsed >= timing.ball3Start && elapsed < timing.ball3End) {
             intakeTransfer.transferUp();
             controlIntakeEject(intakeTransfer, timing.ball3FeedIntakeOn, timing.ball3FeedEjectOn);
         }
+
+        // ========== PHASE 7: FINISH ==========
         else if (elapsed >= timing.ball3End) {
             intakeTransfer.transferDown();
             controlIntakeEject(intakeTransfer, timing.finishIntakeOn, timing.finishEjectOn);

@@ -280,8 +280,8 @@ public class BlueFar extends OpMode {
 
     private void startShooting(ShootingFunction.Configuration config) {
         activeConfig = config;
-        launcher.setPower(config.flywheelPower);
-        launcher.setHoodPosition(config.hoodPosition);
+        launcher.setPower(config.ball1FlywheelPower);
+        launcher.setHoodPosition(config.ball1HoodPosition);
         launcher.setSpinning(true);
         if (turretServo != null) {
             turretServo.setPosition(config.turretPosition);
@@ -321,8 +321,12 @@ public class BlueFar extends OpMode {
         if (activeConfig != null) {
             telemetry.addLine();
             telemetry.addLine("=== Active Shooting Config ===");
-            telemetry.addData("Flywheel Power", activeConfig.flywheelPower);
-            telemetry.addData("Hood Position", activeConfig.hoodPosition);
+            telemetry.addData("Ball 1 Power/Hood", String.format("%.2f / %.2f",
+                    activeConfig.ball1FlywheelPower, activeConfig.ball1HoodPosition));
+            telemetry.addData("Ball 2 Power/Hood", String.format("%.2f / %.2f",
+                    activeConfig.ball2FlywheelPower, activeConfig.ball2HoodPosition));
+            telemetry.addData("Ball 3 Power/Hood", String.format("%.2f / %.2f",
+                    activeConfig.ball3FlywheelPower, activeConfig.ball3HoodPosition));
             telemetry.addData("Turret Position", activeConfig.turretPosition);
 
             if (pathState == PathState.PRELOAD_SHOOTING ||
