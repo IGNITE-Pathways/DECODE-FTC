@@ -14,7 +14,8 @@ import org.firstinspires.ftc.teamcode.core.constants.RobotConstants;
 /**
  * Shooter Distance Test Program
  *
- * Tests flywheel power and hood settings at different distances.
+ * Tests flywheel RPM and hood settings at different distances.
+ * Uses PIDF velocity control for consistent RPM.
  * Ramp is always kept UP during this test.
  *
  * CONTROLS (Gamepad 1):
@@ -22,8 +23,8 @@ import org.firstinspires.ftc.teamcode.core.constants.RobotConstants;
  *   D-PAD DOWN   = Set to 6 feet distance preset
  *   D-PAD LEFT   = Set to 10 feet distance preset
  *
- *   RIGHT BUMPER = Increase flywheel power (+5%)
- *   LEFT BUMPER  = Decrease flywheel power (-5%)
+ *   RIGHT BUMPER = Increase flywheel RPM (+100)
+ *   LEFT BUMPER  = Decrease flywheel RPM (-100)
  *
  *   Y BUTTON     = Increase hood position (+0.05)
  *   A BUTTON     = Decrease hood position (-0.05)
@@ -56,7 +57,7 @@ public class ShooterDistanceTest extends OpMode {
     private double limelightDistance = -1.0;
 
     // State variables
-    private double flywheelPower = 0.6;  // Lower default to reduce current
+    private double flywheelRPM = 3500;  // Default target RPM
     private double hoodPosition = 0.85;
     private boolean flywheelOn = false;
     private String currentPreset = "MANUAL";
@@ -67,7 +68,7 @@ public class ShooterDistanceTest extends OpMode {
     private static final double DISTANCE_3 = 10.0;  // 10 feet
 
     // Adjustment increments
-    private static final double POWER_INCREMENT = 0.05;
+    private static final double RPM_INCREMENT = 100;  // ±100 RPM per press
     private static final double HOOD_INCREMENT = 0.05;
 
     // Edge detection for buttons
@@ -86,6 +87,9 @@ public class ShooterDistanceTest extends OpMode {
         // Initialize launcher
         launcher = new Launcher();
         launcher.initialize(hardwareMap, telemetry);
+
+        // Enable PIDF velocity control
+        launcher.setVelocityControlEnabled(RobotConstants.USE_VELOCITY_CONTROL);
 
         // Initialize intake/transfer
         intakeTransfer = new IntakeTransfer();
@@ -114,7 +118,7 @@ public class ShooterDistanceTest extends OpMode {
         }
 
         // Set initial values
-        launcher.setPower(flywheelPower);
+        launcher.setTargetRPM(flywheelRPM);
         launcher.setHoodPosition(hoodPosition);
 
         // Ramp always up
@@ -128,7 +132,7 @@ public class ShooterDistanceTest extends OpMode {
         telemetry.addLine("D-Pad DOWN  = 6ft preset");
         telemetry.addLine("D-Pad LEFT  = 10ft preset");
         telemetry.addLine();
-        telemetry.addLine("Bumpers     = Adjust power");
+        telemetry.addLine("Bumpers     = Adjust RPM (±100)");
         telemetry.addLine("Y/A         = Adjust hood");
         telemetry.addLine("X           = Toggle flywheel");
         telemetry.addLine("Triggers    = Intake/Eject");
@@ -157,19 +161,23 @@ public class ShooterDistanceTest extends OpMode {
             setDistancePreset(DISTANCE_3, "10 FEET");
         }
 
-        // ========== MANUAL FLYWHEEL POWER ADJUSTMENT ==========
+        // ========== MANUAL FLYWHEEL RPM ADJUSTMENT ==========
 
-        // Right Bumper = Increase power
+        // Right Bumper = Increase RPM
         if (gamepad1.right_bumper && !prevRightBumper) {
-            flywheelPower = Math.min(1.0, flywheelPower + POWER_INCREMENT);
-            launcher.setPower(flywheelPower);
+            flywheelRPM = Math.min(6000, flywheelRPM + RPM_INCREMENT);
+            if (flywheelOn) {
+                launcher.setTargetRPM(flywheelRPM);
+            }
             currentPreset = "MANUAL";
         }
 
-        // Left Bumper = Decrease power
+        // Left Bumper = Decrease RPM
         if (gamepad1.left_bumper && !prevLeftBumper) {
-            flywheelPower = Math.max(0.0, flywheelPower - POWER_INCREMENT);
-            launcher.setPower(flywheelPower);
+            flywheelRPM = Math.max(1000, flywheelRPM - RPM_INCREMENT);
+            if (flywheelOn) {
+                launcher.setTargetRPM(flywheelRPM);
+            }
             currentPreset = "MANUAL";
         }
 
@@ -263,13 +271,53 @@ public class ShooterDistanceTest extends OpMode {
     private void setDistancePreset(double distanceFeet, String presetName) {
         currentPreset = presetName;
 
-        // Get optimal values from RobotConstants
-        flywheelPower = RobotConstants.getFlywheelPowerForDistance(distanceFeet);
-        hoodPosition = RobotConstants.getHoodPositionForDistance(distanceFeet);
+        // Get optimal values from RobotConstants based on distance ranges
+        if (distanceFeet >= RobotConstants.RANGE_1_MIN && distanceFeet <= RobotConstants.RANGE_1_MAX) {
+            // Range 1: 2.45 - 3.45 ft
+            flywheelRPM = RobotConstants.RANGE_1_FLYWHEEL_RPM;
+            hoodPosition = RobotConstants.RANGE_1_HOOD_POSITION;
+        } else if (distanceFeet >= RobotConstants.RANGE_2_MIN && distanceFeet <= RobotConstants.RANGE_2_MAX) {
+            // Range 2: 3.46 - 4.65 ft
+            flywheelRPM = RobotConstants.RANGE_2_FLYWHEEL_RPM;
+            hoodPosition = RobotConstants.RANGE_2_HOOD_POSITION;
+        } else if (distanceFeet >= RobotConstants.RANGE_3_MIN && distanceFeet <= RobotConstants.RANGE_3_MAX) {
+            // Range 3: 4.66 - 5.35 ft
+            flywheelRPM = RobotConstants.RANGE_3_FLYWHEEL_RPM;
+            hoodPosition = RobotConstants.RANGE_3_HOOD_POSITION;
+        } else if (distanceFeet >= RobotConstants.RANGE_4_MIN && distanceFeet <= RobotConstants.RANGE_4_MAX) {
+            // Range 4: 5.36 - 6.00 ft
+            flywheelRPM = RobotConstants.RANGE_4_FLYWHEEL_RPM;
+            hoodPosition = RobotConstants.RANGE_4_HOOD_POSITION;
+        } else if (distanceFeet >= RobotConstants.RANGE_FAR_MIN) {
+            // Far range: 10+ ft
+            flywheelRPM = RobotConstants.RANGE_FAR_FLYWHEEL_RPM;
+            hoodPosition = RobotConstants.RANGE_FAR_HOOD_POSITION;
+        } else {
+            // Default values for out of range
+            flywheelRPM = RobotConstants.DEFAULT_TARGET_RPM;
+            hoodPosition = RobotConstants.HOOD_DEFAULT_POSITION;
+        }
 
-        // Apply to launcher
-        launcher.setPower(flywheelPower);
+        // Apply to launcher (both when flywheel is on or off - values are stored)
+        launcher.setTargetRPM(flywheelRPM);
         launcher.setHoodPosition(hoodPosition);
+    }
+
+    private double getRPMForDistance(double distanceFeet) {
+        // Return RPM based on distance ranges (for telemetry display)
+        if (distanceFeet >= RobotConstants.RANGE_1_MIN && distanceFeet <= RobotConstants.RANGE_1_MAX) {
+            return RobotConstants.RANGE_1_FLYWHEEL_RPM;
+        } else if (distanceFeet >= RobotConstants.RANGE_2_MIN && distanceFeet <= RobotConstants.RANGE_2_MAX) {
+            return RobotConstants.RANGE_2_FLYWHEEL_RPM;
+        } else if (distanceFeet >= RobotConstants.RANGE_3_MIN && distanceFeet <= RobotConstants.RANGE_3_MAX) {
+            return RobotConstants.RANGE_3_FLYWHEEL_RPM;
+        } else if (distanceFeet >= RobotConstants.RANGE_4_MIN && distanceFeet <= RobotConstants.RANGE_4_MAX) {
+            return RobotConstants.RANGE_4_FLYWHEEL_RPM;
+        } else if (distanceFeet >= RobotConstants.RANGE_FAR_MIN) {
+            return RobotConstants.RANGE_FAR_FLYWHEEL_RPM;
+        } else {
+            return RobotConstants.DEFAULT_TARGET_RPM;
+        }
     }
 
     private void displayTelemetry() {
@@ -291,7 +339,10 @@ public class ShooterDistanceTest extends OpMode {
 
         telemetry.addLine("--- FLYWHEEL ---");
         telemetry.addData("Status", flywheelOn ? "ON" : "OFF");
-        telemetry.addData("Power", "%.0f%% (LB-/RB+)", flywheelPower * 100);
+        telemetry.addData("Target RPM", "%.0f RPM (LB-/RB+)", flywheelRPM);
+        if (flywheelOn) {
+            telemetry.addData("Actual RPM", "%.0f RPM", launcher.getCurrentRPM());
+        }
         telemetry.addLine();
 
         telemetry.addLine("--- HOOD ---");
@@ -314,14 +365,14 @@ public class ShooterDistanceTest extends OpMode {
         telemetry.addLine();
 
         telemetry.addLine("--- PRESETS ---");
-        telemetry.addData("2ft (D-Up)", "Power: %.0f%%, Hood: %.2f",
-            RobotConstants.getFlywheelPowerForDistance(DISTANCE_1) * 100,
+        telemetry.addData("2ft (D-Up)", "RPM: %.0f, Hood: %.2f",
+            getRPMForDistance(DISTANCE_1),
             RobotConstants.getHoodPositionForDistance(DISTANCE_1));
-        telemetry.addData("6ft (D-Down)", "Power: %.0f%%, Hood: %.2f",
-            RobotConstants.getFlywheelPowerForDistance(DISTANCE_2) * 100,
+        telemetry.addData("6ft (D-Down)", "RPM: %.0f, Hood: %.2f",
+            getRPMForDistance(DISTANCE_2),
             RobotConstants.getHoodPositionForDistance(DISTANCE_2));
-        telemetry.addData("10ft (D-Left)", "Power: %.0f%%, Hood: %.2f",
-            RobotConstants.getFlywheelPowerForDistance(DISTANCE_3) * 100,
+        telemetry.addData("10ft (D-Left)", "RPM: %.0f, Hood: %.2f",
+            getRPMForDistance(DISTANCE_3),
             RobotConstants.getHoodPositionForDistance(DISTANCE_3));
 
         telemetry.update();

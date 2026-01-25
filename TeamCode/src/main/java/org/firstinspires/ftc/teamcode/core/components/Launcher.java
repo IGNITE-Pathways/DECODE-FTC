@@ -53,6 +53,10 @@ public class Launcher {
     private ElapsedTime velocityTimer = new ElapsedTime();
     private double currentRPM = 0.0;
 
+    // Startup boost for faster spinup (settings loaded from RobotConstants)
+    private ElapsedTime spinupTimer = new ElapsedTime();
+    private boolean justStarted = false;
+
     public void initialize(HardwareMap hardwareMap, Telemetry telemetry) {
         this.telemetry = telemetry;
         // board = new ProgrammingBoardOTHER();
@@ -100,7 +104,14 @@ public class Launcher {
             flyWheelMotor.setPower(0);
             flyWheelMotor2.setPower(0);
             resetPID();
+            justStarted = false;
             return;
+        }
+
+        // Check if we just started spinning
+        if (!justStarted) {
+            justStarted = true;
+            spinupTimer.reset();
         }
 
         double power;
@@ -108,7 +119,18 @@ public class Launcher {
         if (useVelocityControl) {
             // Closed-loop velocity control using PIDF
             measureVelocity();
-            power = calculatePIDFPower();
+
+            // Apply startup boost for faster spinup
+            boolean inBoostPhase = spinupTimer.seconds() < RobotConstants.SPINUP_BOOST_DURATION;
+            boolean belowThreshold = currentRPM < (targetRPM * RobotConstants.SPINUP_RPM_THRESHOLD);
+
+            if (inBoostPhase && belowThreshold) {
+                // Startup boost: apply high power to quickly reach target speed
+                power = RobotConstants.SPINUP_BOOST_POWER;
+            } else {
+                // Normal PIDF control
+                power = calculatePIDFPower();
+            }
         } else {
             // Open-loop power control (legacy mode)
             power = flywheelPower;
@@ -384,6 +406,21 @@ public class Launcher {
      */
     public double[] getPIDFGains() {
         return new double[]{kP, kI, kD, kF};
+    }
+
+    /**
+     * Check if flywheel is in startup boost phase.
+     * @return true if currently using boost power for faster spinup
+     */
+    public boolean isInBoostPhase() {
+        if (!spinning || !useVelocityControl) {
+            return false;
+        }
+
+        boolean inBoostPhase = spinupTimer.seconds() < RobotConstants.SPINUP_BOOST_DURATION;
+        boolean belowThreshold = currentRPM < (targetRPM * RobotConstants.SPINUP_RPM_THRESHOLD);
+
+        return inBoostPhase && belowThreshold;
     }
 }
 

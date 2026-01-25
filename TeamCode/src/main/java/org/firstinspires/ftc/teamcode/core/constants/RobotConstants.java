@@ -34,8 +34,15 @@ public class RobotConstants {
     public static final double FLYWHEEL_KD = 0.00015;   // Derivative gain
     public static final double FLYWHEEL_KF = 0.000215;  // Feedforward gain
 
+    // ==================== FLYWHEEL STARTUP BOOST (Faster Spinup) ====================
+    // These settings control the initial power burst when the flywheel starts spinning
+    // Adjust these if spinup is too slow or too aggressive
+    public static final double SPINUP_BOOST_DURATION = 0.5;     // Duration of boost in seconds
+    public static final double SPINUP_BOOST_POWER = 0.95;       // Power during boost (0.0-1.0)
+    public static final double SPINUP_RPM_THRESHOLD = 0.8;      // Disable boost when at this % of target RPM
+
     // ==================== FLYWHEEL POWER (Legacy - only used if velocity control OFF) ====================
-    public static final double FLYWHEEL_DEFAULT_POWER = 0.8;
+    public static final double FLYWHEEL_DEFAULT_POWER = 0.6;
     public static final double FLYWHEEL_SHOOTING_POWER = 0.8;
     public static final double FLYWHEEL_LOW_POWER = 0.5;
     public static final double FLYWHEEL_MAX_POWER = 1.0;
@@ -51,59 +58,41 @@ public class RobotConstants {
     public static final double INTAKE_SHOOTING_POWER = 1.0;
 
     // ==================== TRANSFER POSITIONS ====================
-    public static final double TRANSFER_UP_POSITION = 0.75;  // Max height - servo limit
+    public static final double TRANSFER_UP_POSITION = 0.65;  // Max height - servo limit
     public static final double TRANSFER_DOWN_POSITION = 0.5;
 
     // ==================== LIMELIGHT DISTANCE-BASED SHOOTING PRESETS ====================
     // After testing at each distance, adjust these RPM values for accurate shooting
     // Range format: MIN distance, MAX distance, Target RPM, Hood position
 
-    // Range 1: 2.47 - 2.84 ft (Close range)
-    public static final double RANGE_1_MIN = 2.47;
-    public static final double RANGE_1_MAX = 2.84;
-    public static final double RANGE_1_FLYWHEEL_RPM = 2600;
-    public static final double RANGE_1_HOOD_POSITION = 0.40;
+    // Range 1: 2.45 - 3.45 ft (Close range)
+    public static final double RANGE_1_MIN = 2.45;
+    public static final double RANGE_1_MAX = 3.45;
+    public static final double RANGE_1_FLYWHEEL_RPM = 2400;
+    public static final double RANGE_1_HOOD_POSITION = 0.55;
 
-    // Range 2: 2.84 - 3.2 ft (Close range)
-    public static final double RANGE_2_MIN = 2.84;
-    public static final double RANGE_2_MAX = 3.20;
-    public static final double RANGE_2_FLYWHEEL_RPM = 2800;
-    public static final double RANGE_2_HOOD_POSITION = 0.55;
+    // Range 2: 3.46 - 4.65 ft (Mid-close range)
+    public static final double RANGE_2_MIN = 3.46;
+    public static final double RANGE_2_MAX = 4.65;
+    public static final double RANGE_2_FLYWHEEL_RPM = 2600;
+    public static final double RANGE_2_HOOD_POSITION = 0.65;
 
-    // Range 3: 3.21 - 4.0 ft (Close-Mid transition)
-    public static final double RANGE_3_MIN = 3.21;
-    public static final double RANGE_3_MAX = 4.00;
-    public static final double RANGE_3_FLYWHEEL_RPM = 3000;
-    public static final double RANGE_3_HOOD_POSITION = 0.50;
+    // Range 3: 4.66 - 5.35 ft (Mid range)
+    public static final double RANGE_3_MIN = 4.66;
+    public static final double RANGE_3_MAX = 5.35;
+    public static final double RANGE_3_FLYWHEEL_RPM = 2700;
+    public static final double RANGE_3_HOOD_POSITION = 0.70;
 
-    // Range 4: 4.0 - 4.5 ft (Mid range)
-    public static final double RANGE_4_MIN = 4.00;
-    public static final double RANGE_4_MAX = 4.50;
-    public static final double RANGE_4_FLYWHEEL_RPM = 3400;
-    public static final double RANGE_4_HOOD_POSITION = 0.50;
+    // Range 4: 5.36 - 6.00 ft (Mid-far range)
+    public static final double RANGE_4_MIN = 5.36;
+    public static final double RANGE_4_MAX = 6.00;
+    public static final double RANGE_4_FLYWHEEL_RPM = 2800;
+    public static final double RANGE_4_HOOD_POSITION = 0.70;
 
-    // Range 5: 4.6 - 5.0 ft (Mid range)
-    public static final double RANGE_5_MIN = 4.60;
-    public static final double RANGE_5_MAX = 5.00;
-    public static final double RANGE_5_FLYWHEEL_RPM = 3600;
-    public static final double RANGE_5_HOOD_POSITION = 0.70;
-
-    // Range 6: 4.84 - 5.25 ft (Mid-Far transition)
-    public static final double RANGE_6_MIN = 4.84;
-    public static final double RANGE_6_MAX = 5.25;
-    public static final double RANGE_6_FLYWHEEL_RPM = 3800;
-    public static final double RANGE_6_HOOD_POSITION = 0.65;
-
-    // Range 7: 5.2 - 5.7 ft (Far range)
-    public static final double RANGE_7_MIN = 5.20;
-    public static final double RANGE_7_MAX = 5.70;
-    public static final double RANGE_7_FLYWHEEL_RPM = 4000;
-    public static final double RANGE_7_HOOD_POSITION = 0.65;
-
-    // Far shooting zone (beyond 5.7 ft) - Maximum distance on field
-    public static final double RANGE_FAR_MIN = 5.70;
-    public static final double RANGE_FAR_FLYWHEEL_RPM = 4500;
-    public static final double RANGE_FAR_HOOD_POSITION = 0.67;
+    // Far shooting zone (10+ ft) - Maximum distance on field
+    public static final double RANGE_FAR_MIN = 10.0;
+    public static final double RANGE_FAR_FLYWHEEL_RPM = 3400;
+    public static final double RANGE_FAR_HOOD_POSITION = 0.80;
 
     // ==================== LIMELIGHT CAMERA SPECS ====================
     public static final double APRILTAG_REAL_HEIGHT_METERS = 0.2032;  // 8 inches
@@ -125,9 +114,18 @@ public class RobotConstants {
     public static final double TURRET_MANUAL_INCREMENT = 0.02;          // DPAD increment
     public static final double TURRET_MANUAL_STICK_DEADZONE = 0.1;     // Stick deadzone
     public static final double TURRET_MANUAL_STICK_SENSITIVITY = 0.01; // Stick scaling
-    public static final double TURRET_MIN_POSITION = 0.0;
-    public static final double TURRET_MAX_POSITION = 1.0;
-    public static final double TURRET_CENTER_POSITION = 0.3;
+    public static final double TURRET_MIN_POSITION = 0.1;
+    public static final double TURRET_MAX_POSITION = 0.9;
+    public static final double TURRET_CENTER_POSITION = 0.5;
+
+    // ==================== TURRET AUTO-TRACKING PID ====================
+    // Adjust these if turret oscillates or is too slow to lock
+    // NOTE: Turret uses CONTINUOUS TRACKING - it never stops moving to follow the AprilTag
+
+    public static final double TURRET_KP = 0.0035;               // Proportional gain - increase for faster, decrease if oscillates
+    public static final double TURRET_KD = 0.0012;               // Derivative gain (damping) - increase to reduce overshoot
+    public static final double TURRET_POSITION_TOLERANCE = 2.0;  // degrees - "locked" status threshold
+    public static final double TURRET_TX_FILTER_ALPHA = 0.3;     // Low-pass filter: 0.1=smooth/slow, 0.5=fast/jittery
 
     // ==================== DISTANCE-BASED HOOD LOOKUP TABLE ====================
     // Distance in feet -> Hood position

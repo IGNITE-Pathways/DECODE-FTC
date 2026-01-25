@@ -92,10 +92,10 @@ public class FlywheelPIDFTuner extends LinearOpMode {
     // PIDF Gains - loaded from RobotConstants
     // Adjust these using the tuner controls, then press B to save
     // Copy saved values to RobotConstants.java for automatic use in teleop
-    private double kP = RobotConstants.FLYWHEEL_KP;
-    private double kI = RobotConstants.FLYWHEEL_KI;
-    private double kD = RobotConstants.FLYWHEEL_KD;
-    private double kF = RobotConstants.FLYWHEEL_KF;
+    private double kP = RobotConstants.FLYWHEEL_KP; //0.00250
+    private double kI = RobotConstants.FLYWHEEL_KI; // 0.000005
+    private double kD = RobotConstants.FLYWHEEL_KD; //
+    private double kF = RobotConstants.FLYWHEEL_KF; // 0.7175 or 0.7575
 
     // Target and control
     private double targetRPM = RobotConstants.DEFAULT_TARGET_RPM;

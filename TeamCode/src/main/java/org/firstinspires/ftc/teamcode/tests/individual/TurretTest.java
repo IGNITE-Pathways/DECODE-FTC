@@ -1,127 +1,183 @@
 package org.firstinspires.ftc.teamcode.tests.individual;
 
-import com.qualcomm.hardware.limelightvision.LLResult;
-import com.qualcomm.hardware.limelightvision.Limelight3A;
-import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.Servo;
-import org.firstinspires.ftc.teamcode.core.components.Turret;
-@Disabled
-@TeleOp(name="Test: Turret", group="Individual Test")
+
+import org.firstinspires.ftc.teamcode.core.components.TurretLockOptimized;
+import org.firstinspires.ftc.teamcode.core.constants.AllianceColor;
+import org.firstinspires.ftc.teamcode.core.constants.HardwareConfig;
+
+/**
+ * Turret Test with Drive
+ *
+ * Tests turret auto-tracking while allowing you to drive around.
+ *
+ * CONTROLS:
+ *   Left Stick   = Drive forward/back and strafe
+ *   Right Stick  = Rotate
+ *   A            = Toggle turret auto-track ON/OFF
+ *   B            = Switch alliance (Blue/Red tag)
+ *   Y            = Reset turret to center
+ *   LB           = Slow drive mode
+ *   RB           = Fast drive mode
+ *   D-Pad L/R    = Manual turret adjust (when auto-track OFF)
+ */
+@TeleOp(name = "Test: Turret + Drive", group = "Individual Test")
 public class TurretTest extends OpMode {
 
-    private Turret turret;
+    // Turret (manages both turret and drive)
+    private TurretLockOptimized turret;
     private Servo turretServo;
-    private Limelight3A limelight;
 
-    // Manual control mode
-    private boolean manualMode = true; // Start in manual mode
-    private double servoPosition = 0.5; // Initial position (0.375 to 0.8 range)
-    private static final double SERVO_MIN = 0.375;
-    private static final double SERVO_MAX = 0.8;
-    private static final double INCREMENT = 0.01; // Small increments for precise control
-    private static final double STICK_SENSITIVITY = 0.003; // How fast the stick moves the servo
+    // State
+    private boolean autoTrackEnabled = true;
+    private AllianceColor alliance = AllianceColor.BLUE;
+    private double manualServoPos = 0.5;  // Start at center
 
-    // Edge detection for mode toggle
-    private boolean prevLeftBumper = false;
+    // Speed mode: 0 = normal (65%), 1 = slow (35%), 2 = fast (95%)
+    private int speedMode = 0;
+
+    // Button edge detection
+    private boolean lastA = false;
+    private boolean lastB = false;
+    private boolean lastY = false;
+    private boolean lastLB = false;
+    private boolean lastRB = false;
+
+    // Manual servo control
+    private static final double SERVO_MIN = 0.1;
+    private static final double SERVO_MAX = 0.9;
+    private static final double MANUAL_INCREMENT = 0.01;
 
     @Override
     public void init() {
-        // Get hardware directly for manual control
-        turretServo = hardwareMap.get(Servo.class, "turretServo");
-        limelight = hardwareMap.get(Limelight3A.class, "limelight");
+        // Initialize turret (also initializes drive motors internally)
+        turret = new TurretLockOptimized();
+        turret.initialize(hardwareMap, telemetry, alliance);
 
-        // Initialize turret component for auto-mode
-        turret = new Turret();
-        turret.initialize(hardwareMap, telemetry);
-
-        // Set initial servo position
-        if (turretServo != null) {
-            turretServo.setPosition(servoPosition);
+        // Initialize turret servo for manual control
+        try {
+            turretServo = hardwareMap.get(Servo.class, HardwareConfig.TURRET_SERVO);
+        } catch (Exception e) {
+            turretServo = null;
         }
 
-        if (limelight != null) {
-            limelight.setPollRateHz(100);
-            limelight.start();
-        }
-
-        telemetry.addLine("Turret Test Initialized");
-        telemetry.addLine("=== MANUAL CONTROLS ===");
-        telemetry.addLine("Right Stick X: Smooth movement");
-        telemetry.addLine("D-Pad Left/Right: Fine adjustments");
-        telemetry.addLine("Left Bumper: Toggle Manual/Auto mode");
+        telemetry.addLine("=== TURRET + DRIVE TEST ===");
+        telemetry.addLine("A = Toggle auto-track");
+        telemetry.addLine("B = Switch alliance");
+        telemetry.addLine("Y = Reset turret");
+        telemetry.addLine("LB/RB = Speed modes");
+        telemetry.addLine("Drive: " + (turret.isDriveInitialized() ? "OK" : "FAILED"));
         telemetry.update();
     }
 
     @Override
     public void loop() {
-        // Toggle between manual and auto mode
-        if (gamepad1.left_bumper && !prevLeftBumper) {
-            manualMode = !manualMode;
+        // ========== DRIVING ==========
+        double fwd = -gamepad1.left_stick_y;
+        double str = gamepad1.left_stick_x;
+        double rot = gamepad1.right_stick_x;
+
+        // Speed mode toggles
+        if (gamepad1.left_bumper && !lastLB) {
+            speedMode = (speedMode == 1) ? 0 : 1;
         }
-        prevLeftBumper = gamepad1.left_bumper;
+        if (gamepad1.right_bumper && !lastRB) {
+            speedMode = (speedMode == 2) ? 0 : 2;
+        }
+        lastLB = gamepad1.left_bumper;
+        lastRB = gamepad1.right_bumper;
 
-        if (manualMode) {
-            // Manual control mode
-            // Right Stick X: Smooth analog control
-            double stickInput = gamepad1.right_stick_x;
-            if (Math.abs(stickInput) > 0.1) { // Dead zone
-                servoPosition += stickInput * STICK_SENSITIVITY;
-            }
+        // Apply speed multiplier
+        double speedMult = (speedMode == 1) ? 0.35 : (speedMode == 2) ? 0.95 : 0.65;
 
-            // D-Pad Left: Fine adjustment left (decrease position)
-            if (gamepad1.dpad_left) {
-                servoPosition -= INCREMENT;
-            }
+        // Use turret's built-in drive control
+        turret.drive(str * speedMult, fwd * speedMult, rot * speedMult);
 
-            // D-Pad Right: Fine adjustment right (increase position)
-            if (gamepad1.dpad_right) {
-                servoPosition += INCREMENT;
-            }
+        // ========== TURRET CONTROLS ==========
 
-            // Clamp servo position within valid range
-            servoPosition = Math.max(SERVO_MIN, Math.min(SERVO_MAX, servoPosition));
+        // A = Toggle auto-track
+        if (gamepad1.a && !lastA) {
+            autoTrackEnabled = !autoTrackEnabled;
+        }
+        lastA = gamepad1.a;
 
-            // Apply position
-            if (turretServo != null) {
-                turretServo.setPosition(servoPosition);
-            }
+        // B = Switch alliance
+        if (gamepad1.b && !lastB) {
+            alliance = (alliance == AllianceColor.BLUE) ? AllianceColor.RED : AllianceColor.BLUE;
+            turret.setAlliance(alliance);
+        }
+        lastB = gamepad1.b;
 
-            // Telemetry for manual mode
-            telemetry.addLine("=== MANUAL MODE ===");
-            telemetry.addData("Servo Position", "%.3f", servoPosition);
-            telemetry.addData("Range", "%.3f - %.3f", SERVO_MIN, SERVO_MAX);
-            telemetry.addData("Right Stick X", "%.2f", stickInput);
-            telemetry.addLine("Right Stick X: Smooth movement");
-            telemetry.addLine("D-Pad Left/Right: Fine adjustments");
+        // Y = Reset turret to center
+        if (gamepad1.y && !lastY) {
+            turret.resetLock();
+            manualServoPos = 0.5;  // Center position
+        }
+        lastY = gamepad1.y;
 
+        // ========== TURRET UPDATE ==========
+        if (autoTrackEnabled) {
+            // Auto-tracking mode
+            turret.update();
         } else {
-            // Auto-alignment mode
-            boolean limelightConnected = turret.update();
+            // Manual mode - D-Pad controls
+            if (gamepad1.dpad_left) {
+                manualServoPos -= MANUAL_INCREMENT;
+            }
+            if (gamepad1.dpad_right) {
+                manualServoPos += MANUAL_INCREMENT;
+            }
+            // Right stick X for smooth control
+            if (Math.abs(gamepad1.right_stick_x) > 0.1) {
+                manualServoPos += gamepad1.right_stick_x * 0.005;
+            }
 
-            if (!limelightConnected) {
-                telemetry.addLine("=== AUTO MODE ===");
-                telemetry.addLine("⚠️ Limelight not connected");
-                telemetry.addLine("Check hardware configuration");
-            } else {
-                telemetry.addLine("=== AUTO MODE ===");
-                telemetry.addLine("✅ Limelight connected");
-                telemetry.addLine("Turret is auto-aligning with AprilTag");
+            manualServoPos = Math.max(SERVO_MIN, Math.min(SERVO_MAX, manualServoPos));
 
-                // Display limelight data
-                LLResult result = limelight.getLatestResult();
-                if (result != null && result.isValid()) {
-                    telemetry.addData("tx", result.getTx());
-                    telemetry.addData("ty", result.getTy());
-                    telemetry.addData("ta", result.getTa());
-                }
+            if (turretServo != null) {
+                turretServo.setPosition(manualServoPos);
             }
         }
 
-        telemetry.addLine("");
-        telemetry.addData("Mode", manualMode ? "MANUAL" : "AUTO");
-        telemetry.addLine("Left Bumper: Toggle Mode");
+        // ========== TELEMETRY ==========
+        telemetry.addLine("=== TURRET + DRIVE TEST ===");
+        telemetry.addLine();
+
+        telemetry.addLine("--- DRIVE ---");
+        telemetry.addData("Drive Status", turret.isDriveInitialized() ? "OK" : "FAILED");
+        telemetry.addData("Speed", speedMode == 1 ? "SLOW 35%" : speedMode == 2 ? "FAST 95%" : "NORMAL 65%");
+        telemetry.addLine();
+
+        telemetry.addLine("--- TURRET ---");
+        telemetry.addData("Mode", autoTrackEnabled ? "AUTO-TRACK" : "MANUAL");
+        telemetry.addData("Alliance", alliance == AllianceColor.BLUE ? "BLUE (Tag 20)" : "RED (Tag 24)");
+        telemetry.addData("Limelight", turret.isLimelightConnected() ? "CONNECTED" : "NOT CONNECTED");
+
+        if (autoTrackEnabled) {
+            telemetry.addData("Status", turret.getDebugState());
+            telemetry.addData("Locked", turret.isLocked() ? "YES" : "no");
+            telemetry.addData("TX", "%.1f°", turret.getTx());
+            telemetry.addData("TY", "%.1f°", turret.getTy());
+            telemetry.addData("Servo Pos", "%.3f", turret.getServoPosition());
+            telemetry.addData("Tags Found", turret.getDetectedTagIds());
+            telemetry.addData("Tag Count", turret.getDetectedTagCount());
+        } else {
+            telemetry.addData("Servo Pos", "%.3f", manualServoPos);
+            telemetry.addLine("D-Pad L/R or Right Stick = Adjust");
+        }
+
+        telemetry.addLine();
+        telemetry.addLine("A = Toggle auto-track | B = Alliance | Y = Reset");
+        telemetry.addLine("LB = Slow | RB = Fast");
         telemetry.update();
+    }
+
+    @Override
+    public void stop() {
+        turret.stopDrive();
+        turret.stop();
     }
 }

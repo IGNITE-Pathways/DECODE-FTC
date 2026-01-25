@@ -362,55 +362,50 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
     }
 
     private void applyDistancePreset(double distance) {
-        // All range values loaded from ShooterConstants - update there after testing!
-        // Check ranges in order (most specific to least specific)
+        // All range values loaded from RobotConstants - update there after testing!
+        // Ranges: 2.45-3.45ft, 3.46-4.65ft, 4.66-5.35ft, 5.36-6ft, 10+ft
 
-        if (distance >= RobotConstants.RANGE_1_MIN && distance < RobotConstants.RANGE_1_MAX) {
+        if (distance >= RobotConstants.RANGE_1_MIN && distance <= RobotConstants.RANGE_1_MAX) {
+            // Range 1: 2.45 - 3.45 ft
             flywheelRPM = RobotConstants.RANGE_1_FLYWHEEL_RPM;
             hoodPosition = RobotConstants.RANGE_1_HOOD_POSITION;
             selectedPreset = String.format("RANGE 1 (%.2fft @ %.0fRPM)", distance, flywheelRPM);
 
-        } else if (distance >= RobotConstants.RANGE_2_MIN && distance < RobotConstants.RANGE_2_MAX) {
+        } else if (distance >= RobotConstants.RANGE_2_MIN && distance <= RobotConstants.RANGE_2_MAX) {
+            // Range 2: 3.46 - 4.65 ft
             flywheelRPM = RobotConstants.RANGE_2_FLYWHEEL_RPM;
             hoodPosition = RobotConstants.RANGE_2_HOOD_POSITION;
             selectedPreset = String.format("RANGE 2 (%.2fft @ %.0fRPM)", distance, flywheelRPM);
 
-        } else if (distance >= RobotConstants.RANGE_3_MIN && distance < RobotConstants.RANGE_3_MAX) {
+        } else if (distance >= RobotConstants.RANGE_3_MIN && distance <= RobotConstants.RANGE_3_MAX) {
+            // Range 3: 4.66 - 5.35 ft
             flywheelRPM = RobotConstants.RANGE_3_FLYWHEEL_RPM;
             hoodPosition = RobotConstants.RANGE_3_HOOD_POSITION;
             selectedPreset = String.format("RANGE 3 (%.2fft @ %.0fRPM)", distance, flywheelRPM);
 
-        } else if (distance >= RobotConstants.RANGE_4_MIN && distance < RobotConstants.RANGE_4_MAX) {
+        } else if (distance >= RobotConstants.RANGE_4_MIN && distance <= RobotConstants.RANGE_4_MAX) {
+            // Range 4: 5.36 - 6.00 ft
             flywheelRPM = RobotConstants.RANGE_4_FLYWHEEL_RPM;
             hoodPosition = RobotConstants.RANGE_4_HOOD_POSITION;
             selectedPreset = String.format("RANGE 4 (%.2fft @ %.0fRPM)", distance, flywheelRPM);
 
-        } else if (distance >= RobotConstants.RANGE_6_MIN && distance < RobotConstants.RANGE_6_MAX) {
-            // Prioritize Range 6 over Range 5 due to overlap
-            flywheelRPM = RobotConstants.RANGE_6_FLYWHEEL_RPM;
-            hoodPosition = RobotConstants.RANGE_6_HOOD_POSITION;
-            selectedPreset = String.format("RANGE 6 (%.2fft @ %.0fRPM)", distance, flywheelRPM);
-
-        } else if (distance >= RobotConstants.RANGE_5_MIN && distance < RobotConstants.RANGE_5_MAX) {
-            flywheelRPM = RobotConstants.RANGE_5_FLYWHEEL_RPM;
-            hoodPosition = RobotConstants.RANGE_5_HOOD_POSITION;
-            selectedPreset = String.format("RANGE 5 (%.2fft @ %.0fRPM)", distance, flywheelRPM);
-
-        } else if (distance >= RobotConstants.RANGE_7_MIN && distance < RobotConstants.RANGE_7_MAX) {
-            flywheelRPM = RobotConstants.RANGE_7_FLYWHEEL_RPM;
-            hoodPosition = RobotConstants.RANGE_7_HOOD_POSITION;
-            selectedPreset = String.format("RANGE 7 (%.2fft @ %.0fRPM)", distance, flywheelRPM);
-
         } else if (distance >= RobotConstants.RANGE_FAR_MIN) {
+            // Far range: 10+ ft
             flywheelRPM = RobotConstants.RANGE_FAR_FLYWHEEL_RPM;
             hoodPosition = RobotConstants.RANGE_FAR_HOOD_POSITION;
             selectedPreset = String.format("FAR ZONE (%.2fft @ %.0fRPM)", distance, flywheelRPM);
 
         } else {
-            // Below minimum range - use defaults
+            // Between 6-10 ft or below 2.45 ft - use defaults
             flywheelRPM = RobotConstants.DEFAULT_TARGET_RPM;
             hoodPosition = RobotConstants.HOOD_DEFAULT_POSITION;
-            selectedPreset = "OUT OF RANGE - DEFAULT";
+            selectedPreset = String.format("OUT OF RANGE (%.2fft) - DEFAULT", distance);
+        }
+
+        // Apply immediately if flywheel is already on
+        if (flywheelOn) {
+            launcher.setTargetRPM(flywheelRPM);
+            launcher.setHoodPosition(hoodPosition);
         }
     }
 
@@ -515,8 +510,16 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
             double currentRPM = launcher.getCurrentRPM();
             double error = Math.abs(flywheelRPM - currentRPM);
             boolean ready = error < 50;  // Ready if within 50 RPM
+            boolean boosting = launcher.isInBoostPhase();
 
-            String status = ready ? ">>> READY TO SHOOT <<<" : "SPINNING UP...";
+            String status;
+            if (boosting) {
+                status = "BOOST SPINUP...";
+            } else if (ready) {
+                status = ">>> READY TO SHOOT <<<";
+            } else {
+                status = "SPINNING UP...";
+            }
             telemetry.addData("Flywheel", status);
             telemetry.addData("Target/Actual", "%.0f / %.0f RPM", flywheelRPM, currentRPM);
 
