@@ -26,7 +26,7 @@ public class RobotConstants {
     // These values are used by BOTH the tuner and competition teleop
 
     public static final boolean USE_VELOCITY_CONTROL = true;  // Set false to use power mode (fallback)
-    public static final double DEFAULT_TARGET_RPM = 3500;     // Default flywheel speed
+    public static final double DEFAULT_TARGET_RPM = 2400;     // Default flywheel speed (Range 1 close shot)
 
     // PIDF Gains - TUNE USING FlywheelPIDFTuner!
     public static final double FLYWHEEL_KP = 0.00035;   // Proportional gain
@@ -48,9 +48,9 @@ public class RobotConstants {
     public static final double FLYWHEEL_MAX_POWER = 1.0;
 
     // ==================== HOOD POSITIONS ====================
-    public static final double HOOD_DEFAULT_POSITION = 0.8;
-    public static final double HOOD_MIN_POSITION = 0.5;    // Lowest angle (far shots)
-    public static final double HOOD_MAX_POSITION = 0.9;    // Highest angle (close shots)
+    public static final double HOOD_DEFAULT_POSITION = 0.55;  // Default (Range 1 close shot)
+    public static final double HOOD_MIN_POSITION = 0.5;      // Lowest angle (far shots)
+    public static final double HOOD_MAX_POSITION = 0.9;      // Highest angle (close shots)
     public static final double HOOD_INCREMENT = 0.05;
 
     // ==================== INTAKE POWER ====================
@@ -91,7 +91,7 @@ public class RobotConstants {
 
     // Far shooting zone (10+ ft) - Maximum distance on field
     public static final double RANGE_FAR_MIN = 10.0;
-    public static final double RANGE_FAR_FLYWHEEL_RPM = 3400;
+    public static final double RANGE_FAR_FLYWHEEL_RPM = 3550;
     public static final double RANGE_FAR_HOOD_POSITION = 0.80;
 
     // ==================== LIMELIGHT CAMERA SPECS ====================
@@ -113,7 +113,7 @@ public class RobotConstants {
     // ==================== TURRET MANUAL CONTROL ====================
     public static final double TURRET_MANUAL_INCREMENT = 0.02;          // DPAD increment
     public static final double TURRET_MANUAL_STICK_DEADZONE = 0.1;     // Stick deadzone
-    public static final double TURRET_MANUAL_STICK_SENSITIVITY = 0.01; // Stick scaling
+    public static final double TURRET_MANUAL_STICK_SENSITIVITY = 0.005; // Stick scaling (reduced for better control)
     public static final double TURRET_MIN_POSITION = 0.1;
     public static final double TURRET_MAX_POSITION = 0.9;
     public static final double TURRET_CENTER_POSITION = 0.5;
@@ -121,10 +121,11 @@ public class RobotConstants {
     // ==================== TURRET AUTO-TRACKING PID ====================
     // Adjust these if turret oscillates or is too slow to lock
     // NOTE: Turret uses CONTINUOUS TRACKING - it never stops moving to follow the AprilTag
+    // Values match ActualTurretLockOn (v2) for optimal performance
 
-    public static final double TURRET_KP = 0.0035;               // Proportional gain - increase for faster, decrease if oscillates
-    public static final double TURRET_KD = 0.0012;               // Derivative gain (damping) - increase to reduce overshoot
-    public static final double TURRET_POSITION_TOLERANCE = 2.0;  // degrees - "locked" status threshold
+    public static final double TURRET_KP = 0.008;                // Proportional gain - increase for faster, decrease if oscillates
+    public static final double TURRET_KD = 0.005;                // Derivative gain (damping) - increase to reduce overshoot
+    public static final double TURRET_POSITION_TOLERANCE = 2.5;  // degrees - "locked" status threshold (wider to prevent hunting)
     public static final double TURRET_TX_FILTER_ALPHA = 0.3;     // Low-pass filter: 0.1=smooth/slow, 0.5=fast/jittery
 
     // ==================== DISTANCE-BASED HOOD LOOKUP TABLE ====================

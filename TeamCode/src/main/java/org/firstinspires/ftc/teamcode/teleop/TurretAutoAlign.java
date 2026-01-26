@@ -26,7 +26,7 @@ public class TurretAutoAlign extends OpMode {
     // Servo config
     private static final double SERVO_MIN = 0.0;
     private static final double SERVO_MAX = 1.0;
-    private static final double TARGET_TX = 11.5;  // ideal tx
+    private static final double TARGET_TX = 8.5;  // ideal tx
     private static final double IDEAL_RANGE = 0.05; // tight tolerance
     private static final double INTEGRAL_WINDUP_LIMIT = 100.0; // Prevent integral windup
     private boolean CHECK = false; // Instance variable, not static
@@ -39,7 +39,7 @@ public class TurretAutoAlign extends OpMode {
     private int lastDirection = 1; // 1 = right, -1 = left
 
     // Scanning speed and behavior
-    private double scanSpeed = 0.0008;
+    private double scanSpeed = 0.0018;
     private double searchRange = 0.05; // how far to scan around last seen position
     private int framesSinceSeen = 0;   // expands search zone over time if lost
     private double lockedServoPos = 0.5;

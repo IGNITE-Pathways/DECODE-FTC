@@ -12,7 +12,8 @@ import org.firstinspires.ftc.teamcode.core.constants.HardwareConfig;
 import org.firstinspires.ftc.teamcode.core.constants.RobotConstants;
 
 /**
- * *** FLYWHEEL PIDF TUNER ***
+ * *** FLYWHEEL PIDF TUNER WITH DRIVING ***
+ * ALL CONTROLS ON GAMEPAD 1
  *
  * HOW TO USE THIS TUNER:
  * ======================
@@ -31,22 +32,27 @@ import org.firstinspires.ftc.teamcode.core.constants.RobotConstants;
  * - Far shots (6-8 ft): 4000-4500 RPM
  * - Max distance (8+ ft): 4800-5500 RPM
  *
- * CONTROLS:
- * =========
- * Y: Toggle flywheel ON/OFF
- * DPAD UP/DOWN: Adjust target RPM (±50)
- * LEFT STICK Y: Adjust target RPM (fine control)
+ * ALL CONTROLS (Gamepad 1):
+ * =========================
+ * DRIVING (Fast - 70% speed):
+ * - Left Stick: Forward/Backward and Strafe
+ * - Right Stick X: Rotate
+ * - Back Button: Toggle slow mode (70% ↔ 30%)
  *
- * Tuning Gains (hold respective bumper + dpad):
- * LB + DPAD UP/DOWN: Adjust kP (±0.0001)
- * RB + DPAD UP/DOWN: Adjust kF (±0.00001)
- * LB + RB + DPAD UP/DOWN: Adjust kI (±0.00001)
- * A + DPAD UP/DOWN: Adjust kD (±0.0001)
+ * FLYWHEEL:
+ * - Y: Toggle flywheel ON/OFF
+ * - DPAD UP/DOWN: Adjust target RPM (±50)
+ * - Right Stick Y: Fine RPM adjust (when not rotating)
+ * - RT: Run intake (simulate shot/load)
+ * - LT: Run eject
+ * - X: Reset PID
+ * - B: Save current gains to telemetry
  *
- * RT: Run intake (simulate shot/load)
- * LT: Run eject
- * X: Reset PID
- * B: Save current gains to telemetry
+ * PIDF TUNING (hold respective bumper + dpad):
+ * - LB + DPAD UP/DOWN: Adjust kP (±0.0001)
+ * - RB + DPAD UP/DOWN: Adjust kF (±0.00001)
+ * - LB + RB + DPAD UP/DOWN: Adjust kI (±0.00001)
+ * - A + DPAD UP/DOWN: Adjust kD (±0.0001)
  *
  * TUNING GUIDE:
  * =============
@@ -57,8 +63,8 @@ import org.firstinspires.ftc.teamcode.core.constants.RobotConstants;
  *
  * CURRENT TUNED VALUES (for 6000 RPM motors):
  * ============================================
- * kF = 0.00020 - Base power (60-70% power at 3500 RPM)
- * kP = 0.0004  - Fast response to RPM drops from shots
+ * kF = 0.00020 - Base power (60-70% power at 3500 RPM) 0.000180
+ * kP = 0.0004  - Fast response to RPM drops from shots 0.000850 0.001150
  * kI = 0.00003 - Eliminates steady-state error without oscillation
  * kD = 0.0002  - Smooths recovery, reduces overshoot
  *
@@ -76,14 +82,21 @@ import org.firstinspires.ftc.teamcode.core.constants.RobotConstants;
  *
  * If you have different motors or mechanical setup, use the controls above to fine-tune.
  */
-@TeleOp(name = "Tuner: Flywheel PIDF", group = "Tuning")
+@TeleOp(name = "Tuner: Flywheel PIDF + Drive (GP1)", group = "Tuning")
 public class FlywheelPIDFTuner extends LinearOpMode {
 
-    // Hardware
+    // Hardware - Flywheel
     private DcMotorEx flywheelMotor1;
     private DcMotorEx flywheelMotor2;
     private IntakeTransfer intakeTransfer;
     private VoltageSensor voltageSensor;
+
+    // Hardware - Drive (Gamepad 1, separate from PIDF)
+    private DcMotor frontLeft;
+    private DcMotor frontRight;
+    private DcMotor backLeft;
+    private DcMotor backRight;
+    private boolean driveInitialized = false;
 
     // Voltage monitoring (no compensation - PIDF handles it naturally)
     private static final double CRITICAL_VOLTAGE = 10.5; // Emergency shutoff only
@@ -136,18 +149,31 @@ public class FlywheelPIDFTuner extends LinearOpMode {
     private ElapsedTime recoveryTimer = new ElapsedTime();
     private double lastRecoveryTime = 0.0;
 
+    // Drive settings - faster speed for normal operation
+    private static final double NORMAL_SPEED = 0.7;     // Normal speed (70%)
+    private static final double SUPER_SLOW_SPEED = 0.3; // Slow mode (30%) for fine positioning
+    private boolean slowModeEnabled = false;
+    private boolean lastBack = false;
+
     @Override
     public void runOpMode() {
         initializeHardware();
 
-        telemetry.addLine("=== FLYWHEEL PIDF TUNER ===");
+        telemetry.addLine("=== FLYWHEEL PIDF TUNER + DRIVE ===");
+        telemetry.addLine("*** ALL CONTROLS ON GAMEPAD 1 ***");
         telemetry.addLine();
-        telemetry.addLine("Y: Toggle flywheel ON/OFF");
-        telemetry.addLine("DPAD UP/DN: Adjust target RPM");
+        telemetry.addLine("DRIVE (Fast - 70%):");
+        telemetry.addData("Status", driveInitialized ? "READY" : "FAILED");
+        telemetry.addLine("- L-Stick: Forward/Strafe");
+        telemetry.addLine("- R-Stick X: Rotate");
+        telemetry.addLine("- Back: Slow mode (30%)");
         telemetry.addLine();
-        telemetry.addLine("*** INTAKE/EJECT CONTROLS ***");
-        telemetry.addLine("RT: Run INTAKE (test flywheel load)");
-        telemetry.addLine("LT: Run EJECT (reverse)");
+        telemetry.addLine("FLYWHEEL:");
+        telemetry.addLine("- Y: ON/OFF");
+        telemetry.addLine("- DPAD UP/DN: RPM ±50");
+        telemetry.addLine("- R-Stick Y: RPM fine");
+        telemetry.addLine("- RT: Intake | LT: Eject");
+        telemetry.addLine("- X: Reset | B: Save");
         telemetry.addLine();
         telemetry.addData("Battery", "%.2fV", currentVoltage);
         telemetry.addLine();
@@ -162,6 +188,7 @@ public class FlywheelPIDFTuner extends LinearOpMode {
 
         while (opModeIsActive()) {
             handleControls();
+            handleDriving();  // Manual driving (Gamepad 2, no PID)
             measureVelocity();
             intakeTransfer.transferUp();
 
@@ -194,7 +221,14 @@ public class FlywheelPIDFTuner extends LinearOpMode {
             displayTelemetry();
         }
 
+        // Cleanup
         setFlywheelPower(0.0);
+        if (driveInitialized) {
+            frontLeft.setPower(0);
+            frontRight.setPower(0);
+            backLeft.setPower(0);
+            backRight.setPower(0);
+        }
     }
 
     // ========================================
@@ -225,6 +259,31 @@ public class FlywheelPIDFTuner extends LinearOpMode {
         voltageSensor = hardwareMap.voltageSensor.iterator().next();
         if (voltageSensor != null) {
             currentVoltage = voltageSensor.getVoltage();
+        }
+
+        // Initialize drive motors (Gamepad 2 control)
+        try {
+            frontLeft = hardwareMap.get(DcMotor.class, HardwareConfig.LEFT_FRONT_MOTOR);
+            frontRight = hardwareMap.get(DcMotor.class, HardwareConfig.RIGHT_FRONT_MOTOR);
+            backLeft = hardwareMap.get(DcMotor.class, HardwareConfig.LEFT_BACK_MOTOR);
+            backRight = hardwareMap.get(DcMotor.class, HardwareConfig.RIGHT_BACK_MOTOR);
+
+            // Set motor directions for mecanum drive
+            frontLeft.setDirection(DcMotor.Direction.REVERSE);
+            backLeft.setDirection(DcMotor.Direction.REVERSE);
+            frontRight.setDirection(DcMotor.Direction.FORWARD);
+            backRight.setDirection(DcMotor.Direction.FORWARD);
+
+            // Set zero power behavior
+            frontLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+            frontRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+            backLeft.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+            backRight.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+
+            driveInitialized = true;
+        } catch (Exception e) {
+            driveInitialized = false;
+            // Continue even if drive initialization fails
         }
     }
 
@@ -379,9 +438,12 @@ public class FlywheelPIDFTuner extends LinearOpMode {
         }
         lastDpadDown = gamepad1.dpad_down;
 
-        // Fine RPM control with left stick
-        targetRPM += -gamepad1.left_stick_y * 5; // ±5 RPM per frame
-        targetRPM = Math.max(0, Math.min(6000, targetRPM));
+        // Fine RPM control with right stick Y (when not rotating)
+        // Right stick Y adjusts RPM when not using it for rotation
+        if (Math.abs(gamepad1.right_stick_y) > 0.1 && Math.abs(gamepad1.right_stick_x) < 0.1) {
+            targetRPM += -gamepad1.right_stick_y * 5; // ±5 RPM per frame
+            targetRPM = Math.max(0, Math.min(6000, targetRPM));
+        }
 
         // Save gains to telemetry
         if (gamepad1.b && !lastB) {
@@ -398,6 +460,50 @@ public class FlywheelPIDFTuner extends LinearOpMode {
     }
 
     // ========================================
+    // DRIVE CONTROL (Gamepad 1, Manual, No PID)
+    // ========================================
+
+    private void handleDriving() {
+        if (!driveInitialized) return;
+
+        // Get gamepad 1 inputs (left stick for drive, right stick for rotate)
+        double fwd = -gamepad1.left_stick_y;   // Forward/backward (left stick)
+        double str = gamepad1.left_stick_x;    // Strafe left/right (left stick)
+        double rot = gamepad1.right_stick_x;   // Rotate (right stick)
+
+        // Back button = Toggle slow mode
+        if (gamepad1.back && !lastBack) {
+            slowModeEnabled = !slowModeEnabled;
+        }
+        lastBack = gamepad1.back;
+
+        // Apply speed multiplier (slow for precise positioning during testing)
+        double speedMult = slowModeEnabled ? SUPER_SLOW_SPEED : NORMAL_SPEED;
+
+        // Mecanum drive kinematics
+        double flPower = (fwd + str + rot) * speedMult;
+        double frPower = (fwd - str - rot) * speedMult;
+        double blPower = (fwd - str + rot) * speedMult;
+        double brPower = (fwd + str - rot) * speedMult;
+
+        // Normalize powers if any exceed 1.0
+        double maxPower = Math.max(Math.max(Math.abs(flPower), Math.abs(frPower)),
+                                   Math.max(Math.abs(blPower), Math.abs(brPower)));
+        if (maxPower > 1.0) {
+            flPower /= maxPower;
+            frPower /= maxPower;
+            blPower /= maxPower;
+            brPower /= maxPower;
+        }
+
+        // Apply motor powers
+        frontLeft.setPower(flPower);
+        frontRight.setPower(frPower);
+        backLeft.setPower(blPower);
+        backRight.setPower(brPower);
+    }
+
+    // ========================================
     // MOTOR CONTROL
     // ========================================
 
@@ -411,8 +517,14 @@ public class FlywheelPIDFTuner extends LinearOpMode {
     // ========================================
 
     private void displayTelemetry() {
-        telemetry.addLine("=== FLYWHEEL PIDF TUNER ===");
-        telemetry.addData("Status", flywheelOn ? "RUNNING" : "STOPPED");
+        telemetry.addLine("=== FLYWHEEL PIDF TUNER + DRIVE ===");
+        telemetry.addLine("(All controls on Gamepad 1)");
+        telemetry.addLine();
+        telemetry.addData("Flywheel", flywheelOn ? "RUNNING" : "STOPPED");
+        telemetry.addData("Drive", driveInitialized ? "ACTIVE" : "FAILED");
+        if (driveInitialized) {
+            telemetry.addData("Speed Mode", slowModeEnabled ? "SLOW (30%)" : "FAST (70%)");
+        }
 
         // Battery status - color code with warnings
         String voltageStatus;

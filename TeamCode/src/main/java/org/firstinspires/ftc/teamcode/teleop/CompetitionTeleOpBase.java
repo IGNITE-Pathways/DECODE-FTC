@@ -7,7 +7,7 @@ import com.qualcomm.hardware.limelightvision.LLResult;
 import org.firstinspires.ftc.teamcode.core.components.DriveTrain;
 import org.firstinspires.ftc.teamcode.core.components.Launcher;
 import org.firstinspires.ftc.teamcode.core.components.IntakeTransfer;
-import org.firstinspires.ftc.teamcode.core.components.TurretLockOptimized;
+import org.firstinspires.ftc.teamcode.core.components.ActualTurretLockOn;
 import org.firstinspires.ftc.teamcode.core.constants.AllianceColor;
 import org.firstinspires.ftc.teamcode.core.constants.RobotConstants;
 import org.firstinspires.ftc.teamcode.core.util.DistanceCalculator;
@@ -18,37 +18,63 @@ import org.firstinspires.ftc.teamcode.core.util.DistanceCalculator;
  * ALL SETTINGS (PIDF gains, RPM ranges, hood positions) are in RobotConstants.java!
  * After tuning, update values there - they automatically apply here.
  *
+ * === DEFAULT PRESET ===
+ * Default: Range 1 close shot (2400 RPM, hood 0.55) - optimized for 2.45-3.45 ft
+ *
+ * === STATE MACHINE ===
+ * INTAKE Mode: Full speed (100%), flywheel OFF
+ * SHOOTING Mode: Reduced speed (85%), flywheel ON
+ * Toggle: GP1-Y switches between modes
+ *
  * === GAMEPAD 1 (Driver/Shooter) ===
- * Sticks: Drive | RT: Intake | LT: Eject
- * A: Turret auto-track | Y: Flywheel toggle | B: Lock distance
- * DPAD UP: Enable distance detection | DPAD DOWN: Disable (use defaults)
- * DPAD LEFT: Far zone preset (5.7+ ft)
+ * Sticks: Drive (speed based on state)
+ * Y: Toggle INTAKE/SHOOTING mode
+ * LB: Eject-and-shoot sequence (ejects ball halfway, then shoots)
+ * RT: Intake | LT: Eject
  *
- * === GAMEPAD 2 (Manual Adjustments) ===
- * Left Stick X: Manual turret | DPAD L/R: Fine turret adjust | X: Center turret
- * DPAD UP/DOWN: Adjust RPM (±100) | LB/RB: Adjust hood angle (±0.03)
- * B: Quick reset to defaults | START: EMERGENCY STOP
+ * === GAMEPAD 2 (Turret & Presets) ===
+ * A: Turret auto-track | B: Lock distance
+ * DPAD UP: Enable distance detection | DPAD DOWN: Disable (use Range 1 default)
+ * DPAD LEFT: Fine turret adjust left | DPAD RIGHT: Far zone preset (10+ ft, 3550 RPM)
+ * Left Stick X: Manual turret control
+ * LB/RB: Adjust hood angle (±0.03)
+ * X: Center turret | START: EMERGENCY STOP
  *
- * === Shooting Workflow ===
- * 1. GP1-A: Enable turret tracking (aims at AprilTag)
- * 2. GP1-DPAD UP: Enable distance detection
- * 3. GP1-B: Lock distance when lined up
- * 4. GP1-Y: Spin up flywheel (uses locked distance)
+ * === Shooting Workflow (Normal) ===
+ * 1. GP2-A: Enable turret tracking (aims at AprilTag)
+ * 2. GP2-DPAD UP: Enable distance detection
+ * 3. GP2-B: Lock distance when lined up
+ * 4. GP1-Y: Switch to SHOOTING mode (spins up flywheel)
  * 5. GP1-RT: Feed balls
- * 6. GP2-DPAD/BUMPERS: Fine-tune RPM/hood if needed
+ * 6. GP2-LB/RB: Fine-tune hood if needed
+ * 7. GP1-Y: Switch back to INTAKE mode when done
+ *
+ * === Quick Eject-Shoot (GP1-LB) ===
+ * Use when ball is stuck or needs repositioning before shooting
+ * - Automatically switches to SHOOTING mode if needed
+ * - Ejects ball halfway (300ms) to position it
+ * - Then shoots for 1 second
+ * - Hands-free sequence, just press LB once
  */
 public abstract class CompetitionTeleOpBase extends LinearOpMode {
+
+    // === STATE MACHINE ===
+    private enum RobotState {
+        INTAKE,   // Full speed, intake active
+        SHOOTING  // Reduced speed, flywheel active
+    }
 
     // === CONFIG ===
     private static final boolean SHOW_DEBUG_INFO = false;  // Set true to see limelight debug info
 
     protected AllianceColor alliance;
+    private RobotState currentState = RobotState.INTAKE;  // Start in intake mode
 
     // Components
     private DriveTrain driveTrain;
     private Launcher launcher;
     private IntakeTransfer intakeTransfer;
-    private TurretLockOptimized turret;
+    private ActualTurretLockOn turret;
     private Limelight3A limelight;
 
     // State
@@ -64,21 +90,28 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
     private boolean lastGP1_A = false;
     private boolean lastGP1_Y = false;
     private boolean lastGP1_B = false;
+    private boolean lastGP1_LeftBumper = false;
     private boolean lastGP1_DpadUp = false;
     private boolean lastGP1_DpadDown = false;
     private boolean lastGP1_DpadLeft = false;
+
+    // Eject-and-shoot sequence
+    private boolean ejectShootActive = false;
+    private long ejectShootStartTime = 0;
+    private static final long EJECT_DURATION_MS = 300;  // Eject for 300ms to position ball
 
     // Limelight distance tracking
     private double currentDistance = -1.0;  // Currently detected distance
     private double lockedDistance = -1.0;   // Locked distance for shooting
 
     // Gamepad 2 button states (manual turret & overrides)
+    private boolean lastGP2_A = false;
+    private boolean lastGP2_B = false;
     private boolean lastGP2_X = false;
     private boolean lastGP2_DpadLeft = false;
     private boolean lastGP2_DpadRight = false;
     private boolean lastGP2_DpadUp = false;
     private boolean lastGP2_DpadDown = false;
-    private boolean lastGP2_B = false;
     private boolean lastGP2_LeftBumper = false;
     private boolean lastGP2_RightBumper = false;
 
@@ -94,12 +127,13 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
             if (!emergencyStopped) {
                 // Main control loop
                 handleDriving();              // GP1: Sticks, speed control
-                handleTurret();               // GP1-A: Auto-tracking toggle
+                handleTurret();               // GP2-A: Auto-tracking toggle
                 handleManualTurretControl();  // GP2: Manual turret control
                 handleIntake();               // GP1: RT/LT intake/eject
-                handleDistanceLock();         // GP1: DPAD UP/DOWN/LEFT, B-lock
-                handleFlywheelToggle();       // GP1-Y: Flywheel on/off
-                handleManualOverrides();      // GP2: Manual RPM/hood adjustments
+                handleEjectShoot();           // GP1-LB: Eject-and-shoot sequence
+                handleDistanceLock();         // GP2: DPAD UP/DOWN, Y-far, B-lock
+                handleFlywheelToggle();       // GP1-Y: State toggle
+                handleManualOverrides();      // GP2: Manual hood adjustments
                 launcher.update();            // PIDF velocity control
             }
 
@@ -132,7 +166,7 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
         intakeTransfer = new IntakeTransfer();
         intakeTransfer.initialize(hardwareMap, telemetry);
 
-        turret = new TurretLockOptimized();
+        turret = new ActualTurretLockOn();
         turret.initialize(hardwareMap, telemetry, alliance);
 
         try {
@@ -167,6 +201,8 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
         intakeTransfer.stopIntake();
         intakeTransfer.transferDown();
         driveTrain.stopMotors();
+        turret.stop();
+        turretTracking = false;
         flywheelOn = false;
     }
 
@@ -184,10 +220,12 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
         str = applyDeadzone(str);
         rot = applyDeadzone(rot);
 
-        // Reduce speed while flywheel is active for better shooting accuracy
-        double speedMult = 1.0;
-        if (flywheelOn) {
-            speedMult = RobotConstants.SPEED_SHOOTING_MULTIPLIER;
+        // State-based speed control
+        double speedMult;
+        if (currentState == RobotState.INTAKE) {
+            speedMult = 1.0;  // Full speed for intake
+        } else {
+            speedMult = 0.85;  // Reduced speed for shooting accuracy
         }
 
         driveTrain.driveRaw(fwd * speedMult, str * speedMult, rot * speedMult);
@@ -200,12 +238,12 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
         return input;
     }
 
-    // GP1-A: Toggle turret auto-tracking (limelight aims at AprilTag)
+    // GP2-A: Toggle turret auto-tracking (limelight aims at AprilTag)
     private void handleTurret() {
-        if (gamepad1.a && !lastGP1_A) {
+        if (gamepad2.a && !lastGP2_A) {
             turretTracking = !turretTracking;
         }
-        lastGP1_A = gamepad1.a;
+        lastGP2_A = gamepad2.a;
 
         if (turretTracking) {
             turret.update();  // Auto-track AprilTag
@@ -233,12 +271,6 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
         }
         lastGP2_DpadLeft = gamepad2.dpad_left;
 
-        // Gamepad 2 DPAD Right: Small increment right
-        if (gamepad2.dpad_right && !lastGP2_DpadRight) {
-            currentPos += RobotConstants.TURRET_MANUAL_INCREMENT;
-        }
-        lastGP2_DpadRight = gamepad2.dpad_right;
-
         // Gamepad 2 X: Reset to center
         if (gamepad2.x && !lastGP2_X) {
             currentPos = RobotConstants.TURRET_CENTER_POSITION;
@@ -255,6 +287,11 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
 
     // GP1: RT = Intake, LT = Eject
     private void handleIntake() {
+        // Don't allow manual intake during eject-shoot sequence
+        if (ejectShootActive) {
+            return;
+        }
+
         if (gamepad1.right_trigger > RobotConstants.TRIGGER_DEADZONE) {
             intakeTransfer.startIntake(gamepad1.right_trigger);
         } else if (gamepad1.left_trigger > RobotConstants.TRIGGER_DEADZONE) {
@@ -264,20 +301,53 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
         }
     }
 
+    // GP1-LB: Eject ball halfway then shoot
+    private void handleEjectShoot() {
+        // Start sequence on button press
+        if (gamepad1.left_bumper && !lastGP1_LeftBumper) {
+            ejectShootActive = true;
+            ejectShootStartTime = System.currentTimeMillis();
+
+            // Ensure flywheel is ready
+            if (!flywheelOn) {
+                currentState = RobotState.SHOOTING;
+                activateFlywheel();
+            }
+        }
+        lastGP1_LeftBumper = gamepad1.left_bumper;
+
+        // Execute sequence
+        if (ejectShootActive) {
+            long elapsed = System.currentTimeMillis() - ejectShootStartTime;
+
+            if (elapsed < EJECT_DURATION_MS) {
+                // Phase 1: Eject to position ball (reverse intake)
+                intakeTransfer.startEject(0.5);  // Half power eject
+            } else if (elapsed < EJECT_DURATION_MS + 1000) {
+                // Phase 2: Shoot (forward intake to feed into flywheel)
+                intakeTransfer.startIntake(1.0);  // Full power shoot
+            } else {
+                // Sequence complete
+                intakeTransfer.stopIntake();
+                ejectShootActive = false;
+            }
+        }
+    }
+
     // ========================================
     // GAMEPAD 2: LAUNCHER CONTROLS
     // ========================================
 
-    // GP1 DPAD: Distance detection & presets | GP1-B: Lock distance
+    // GP2 DPAD: Distance detection & presets | GP2-B: Lock distance
     private void handleDistanceLock() {
         // DPAD UP: Enable limelight distance detection
-        if (gamepad1.dpad_up && !lastGP1_DpadUp) {
+        if (gamepad2.dpad_up && !lastGP2_DpadUp) {
             distanceDetectionEnabled = true;
         }
-        lastGP1_DpadUp = gamepad1.dpad_up;
+        lastGP2_DpadUp = gamepad2.dpad_up;
 
         // DPAD DOWN: Disable detection, use default preset
-        if (gamepad1.dpad_down && !lastGP1_DpadDown) {
+        if (gamepad2.dpad_down && !lastGP2_DpadDown) {
             distanceDetectionEnabled = false;
             currentDistance = -1.0;
             lockedDistance = -1.0;
@@ -289,10 +359,10 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
                 launcher.setHoodPosition(hoodPosition);
             }
         }
-        lastGP1_DpadDown = gamepad1.dpad_down;
+        lastGP2_DpadDown = gamepad2.dpad_down;
 
-        // DPAD LEFT: Quick far zone preset (5.7+ ft, max distance)
-        if (gamepad1.dpad_left && !lastGP1_DpadLeft) {
+        // DPAD RIGHT: Quick far zone preset (10+ ft, max distance)
+        if (gamepad2.dpad_right && !lastGP2_DpadRight) {
             distanceDetectionEnabled = false;
             lockedDistance = RobotConstants.RANGE_FAR_MIN;
             flywheelRPM = RobotConstants.RANGE_FAR_FLYWHEEL_RPM;
@@ -303,7 +373,7 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
                 launcher.setHoodPosition(hoodPosition);
             }
         }
-        lastGP1_DpadLeft = gamepad1.dpad_left;
+        lastGP2_DpadRight = gamepad2.dpad_right;
 
         // Continuously read distance from limelight when enabled
         if (distanceDetectionEnabled) {
@@ -314,13 +384,13 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
         }
 
         // B: Lock current distance and calculate shooting preset
-        if (gamepad1.b && !lastGP1_B) {
+        if (gamepad2.b && !lastGP2_B) {
             if (distanceDetectionEnabled && currentDistance > 0) {
                 lockedDistance = currentDistance;
                 applyDistancePreset(lockedDistance);  // Sets RPM & hood for this distance
             }
         }
-        lastGP1_B = gamepad1.b;
+        lastGP2_B = gamepad2.b;
     }
 
     private double calculateCurrentDistance() {
@@ -409,12 +479,16 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
         }
     }
 
-    // GP1-Y: Toggle flywheel ON/OFF (uses locked distance preset)
+    // GP1-Y: Toggle between INTAKE and SHOOTING states
     private void handleFlywheelToggle() {
         if (gamepad1.y && !lastGP1_Y) {
-            if (!flywheelOn) {
+            if (currentState == RobotState.INTAKE) {
+                // Switch to SHOOTING mode
+                currentState = RobotState.SHOOTING;
                 activateFlywheel();  // Spin up to target RPM, raise transfer ramp
             } else {
+                // Switch to INTAKE mode
+                currentState = RobotState.INTAKE;
                 deactivateFlywheel();  // Stop flywheel, lower ramp
             }
         }
@@ -436,47 +510,9 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
     }
 
     // GP2 Manual Overrides:
-    // - DPAD UP/DOWN: Fine-tune RPM (±100 RPM per press)
     // - LEFT/RIGHT BUMPER: Adjust hood angle (±0.03 per press)
-    // - B: Quick reset to defaults
+    // - START: Emergency stop
     private void handleManualOverrides() {
-        // B: Quick reset - return to safe defaults
-        if (gamepad2.b && !lastGP2_B) {
-            if (flywheelOn) {
-                deactivateFlywheel();
-            }
-            distanceDetectionEnabled = false;
-            currentDistance = -1.0;
-            lockedDistance = -1.0;
-            flywheelRPM = RobotConstants.DEFAULT_TARGET_RPM;
-            hoodPosition = RobotConstants.HOOD_DEFAULT_POSITION;
-            selectedPreset = "DEFAULT";
-            turretTracking = false;
-            launcher.setHoodPosition(hoodPosition);
-            gamepad2.rumble(200);
-        }
-        lastGP2_B = gamepad2.b;
-
-        // DPAD UP: Increase RPM by 100
-        if (gamepad2.dpad_up && !lastGP2_DpadUp) {
-            flywheelRPM += 100;
-            if (flywheelOn) {
-                launcher.setTargetRPM(flywheelRPM);
-            }
-            selectedPreset = String.format("MANUAL (%.0f RPM)", flywheelRPM);
-        }
-        lastGP2_DpadUp = gamepad2.dpad_up;
-
-        // DPAD DOWN: Decrease RPM by 100
-        if (gamepad2.dpad_down && !lastGP2_DpadDown) {
-            flywheelRPM = Math.max(1000, flywheelRPM - 100);
-            if (flywheelOn) {
-                launcher.setTargetRPM(flywheelRPM);
-            }
-            selectedPreset = String.format("MANUAL (%.0f RPM)", flywheelRPM);
-        }
-        lastGP2_DpadDown = gamepad2.dpad_down;
-
         // LEFT BUMPER: Lower hood (decrease angle, flatter trajectory)
         if (gamepad2.left_bumper && !lastGP2_LeftBumper) {
             hoodPosition = Math.max(0.0, hoodPosition - 0.03);
@@ -499,6 +535,20 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
     private void updateTelemetry() {
         // === HEADER ===
         telemetry.addLine("=== " + alliance.name() + " TELEOP ===");
+
+        // === ROBOT STATE ===
+        double speedMult = (currentState == RobotState.INTAKE) ? 1.0 : 0.85;
+        telemetry.addData("State", "%s (Speed: %.0f%%)", currentState, speedMult * 100);
+
+        // === EJECT-SHOOT SEQUENCE ===
+        if (ejectShootActive) {
+            long elapsed = System.currentTimeMillis() - ejectShootStartTime;
+            if (elapsed < EJECT_DURATION_MS) {
+                telemetry.addLine(">>> EJECTING BALL <<<");
+            } else {
+                telemetry.addLine(">>> SHOOTING BALL <<<");
+            }
+        }
 
         // === EMERGENCY STOP WARNING ===
         if (emergencyStopped) {
@@ -554,8 +604,8 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
 
         // === CONTROLS (Compact) ===
         telemetry.addLine();
-        telemetry.addLine("GP1: A-Track Y-Shoot B-Lock | DPAD:U/D-Dist L-Far | RT-In LT-Out");
-        telemetry.addLine("GP2: LS-Turret DPAD:L/R-Tur U/D-RPM LB/RB-Hood X-Ctr B-Reset | START-ESTOP");
+        telemetry.addLine("GP1: Y-ToggleMode LB-EjectShoot | RT-Intake LT-Eject | Sticks-Drive");
+        telemetry.addLine("GP2: A-Track B-Lock | DPAD:U/D-Dist L-Tur R-FarPreset | LS-Turret LB/RB-Hood X-Ctr | START-ESTOP");
 
         telemetry.update();
     }
@@ -564,5 +614,6 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
         launcher.setSpinning(false);
         intakeTransfer.stopIntake();
         driveTrain.stopMotors();
+        turret.stop();
     }
 }
