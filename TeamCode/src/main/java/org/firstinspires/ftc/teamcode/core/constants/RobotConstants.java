@@ -91,8 +91,8 @@ public class RobotConstants {
 
     // Far shooting zone (10+ ft) - Maximum distance on field
     public static final double RANGE_FAR_MIN = 10.0;
-    public static final double RANGE_FAR_FLYWHEEL_RPM = 3550;
-    public static final double RANGE_FAR_HOOD_POSITION = 0.80;
+    public static final double RANGE_FAR_FLYWHEEL_RPM = 3400;
+    public static final double RANGE_FAR_HOOD_POSITION = 0.75;
 
     // ==================== LIMELIGHT CAMERA SPECS ====================
     public static final double APRILTAG_REAL_HEIGHT_METERS = 0.2032;  // 8 inches

@@ -48,10 +48,13 @@ public class Launcher {
     private double lastError = 0.0;
     private ElapsedTime pidTimer = new ElapsedTime();
 
-    // Velocity measurement (using only motor 1 encoder)
-    private int lastPosition = 0;
+    // Velocity measurement (using both motor encoders for accuracy)
+    private int lastPosition1 = 0;
+    private int lastPosition2 = 0;
     private ElapsedTime velocityTimer = new ElapsedTime();
     private double currentRPM = 0.0;
+    private double currentRPM1 = 0.0;  // Individual motor 1 RPM
+    private double currentRPM2 = 0.0;  // Individual motor 2 RPM
 
     // Startup boost for faster spinup (settings loaded from RobotConstants)
     private ElapsedTime spinupTimer = new ElapsedTime();
@@ -87,7 +90,8 @@ public class Launcher {
         flyWheelMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         flyWheelMotor2.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
-        lastPosition = flyWheelMotor.getCurrentPosition();
+        lastPosition1 = flyWheelMotor.getCurrentPosition();
+        lastPosition2 = flyWheelMotor2.getCurrentPosition();
 
         // Get voltage sensor for compensation
         voltageSensor = hardwareMap.voltageSensor.iterator().next();
@@ -153,12 +157,19 @@ public class Launcher {
         double dt = velocityTimer.seconds();
         if (dt < 0.02) return; // Sample at ~50Hz
 
-        int currentPos = flyWheelMotor.getCurrentPosition();
+        int currentPos1 = flyWheelMotor.getCurrentPosition();
+        int currentPos2 = flyWheelMotor2.getCurrentPosition();
 
-        // Calculate velocity in RPM (28 ticks per revolution for REV motors)
-        currentRPM = ((currentPos - lastPosition) / dt) * (60.0 / 28.0);
+        // Calculate velocity in RPM for both motors (28 ticks per revolution for REV motors)
+        currentRPM1 = ((currentPos1 - lastPosition1) / dt) * (60.0 / 28.0);
+        currentRPM2 = ((currentPos2 - lastPosition2) / dt) * (60.0 / 28.0);
 
-        lastPosition = currentPos;
+        // Use only motor 1 for PIDF feedback (more reliable than averaging)
+        // Motor 2 values are tracked for diagnostics only
+        currentRPM = currentRPM1;
+
+        lastPosition1 = currentPos1;
+        lastPosition2 = currentPos2;
         velocityTimer.reset();
     }
 
@@ -379,10 +390,24 @@ public class Launcher {
     }
 
     /**
-     * Get current measured RPM.
+     * Get current measured RPM (average of both motors).
      */
     public double getCurrentRPM() {
         return currentRPM;
+    }
+
+    /**
+     * Get current RPM of motor 1.
+     */
+    public double getMotor1RPM() {
+        return currentRPM1;
+    }
+
+    /**
+     * Get current RPM of motor 2.
+     */
+    public double getMotor2RPM() {
+        return currentRPM2;
     }
 
     /**
