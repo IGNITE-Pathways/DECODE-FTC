@@ -34,17 +34,17 @@ public class BlueFar extends OpMode {
     // ==================== POSE CONSTANTS ====================
     private static final double HEADING_180 = Math.toRadians(180);
     private static final Pose START_POSE = new Pose(60.845, 7.910, HEADING_180);
-    private static final Pose SHOOT_POSE = new Pose(55, 15);
-    private static final Pose SHOOT_POSE_OFFSET = new Pose(55, 15);
+    private static final Pose SHOOT_POSE = new Pose(60.845, 7.910);
+    private static final Pose SHOOT_POSE_OFFSET = new Pose(60.845, 7.910);
     private static final Pose SPIKE1_APPROACH = new Pose(41.172, 33.034);
     private static final Pose SPIKE1_BALL1 = new Pose(35.392, 32.899);
     private static final Pose SPIKE1_BALL2 = new Pose(29.358, 32.899);
     private static final Pose SPIKE1_BALL3 = new Pose(22.487, 32.899);
     private static final Pose SPIKE1_RETURN_START = new Pose(22.487, 30.899);
-    private static final Pose SPIKE2_APPROACH = new Pose(39.752, 56.831);
-    private static final Pose SPIKE2_BALL1 = new Pose(34.580, 56.730);
-    private static final Pose SPIKE2_BALL2 = new Pose(30.068, 56.780);
-    private static final Pose SPIKE2_BALL3 = new Pose(24.566, 57.008);
+    private static final Pose SPIKE2_APPROACH = new Pose(41.2, 56.831);
+    private static final Pose SPIKE2_BALL1 = new Pose(36.0, 56.730);
+    private static final Pose SPIKE2_BALL2 = new Pose(31.568, 56.780);
+    private static final Pose SPIKE2_BALL3 = new Pose(25.966, 57.008);
     private static final Pose SPIKE2_CURVE_CONTROL = new Pose(40.606, 42.856);
 
     // ==================== ROBOT COMPONENTS ====================

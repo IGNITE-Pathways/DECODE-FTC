@@ -142,7 +142,7 @@ public class ShootingFunction {
     }
 
     private static final TimingConfig STANDARD_TIMING = new TimingConfig(
-            2.0, 0.15, 1.5, 0.15, 1.5, 0.15,
+            2.0, 0.1, 1.5, 0.1, 1.5, 0.1,
             false, true, true, true, true, true, false,
             false, false, false, false, false, false, false
     );
@@ -172,7 +172,7 @@ public class ShootingFunction {
 
     private static Configuration getBlueFarConfiguration(ShootingPosition position) {
         // Blue Far uses same settings for all balls and all positions
-        return new Configuration(1.0, 0.6, 0.6, 6.0, STANDARD_TIMING);
+        return new Configuration(0.8, 0.6, 0.8,0.6,0.8,0.65,0.95, 6.0, STANDARD_TIMING);
     }
 
     // ==================== BLUE NEAR CONFIGURATIONS ====================
@@ -181,15 +181,15 @@ public class ShootingFunction {
         switch (position) {
             case PRELOAD:
                 // All balls use same settings for preload
-                return new Configuration(0.58, 0.35, 0.75, 6.0, STANDARD_TIMING);
+                return new Configuration(0.55, 0.17, 0.95, 6.0, STANDARD_TIMING);
 
             case SET_1:
                 // All balls use same settings for set 1
-                return new Configuration(0.6, 0.7, 0.6, 6.0, STANDARD_TIMING);
+                return new Configuration(0.58, 0.36, 0.56, 0.36, 0.56, 0.38, 0.8, 6.0, STANDARD_TIMING);
 
             case SET_2:
                 // All balls use same settings for set 2
-                return new Configuration(0.55, 0.6, 0.55, 6.0, STANDARD_TIMING);
+                return new Configuration(0.55, 0.7,0.55,0.7,0.55,0.7, 0.85, 6.0, STANDARD_TIMING);
 
             default:
                 throw new IllegalArgumentException("Unknown shooting position: " + position);
@@ -200,7 +200,7 @@ public class ShootingFunction {
 
     private static Configuration getRedFarConfiguration(ShootingPosition position) {
         // Red Far uses same settings for all balls and all positions
-        return new Configuration(1.0, 0.6, 0.3, 6.0, FAST_RECOVERY_TIMING);
+        return new Configuration(0.8, 0.6, 0.8,0.6,0.8,0.65,0.95, 6.0, FAST_RECOVERY_TIMING);
     }
 
     // ==================== RED NEAR CONFIGURATIONS ====================

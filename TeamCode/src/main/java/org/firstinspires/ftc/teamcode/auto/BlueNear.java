@@ -36,11 +36,11 @@ public class BlueNear extends OpMode {
     private static final double HEADING_180 = Math.toRadians(180);
     private static final Pose START_POSE = new Pose(24.143, 125.525, HEADING_233);
     private static final Pose SHOOT_POSE = new Pose(48.045, 96.350);
-    private static final Pose SPIKE1_APPROACH = new Pose(41.794, 84.215);
-    private static final Pose SPIKE1_BALL1 = new Pose(36.099, 84.072);
-    private static final Pose SPIKE1_BALL2 = new Pose(30.556, 84.099);
-    private static final Pose SPIKE1_BALL3 = new Pose(25.408, 84.117);
-    private static final Pose SPIKE2_APPROACH = new Pose(41.314, 63.444);
+    private static final Pose SPIKE1_APPROACH = new Pose(41.794, 87.215);
+    private static final Pose SPIKE1_BALL1 = new Pose(36.099, 87.072);
+    private static final Pose SPIKE1_BALL2 = new Pose(30.556, 87.099);
+    private static final Pose SPIKE1_BALL3 = new Pose(25.408, 86.2);
+    private static final Pose SPIKE2_APPROACH = new Pose(45.314, 63.444);
     private static final Pose SPIKE2_BALL1 = new Pose(36.265, 63.283);
     private static final Pose SPIKE2_BALL2 = new Pose(31.090, 63.157);
     private static final Pose SPIKE2_BALL3 = new Pose(25.906, 63.184);
