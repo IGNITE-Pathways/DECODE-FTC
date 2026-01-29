@@ -161,12 +161,12 @@ public class Launcher {
         int currentPos2 = flyWheelMotor2.getCurrentPosition();
 
         // Calculate velocity in RPM for both motors (28 ticks per revolution for REV motors)
-        currentRPM1 = ((currentPos1 - lastPosition1) / dt) * (60.0 / 28.0);
-        currentRPM2 = ((currentPos2 - lastPosition2) / dt) * (60.0 / 28.0);
+        // Use ABSOLUTE VALUE because motors may be mounted opposite each other
+        currentRPM1 = Math.abs(((currentPos1 - lastPosition1) / dt) * (60.0 / 28.0));
+        currentRPM2 = Math.abs(((currentPos2 - lastPosition2) / dt) * (60.0 / 28.0));
 
-        // Use only motor 1 for PIDF feedback (more reliable than averaging)
-        // Motor 2 values are tracked for diagnostics only
-        currentRPM = currentRPM1;
+        // Average both motors for PIDF feedback (more accurate than using only one)
+        currentRPM = (currentRPM1 + currentRPM2) / 2.0;
 
         lastPosition1 = currentPos1;
         lastPosition2 = currentPos2;

@@ -54,6 +54,7 @@ import org.firstinspires.ftc.teamcode.core.constants.RobotConstants;
  * - LB + RB + DPAD UP/DOWN: Adjust kI (±0.00001)
  * - A + DPAD UP/DOWN: Adjust kD (±0.0001)
  *
+ *
  * TUNING GUIDE:
  * =============
  * 1. Start with kF only - find value where steady-state error is near zero
@@ -90,6 +91,7 @@ public class FlywheelPIDFTuner extends LinearOpMode {
     private DcMotorEx flywheelMotor2;
     private IntakeTransfer intakeTransfer;
     private VoltageSensor voltageSensor;
+    private com.qualcomm.robotcore.hardware.Servo hoodServo;
 
     // Hardware - Drive (Gamepad 1, separate from PIDF)
     private DcMotor frontLeft;
@@ -105,10 +107,10 @@ public class FlywheelPIDFTuner extends LinearOpMode {
     // PIDF Gains - loaded from RobotConstants
     // Adjust these using the tuner controls, then press B to save
     // Copy saved values to RobotConstants.java for automatic use in teleop
-    private double kP = RobotConstants.FLYWHEEL_KP; //0.00250
-    private double kI = RobotConstants.FLYWHEEL_KI; // 0.000005
-    private double kD = RobotConstants.FLYWHEEL_KD; //
-    private double kF = RobotConstants.FLYWHEEL_KF; // 0.7175 or 0.7575
+    private double kP = RobotConstants.FLYWHEEL_KP; //0.023550
+    private double kI = RobotConstants.FLYWHEEL_KI; // 0.000025
+    private double kD = RobotConstants.FLYWHEEL_KD; //0.000325
+    private double kF = RobotConstants.FLYWHEEL_KF; // 0.000235
 
     // Target and control
     private double targetRPM = RobotConstants.DEFAULT_TARGET_RPM;
@@ -119,10 +121,13 @@ public class FlywheelPIDFTuner extends LinearOpMode {
     private double lastError = 0.0;
     private ElapsedTime pidTimer = new ElapsedTime();
 
-    // Velocity measurement (using only motor 1 encoder)
-    private int lastPosition = 0;
+    // Velocity measurement (using BOTH motor encoders)
+    private int lastPosition1 = 0;
+    private int lastPosition2 = 0;
     private ElapsedTime velocityTimer = new ElapsedTime();
-    private double currentRPM = 0.0;
+    private double currentRPM1 = 0.0;
+    private double currentRPM2 = 0.0;
+    private double currentRPM = 0.0;  // Average of both motors
     private double avgRPM = 0.0;
 
     // Velocity smoothing (simple moving average)
@@ -175,6 +180,7 @@ public class FlywheelPIDFTuner extends LinearOpMode {
         telemetry.addLine("- RT: Intake | LT: Eject");
         telemetry.addLine("- X: Reset | B: Save");
         telemetry.addLine();
+        telemetry.addData("Hood", hoodServo != null ? "LOCKED at " + RobotConstants.HOOD_DEFAULT_POSITION : "NOT FOUND");
         telemetry.addData("Battery", "%.2fV", currentVoltage);
         telemetry.addLine();
         telemetry.addLine("PIDF naturally handles voltage drops!");
@@ -249,7 +255,16 @@ public class FlywheelPIDFTuner extends LinearOpMode {
         flywheelMotor1.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         flywheelMotor2.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
-        lastPosition = flywheelMotor1.getCurrentPosition();
+        lastPosition1 = flywheelMotor1.getCurrentPosition();
+        lastPosition2 = flywheelMotor2.getCurrentPosition();
+
+        // Initialize and lock hood servo at default position for consistent testing
+        try {
+            hoodServo = hardwareMap.get(com.qualcomm.robotcore.hardware.Servo.class, HardwareConfig.HOOD_SERVO);
+            hoodServo.setPosition(RobotConstants.HOOD_DEFAULT_POSITION);
+        } catch (Exception e) {
+            hoodServo = null; // Hood servo not configured - that's OK
+        }
 
         // Initialize intake for testing shots
         intakeTransfer = new IntakeTransfer();
@@ -295,10 +310,16 @@ public class FlywheelPIDFTuner extends LinearOpMode {
         double dt = velocityTimer.seconds();
         if (dt < 0.02) return; // Sample at ~50Hz
 
-        int currentPos = flywheelMotor1.getCurrentPosition();
+        int currentPos1 = flywheelMotor1.getCurrentPosition();
+        int currentPos2 = flywheelMotor2.getCurrentPosition();
 
-        // Calculate velocity in RPM (28 ticks per revolution for REV motors)
-        currentRPM = ((currentPos - lastPosition) / dt) * (60.0 / 28.0);
+        // Calculate velocity in RPM for BOTH motors (28 ticks per revolution for REV motors)
+        // Use ABSOLUTE VALUE because motors may be mounted opposite each other
+        currentRPM1 = Math.abs(((currentPos1 - lastPosition1) / dt) * (60.0 / 28.0));
+        currentRPM2 = Math.abs(((currentPos2 - lastPosition2) / dt) * (60.0 / 28.0));
+
+        // Average the two motor velocities for PID control
+        currentRPM = (currentRPM1 + currentRPM2) / 2.0;
 
         // Smooth using moving average
         velocitySamples[velocityIndex] = currentRPM;
@@ -310,7 +331,8 @@ public class FlywheelPIDFTuner extends LinearOpMode {
         }
         avgRPM = sum / VELOCITY_SAMPLES;
 
-        lastPosition = currentPos;
+        lastPosition1 = currentPos1;
+        lastPosition2 = currentPos2;
         velocityTimer.reset();
     }
 
@@ -554,10 +576,24 @@ public class FlywheelPIDFTuner extends LinearOpMode {
         telemetry.addLine();
 
         // Velocity info with performance indicators
-        telemetry.addLine("--- VELOCITY (Motor 1) ---");
+        telemetry.addLine("--- VELOCITY (BOTH MOTORS) ---");
         telemetry.addData("Target RPM", "%.0f", targetRPM);
-        telemetry.addData("Current RPM", "%.0f", currentRPM);
-        telemetry.addData("Avg RPM (smooth)", "%.0f", avgRPM);
+        telemetry.addData("Motor 1 RPM", "%.0f", currentRPM1);
+        telemetry.addData("Motor 2 RPM", "%.0f", currentRPM2);
+        telemetry.addData("Average RPM", "%.0f", currentRPM);
+        telemetry.addData("Smoothed RPM", "%.0f", avgRPM);
+
+        // Check motor synchronization
+        double motorDiff = Math.abs(currentRPM1 - currentRPM2);
+        String syncStatus;
+        if (motorDiff < 50) {
+            syncStatus = "SYNCED ✓";
+        } else if (motorDiff < 100) {
+            syncStatus = "SLIGHTLY OFF";
+        } else {
+            syncStatus = "OUT OF SYNC!";
+        }
+        telemetry.addData("Motor Sync", "%.0f RPM diff (%s)", motorDiff, syncStatus);
 
         double error = targetRPM - avgRPM;
         double errorPercent = (error / targetRPM) * 100;

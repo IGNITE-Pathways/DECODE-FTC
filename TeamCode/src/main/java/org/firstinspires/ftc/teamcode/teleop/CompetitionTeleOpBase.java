@@ -30,7 +30,7 @@ import org.firstinspires.ftc.teamcode.core.util.DistanceCalculator;
  * Sticks: Drive (100% speed always)
  * Y: Toggle INTAKE/SHOOTING mode
  * B: Lock distance (when distance detection enabled)
- * LB: Eject-and-shoot sequence (gentle eject 150ms, then shoot 800ms)
+ * LB: Eject-and-shoot sequence (gentle eject 400ms, then shoot 800ms)
  * RT: Intake | LT: Eject
  * DPAD UP: Enable distance detection
  * DPAD DOWN: Disable distance detection (use Range 1 default)
@@ -59,7 +59,7 @@ import org.firstinspires.ftc.teamcode.core.util.DistanceCalculator;
  * === Quick Eject-Shoot (GP1-LB) ===
  * Use when ball is stuck or needs repositioning before shooting
  * - Automatically switches to SHOOTING mode if needed
- * - Gentle eject (35% power, 150ms) to reposition ball
+ * - Gentle eject (35% power, 400ms) to reposition ball properly
  * - Then shoots for 800ms
  * - Hands-free sequence, just press LB once
  */
@@ -104,7 +104,7 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
     // Eject-and-shoot sequence
     private boolean ejectShootActive = false;
     private long ejectShootStartTime = 0;
-    private static final long EJECT_DURATION_MS = 150;  // Eject for 150ms to position ball (reduced from 300ms)
+    private static final long EJECT_DURATION_MS = 400;  // Eject for 400ms to position ball properly
 
     // Limelight distance tracking
     private double currentDistance = -1.0;  // Currently detected distance
