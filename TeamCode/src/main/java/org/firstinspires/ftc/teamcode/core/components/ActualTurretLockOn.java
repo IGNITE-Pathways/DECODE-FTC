@@ -36,7 +36,10 @@ public class ActualTurretLockOn {
     private ElapsedTime targetLostTimer = new ElapsedTime();
 
     // Deadband and limits - TUNED TO PREVENT HUNTING
-    private static final double POSITION_TOLERANCE = 2.5;  // degrees - WIDER to prevent micro-adjustments
+    // POSITION_TOLERANCE sets the acceptable range for "locked" status
+    // At 2.5 degrees, turret is considered locked when within ±2.5° of target
+    // This provides a good enough aim without constant micro-adjustments
+    private static final double POSITION_TOLERANCE = 2.5;  // degrees - acceptable aiming tolerance
     private static final double MIN_ADJUSTMENT = 0.0002;   // Minimum servo adjustment
     private static final double MAX_ADJUSTMENT = 0.012;    // Maximum servo speed - REDUCED to prevent overshoot
     private static final double TARGET_LOST_TIMEOUT = 0.5; // seconds before resetting
