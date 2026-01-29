@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode.teleop;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.hardware.limelightvision.LLResult;
 
@@ -28,7 +29,7 @@ import org.firstinspires.ftc.teamcode.core.util.DistanceCalculator;
  *
  * === GAMEPAD 1 (Driver/Shooter/Presets) ===
  * Sticks: Drive (100% speed always)
- * Y: Toggle INTAKE/SHOOTING mode
+ * Y: First press = Enter SHOOTING mode | Second press = Auto-shoot 3 balls | Press during auto = Cancel
  * B: Lock distance (when distance detection enabled)
  * LB: Eject-and-shoot sequence (gentle eject 400ms, then shoot 800ms)
  * RT: Intake | LT: Eject
@@ -106,6 +107,15 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
     private long ejectShootStartTime = 0;
     private static final long EJECT_DURATION_MS = 400;  // Eject for 400ms to position ball properly
 
+    // Auto-shoot sequence (triggered by Y button in SHOOTING mode) - 3 BALLS
+    private boolean autoShootActive = false;
+    private boolean waitingForFlywheelSpinup = false;
+    private int autoShootPhase = 0;  // 0=initial wait, 1=shot1, 2=wait, 3=shot2, 4=wait, 5=shot3
+    private ElapsedTime autoShootTimer = new ElapsedTime();
+    private static final double RPM_TOLERANCE = 100;  // Within 100 RPM to start/continue shooting
+    private static final double SHOT_DURATION_MS = 500;   // 0.5 seconds for shots 1 & 2
+    private static final double FINAL_SHOT_DURATION_MS = 1000;  // 1.0 second for final shot (ball 3)
+
     // Limelight distance tracking
     private double currentDistance = -1.0;  // Currently detected distance
     private double lockedDistance = -1.0;   // Locked distance for shooting
@@ -138,7 +148,8 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
                 handleIntake();               // GP1: RT/LT intake/eject
                 handleEjectShoot();           // GP1-LB: Eject-and-shoot sequence
                 handleDistanceLock();         // GP2: DPAD UP/DOWN, Y-far, B-lock
-                handleFlywheelToggle();       // GP1-Y: State toggle
+                handleFlywheelToggle();       // GP1-Y: State toggle or trigger auto-shoot
+                handleAutoShootSequence();    // Auto-shoot sequence (4-ball)
                 handleManualOverrides();      // GP2: Manual hood adjustments
                 launcher.update();            // PIDF velocity control
             }
@@ -310,8 +321,8 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
 
     // GP1: RT = Intake, LT = Eject
     private void handleIntake() {
-        // Don't allow manual intake during eject-shoot sequence
-        if (ejectShootActive) {
+        // Don't allow manual intake during auto sequences
+        if (ejectShootActive || autoShootActive) {
             return;
         }
 
@@ -505,17 +516,26 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
         }
     }
 
-    // GP1-Y: Toggle between INTAKE and SHOOTING states
+    // GP1-Y: Toggle SHOOTING mode or trigger auto-shoot sequence
+    // First press: Enter SHOOTING mode and spin up flywheel
+    // Second press (in SHOOTING mode): Start auto-shoot sequence (3 balls + final)
+    // Press again during auto-shoot: Cancel and return to INTAKE mode
     private void handleFlywheelToggle() {
         if (gamepad1.y && !lastGP1_Y) {
             if (currentState == RobotState.INTAKE) {
                 // Switch to SHOOTING mode
                 currentState = RobotState.SHOOTING;
                 activateFlywheel();  // Spin up to target RPM, raise transfer ramp
-            } else {
-                // Switch to INTAKE mode
-                currentState = RobotState.INTAKE;
-                deactivateFlywheel();  // Stop flywheel, lower ramp
+            } else if (currentState == RobotState.SHOOTING) {
+                if (autoShootActive) {
+                    // Cancel auto-shoot sequence and return to INTAKE mode
+                    cancelAutoShoot();
+                    currentState = RobotState.INTAKE;
+                    deactivateFlywheel();
+                } else {
+                    // Start auto-shoot sequence
+                    startAutoShoot();
+                }
             }
         }
         lastGP1_Y = gamepad1.y;
@@ -533,6 +553,111 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
         launcher.setSpinning(false);
         intakeTransfer.transferDown();
         flywheelOn = false;
+    }
+
+    // ========================================
+    // AUTO-SHOOT SEQUENCE (3-BALL)
+    // ========================================
+
+    /**
+     * Start the auto-shoot sequence
+     * Waits for flywheel to reach target RPM, then fires 3 balls automatically
+     * Waits for RPM recovery between each shot for consistency
+     */
+    private void startAutoShoot() {
+        autoShootActive = true;
+        waitingForFlywheelSpinup = true;
+        autoShootPhase = 0;
+        autoShootTimer.reset();
+        intakeTransfer.stopIntake();  // Stop any ongoing intake
+    }
+
+    /**
+     * Cancel the auto-shoot sequence
+     */
+    private void cancelAutoShoot() {
+        autoShootActive = false;
+        waitingForFlywheelSpinup = false;
+        autoShootPhase = 0;
+        intakeTransfer.stopIntake();
+    }
+
+    /**
+     * Handle the auto-shoot sequence timing
+     * Sequence: Wait for RPM → Ball 1 (0.5s) → Wait for RPM → Ball 2 (0.5s) → Wait for RPM → Ball 3 (1.0s) → Done
+     */
+    private void handleAutoShootSequence() {
+        if (!autoShootActive) {
+            return;
+        }
+
+        double currentRPM = launcher.getCurrentRPM();
+        double targetRPM = launcher.getTargetRPM();
+        double error = Math.abs(targetRPM - currentRPM);
+        boolean rpmReady = error <= RPM_TOLERANCE;
+
+        // Phase 0: Wait for initial flywheel spinup
+        if (waitingForFlywheelSpinup) {
+            if (rpmReady) {
+                // Flywheel is ready! Start shooting sequence
+                waitingForFlywheelSpinup = false;
+                autoShootPhase = 1;
+                autoShootTimer.reset();
+            }
+            return;  // Keep waiting
+        }
+
+        // Execute shooting sequence with RPM-based recovery
+        double elapsed = autoShootTimer.milliseconds();
+
+        switch (autoShootPhase) {
+            case 1:  // Ball 1: Shoot for 0.5s
+                if (elapsed < SHOT_DURATION_MS) {
+                    intakeTransfer.startIntake(1.0);
+                } else {
+                    intakeTransfer.stopIntake();
+                    autoShootPhase = 2;  // Move to recovery wait
+                    autoShootTimer.reset();
+                }
+                break;
+
+            case 2:  // Wait for RPM recovery after ball 1
+                if (rpmReady) {
+                    autoShootPhase = 3;  // RPM recovered, shoot ball 2
+                    autoShootTimer.reset();
+                }
+                // Keep waiting for RPM to recover
+                break;
+
+            case 3:  // Ball 2: Shoot for 0.5s
+                if (elapsed < SHOT_DURATION_MS) {
+                    intakeTransfer.startIntake(1.0);
+                } else {
+                    intakeTransfer.stopIntake();
+                    autoShootPhase = 4;  // Move to recovery wait
+                    autoShootTimer.reset();
+                }
+                break;
+
+            case 4:  // Wait for RPM recovery after ball 2
+                if (rpmReady) {
+                    autoShootPhase = 5;  // RPM recovered, shoot ball 3 (final)
+                    autoShootTimer.reset();
+                }
+                // Keep waiting for RPM to recover
+                break;
+
+            case 5:  // Ball 3 (FINAL): Shoot for 1.0s
+                if (elapsed < FINAL_SHOT_DURATION_MS) {
+                    intakeTransfer.startIntake(1.0);
+                } else {
+                    // Sequence complete!
+                    intakeTransfer.stopIntake();
+                    autoShootActive = false;
+                    autoShootPhase = 0;
+                }
+                break;
+        }
     }
 
     // GP2 Manual Overrides:
@@ -596,6 +721,29 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
             }
         }
 
+        // === AUTO-SHOOT SEQUENCE (3-BALL) ===
+        if (autoShootActive) {
+            if (waitingForFlywheelSpinup) {
+                double currentRPM = launcher.getCurrentRPM();
+                double targetRPM = launcher.getTargetRPM();
+                double error = Math.abs(targetRPM - currentRPM);
+                telemetry.addLine(String.format(">>> WAITING FOR FLYWHEEL: %.0f RPM (%.0f to go) <<<",
+                    currentRPM, error));
+            } else {
+                // Phase 1=shoot1, 2=wait, 3=shoot2, 4=wait, 5=shoot3
+                String status;
+                switch (autoShootPhase) {
+                    case 1: status = "BALL 1/3 - SHOOTING"; break;
+                    case 2: status = "RECOVERING RPM..."; break;
+                    case 3: status = "BALL 2/3 - SHOOTING"; break;
+                    case 4: status = "RECOVERING RPM..."; break;
+                    case 5: status = "BALL 3/3 - FINAL SHOT"; break;
+                    default: status = "AUTO-SHOOT"; break;
+                }
+                telemetry.addLine(String.format(">>> AUTO-SHOOT: %s <<<", status));
+            }
+        }
+
         // === EMERGENCY STOP WARNING ===
         if (emergencyStopped) {
             telemetry.addLine("*** E-STOP ACTIVE - Release GP2-START ***");
@@ -650,7 +798,7 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
 
         // === CONTROLS (Compact) ===
         telemetry.addLine();
-        telemetry.addLine("GP1: Y-ToggleMode B-Lock LB-EjectShoot | RT-In LT-Out | DPAD:U/D-Dist R-Far | Sticks-Drive");
+        telemetry.addLine("GP1: Y-Shoot/Mode B-Lock LB-EjectShoot | RT-In LT-Out | DPAD:U/D-Dist R-Far | Sticks-Drive");
         telemetry.addLine("GP2: A-Track X-CtrTur | LS-Turret DPAD:L-Tur U/D-RPM | LB/RB-Hood | START-ESTOP");
 
         telemetry.update();
