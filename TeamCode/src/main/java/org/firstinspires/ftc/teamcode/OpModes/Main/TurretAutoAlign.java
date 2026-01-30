@@ -15,10 +15,10 @@ public class TurretAutoAlign extends OpMode {
     private Limelight3A limelight;
     private Servo turretServo;
 
-    // PID constants
-    private double kP = 0.00035;
-    private double kI = 0.0;
-    private double kD = 0.00012;
+    // PID constants - Updated for faster, more accurate tracking
+    private double kP = 0.025;   // Increased from 0.015 for much stronger correction
+    private double kI = 0.0;     // Keep disabled to prevent oscillation
+    private double kD = 0.010;   // Increased from 0.007 for better damping at higher speeds
 
     private double integral = 0;
     private double lastError = 0;
@@ -26,8 +26,8 @@ public class TurretAutoAlign extends OpMode {
     // Servo config
     private static final double SERVO_MIN = 0.0;
     private static final double SERVO_MAX = 1.0;
-    private static final double TARGET_TX = 11.5;  // ideal tx
-    private static final double IDEAL_RANGE = 0.05; // tight tolerance
+    private static final double TARGET_TX = 0.0;  // Changed from 11.5 to center (0° = perfectly centered)
+    private static final double IDEAL_RANGE = 2.0; // Changed from 0.05 to 2° (reasonable lock tolerance)
     private static final double INTEGRAL_WINDUP_LIMIT = 100.0; // Prevent integral windup
     private boolean CHECK = false; // Instance variable, not static
     private double servoPos = 0.5;
@@ -44,8 +44,8 @@ public class TurretAutoAlign extends OpMode {
     private int framesSinceSeen = 0;   // expands search zone over time if lost
     private double lockedServoPos = 0.5;
 
-    // Max incremental adjustment
-    private static final double MAX_OUTPUT = 0.0005;
+    // Max incremental adjustment - Increased for faster tracking
+    private static final double MAX_OUTPUT = 0.030;  // Increased from 0.020 to allow stronger corrections
 
     // Servo direction multiplier
     private double servoDirection = 1.0;

@@ -26,7 +26,7 @@ public class RobotConstants {
     // These values are used by BOTH the tuner and competition teleop
 
     public static final boolean USE_VELOCITY_CONTROL = true;  // Set false to use power mode (fallback)
-    public static final double DEFAULT_TARGET_RPM = 2400;     // Default flywheel speed (Range 1 close shot)
+    public static final double DEFAULT_TARGET_RPM = 3450;     // Default flywheel speed (FAR ZONE for back wall cycling)
 
     // PIDF Gains - TUNE USING FlywheelPIDFTuner!
     // Last tuned: These values provide good performance across 2400-3500 RPM range
@@ -49,7 +49,7 @@ public class RobotConstants {
     public static final double FLYWHEEL_MAX_POWER = 1.0;
 
     // ==================== HOOD POSITIONS ====================
-    public static final double HOOD_DEFAULT_POSITION = 0.55;  // Default (Range 1 close shot)
+    public static final double HOOD_DEFAULT_POSITION = 0.75;  // Default (FAR ZONE for back wall cycling)
     public static final double HOOD_MIN_POSITION = 0.5;      // Lowest angle (far shots)
     public static final double HOOD_MAX_POSITION = 0.9;      // Highest angle (close shots)
     public static final double HOOD_INCREMENT = 0.05;
@@ -90,9 +90,27 @@ public class RobotConstants {
     public static final double RANGE_4_FLYWHEEL_RPM = 2800;
     public static final double RANGE_4_HOOD_POSITION = 0.70;
 
-    // Far shooting zone (10+ ft) - Maximum distance on field
+    // Range 5: 6.01 - 7.00 ft (Far range start) - NEW!
+    public static final double RANGE_5_MIN = 6.01;
+    public static final double RANGE_5_MAX = 7.00;
+    public static final double RANGE_5_FLYWHEEL_RPM = 2950;  // Tune this!
+    public static final double RANGE_5_HOOD_POSITION = 0.72;
+
+    // Range 6: 7.01 - 8.50 ft (Far range mid) - NEW!
+    public static final double RANGE_6_MIN = 7.01;
+    public static final double RANGE_6_MAX = 8.50;
+    public static final double RANGE_6_FLYWHEEL_RPM = 3150;  // Tune this!
+    public static final double RANGE_6_HOOD_POSITION = 0.73;
+
+    // Range 7: 8.51 - 10.00 ft (Far range end) - NEW!
+    public static final double RANGE_7_MIN = 8.51;
+    public static final double RANGE_7_MAX = 10.00;
+    public static final double RANGE_7_FLYWHEEL_RPM = 3300;  // Tune this!
+    public static final double RANGE_7_HOOD_POSITION = 0.74;
+
+    // Far shooting zone (10+ ft) - Maximum distance on field (back wall cycling)
     public static final double RANGE_FAR_MIN = 10.0;
-    public static final double RANGE_FAR_FLYWHEEL_RPM = 3400;
+    public static final double RANGE_FAR_FLYWHEEL_RPM = 3450;  // Increased by 50 for back wall cycling
     public static final double RANGE_FAR_HOOD_POSITION = 0.75;
 
     // ==================== LIMELIGHT CAMERA SPECS ====================
@@ -112,9 +130,9 @@ public class RobotConstants {
     public static final boolean ENABLE_BATTERY_COMPENSATION = false;  // Try false if driving feels inconsistent
 
     // ==================== TURRET MANUAL CONTROL ====================
-    public static final double TURRET_MANUAL_INCREMENT = 0.02;          // DPAD increment
+    public static final double TURRET_MANUAL_INCREMENT = 0.01;          // DPAD increment (reduced for finer control)
     public static final double TURRET_MANUAL_STICK_DEADZONE = 0.1;     // Stick deadzone
-    public static final double TURRET_MANUAL_STICK_SENSITIVITY = 0.005; // Stick scaling (reduced for better control)
+    public static final double TURRET_MANUAL_STICK_SENSITIVITY = 0.002; // Stick scaling (reduced for much finer control)
     public static final double TURRET_MIN_POSITION = 0.1;
     public static final double TURRET_MAX_POSITION = 0.9;
     public static final double TURRET_CENTER_POSITION = 0.5;

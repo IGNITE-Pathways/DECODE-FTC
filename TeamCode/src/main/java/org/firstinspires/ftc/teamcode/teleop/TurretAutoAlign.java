@@ -16,7 +16,7 @@ public class TurretAutoAlign extends OpMode {
     private Servo turretServo;
 
     // PID constants
-    private double kP = 0.00035;
+    private double kP = 0.0005;
     private double kI = 0.00001;
     private double kD = 0.0002;
 
@@ -25,9 +25,9 @@ public class TurretAutoAlign extends OpMode {
 
     // Servo config
     private static final double SERVO_MIN = 0.0;
-    private static final double SERVO_MAX = 1.0;
+    private static final double SERVO_MAX = 0.8;
     private static final double TARGET_TX = 8.5;  // ideal tx
-    private static final double IDEAL_RANGE = 0.05; // tight tolerance
+    private static final double IDEAL_RANGE = 0.15; // tight tolerance
     private static final double INTEGRAL_WINDUP_LIMIT = 100.0; // Prevent integral windup
     private boolean CHECK = false; // Instance variable, not static
     private double servoPos = 0.5;
