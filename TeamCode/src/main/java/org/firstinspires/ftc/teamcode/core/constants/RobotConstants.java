@@ -26,7 +26,7 @@ public class RobotConstants {
     // These values are used by BOTH the tuner and competition teleop
 
     public static final boolean USE_VELOCITY_CONTROL = true;  // Set false to use power mode (fallback)
-    public static final double DEFAULT_TARGET_RPM = 3450;     // Default flywheel speed (FAR ZONE for back wall cycling)
+    public static final double DEFAULT_TARGET_RPM = 2400;     // Default flywheel speed (Range 1 close shot)
 
     // PIDF Gains - TUNE USING FlywheelPIDFTuner!
     // Last tuned: These values provide good performance across 2400-3500 RPM range
@@ -49,7 +49,7 @@ public class RobotConstants {
     public static final double FLYWHEEL_MAX_POWER = 1.0;
 
     // ==================== HOOD POSITIONS ====================
-    public static final double HOOD_DEFAULT_POSITION = 0.75;  // Default (FAR ZONE for back wall cycling)
+    public static final double HOOD_DEFAULT_POSITION = 0.55;  // Default (Range 1 close shot)
     public static final double HOOD_MIN_POSITION = 0.5;      // Lowest angle (far shots)
     public static final double HOOD_MAX_POSITION = 0.9;      // Highest angle (close shots)
     public static final double HOOD_INCREMENT = 0.05;
@@ -59,7 +59,7 @@ public class RobotConstants {
     public static final double INTAKE_SHOOTING_POWER = 1.0;
 
     // ==================== TRANSFER POSITIONS ====================
-    public static final double TRANSFER_UP_POSITION = 0.65;  // Max height - servo limit
+    public static final double TRANSFER_UP_POSITION = 0.67;  // Max height - servo limit
     public static final double TRANSFER_DOWN_POSITION = 0.5;
 
     // ==================== LIMELIGHT DISTANCE-BASED SHOOTING PRESETS ====================
@@ -111,7 +111,7 @@ public class RobotConstants {
     // Far shooting zone (10+ ft) - Maximum distance on field (back wall cycling)
     public static final double RANGE_FAR_MIN = 10.0;
     public static final double RANGE_FAR_FLYWHEEL_RPM = 3450;  // Increased by 50 for back wall cycling
-    public static final double RANGE_FAR_HOOD_POSITION = 0.75;
+    public static final double RANGE_FAR_HOOD_POSITION = 0.735;  // Lowered by 0.035 for flatter trajectory
 
     // ==================== LIMELIGHT CAMERA SPECS ====================
     public static final double APRILTAG_REAL_HEIGHT_METERS = 0.2032;  // 8 inches
@@ -125,8 +125,8 @@ public class RobotConstants {
     public static final double TRIGGER_DEADZONE = 0.1;
 
     // Driver comfort tuning (adjust these to fix driving feel)
-    public static final double DRIVE_INPUT_CURVE = 1.5;      // 1.0=linear, 1.5=slight curve, 2.0=squared
-    public static final double ROTATION_SENSITIVITY = 0.8;   // 0.5=slow rotation, 1.0=full speed
+    public static final double DRIVE_INPUT_CURVE = 1.0;      // 1.0=linear (100% speed), 1.5=slight curve, 2.0=squared
+    public static final double ROTATION_SENSITIVITY = 1.0;   // 1.0=full speed, 0.8=slower rotation
     public static final boolean ENABLE_BATTERY_COMPENSATION = false;  // Try false if driving feels inconsistent
 
     // ==================== TURRET MANUAL CONTROL ====================
