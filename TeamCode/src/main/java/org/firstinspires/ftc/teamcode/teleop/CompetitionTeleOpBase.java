@@ -345,7 +345,7 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
 
         // Clamp position to valid range
         currentPos = Math.max(RobotConstants.TURRET_MIN_POSITION,
-                             Math.min(RobotConstants.TURRET_MAX_POSITION, currentPos));
+                Math.min(RobotConstants.TURRET_MAX_POSITION, currentPos));
 
         // Apply position
         turret.setPositionDirect(currentPos);
@@ -847,7 +847,7 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
                 double targetRPM = launcher.getTargetRPM();
                 double error = Math.abs(targetRPM - currentRPM);
                 telemetry.addLine(String.format(">>> WAITING FOR FLYWHEEL: %.0f RPM (%.0f to go) <<<",
-                    currentRPM, error));
+                        currentRPM, error));
             } else {
                 // Phase 1=shoot1, 2=wait, 3=shoot2, 4=wait, 5=shoot3
                 String status;

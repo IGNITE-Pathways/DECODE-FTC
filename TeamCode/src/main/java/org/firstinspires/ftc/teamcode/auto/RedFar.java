@@ -8,6 +8,7 @@ import com.pedropathing.paths.PathChain;
 import com.pedropathing.util.Timer;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.qualcomm.robotcore.hardware.Gamepad;
 import com.qualcomm.robotcore.hardware.Servo;
 
 import org.firstinspires.ftc.teamcode.auto.Pedro.Constants;
@@ -59,6 +60,7 @@ public class RedFar extends OpMode {
     private Timer opModeTimer;
     private Timer shootTimer;
     private double currentSpeed = PATH_SPEED;
+    private double initialTurretPosition = 0.5;  // Default center position, adjustable in init_loop
 
     public enum PathState {
         PRELOAD_SHOOT_SETUP, PRELOAD_SHOOTING,
@@ -69,22 +71,12 @@ public class RedFar extends OpMode {
         IDLE
     }
 
+
+    Gamepad currentGamepad1;
+    Gamepad previousGamepad1;
+
     @Override
     public void init() {
-        // Load shooting configurations
-        preloadConfig = ShootingFunction.getConfiguration(
-                ShootingFunction.AutonPath.RED_FAR,
-                ShootingFunction.ShootingPosition.PRELOAD
-        );
-        set1Config = ShootingFunction.getConfiguration(
-                ShootingFunction.AutonPath.RED_FAR,
-                ShootingFunction.ShootingPosition.SET_1
-        );
-        set2Config = ShootingFunction.getConfiguration(
-                ShootingFunction.AutonPath.RED_FAR,
-                ShootingFunction.ShootingPosition.SET_2
-        );
-
         // Initialize timers
         pathTimer = new Timer();
         opModeTimer = new Timer();
@@ -96,14 +88,33 @@ public class RedFar extends OpMode {
         launcher = new Launcher();
         launcher.initialize(hardwareMap, telemetry);
 
-        // Initialize turret servo
+        // Initialize turret servo and read current position
         try {
             turretServo = hardwareMap.get(Servo.class, HardwareConfig.TURRET_SERVO);
+            initialTurretPosition = turretServo.getPosition();
             telemetry.addLine("Turret Servo: OK");
+            telemetry.addData("Initial Turret Position", "%.3f", initialTurretPosition);
         } catch (Exception e) {
             turretServo = null;
             telemetry.addLine("Turret Servo: NOT FOUND");
         }
+
+        // Load shooting configurations with turret position override
+        preloadConfig = ShootingFunction.getConfigurationWithTurretOverride(
+                ShootingFunction.AutonPath.RED_FAR,
+                ShootingFunction.ShootingPosition.PRELOAD,
+                initialTurretPosition
+        );
+        set1Config = ShootingFunction.getConfigurationWithTurretOverride(
+                ShootingFunction.AutonPath.RED_FAR,
+                ShootingFunction.ShootingPosition.SET_1,
+                initialTurretPosition
+        );
+        set2Config = ShootingFunction.getConfigurationWithTurretOverride(
+                ShootingFunction.AutonPath.RED_FAR,
+                ShootingFunction.ShootingPosition.SET_2,
+                initialTurretPosition
+        );
 
         // Initialize Pedro Pathing
         follower = Constants.createFollower(hardwareMap);
@@ -115,11 +126,57 @@ public class RedFar extends OpMode {
         telemetry.addLine("Red Far Combined Auto Initialized");
         telemetry.addData("Path Speed", "%.0f%%", PATH_SPEED * 100);
         telemetry.update();
+
+        previousGamepad1 = new Gamepad();
+        currentGamepad1 = new Gamepad();
     }
 
     @Override
     public void init_loop() {
-        // Turret is now controlled by activeConfig in main loop
+
+        previousGamepad1.copy(currentGamepad1);
+        currentGamepad1.copy(gamepad1);
+
+        // Allow turret position adjustment with DPAD LEFT/RIGHT during init
+        if (turretServo != null) {
+            // DPAD LEFT: Decrease turret position
+            if (currentGamepad1.dpad_left && !previousGamepad1.dpad_left) {
+                initialTurretPosition -= 0.01;
+                initialTurretPosition = Math.max(0.0, initialTurretPosition);
+            }
+            // DPAD RIGHT: Increase turret position
+
+            else if (currentGamepad1.dpad_right && !previousGamepad1.dpad_right) {
+                initialTurretPosition += 0.01;
+                initialTurretPosition = Math.min(1.0, initialTurretPosition);
+            }
+
+            // Apply position to turret servo
+            turretServo.setPosition(initialTurretPosition);
+
+            // Update shooting configs with new turret position
+            preloadConfig = ShootingFunction.getConfigurationWithTurretOverride(
+                    ShootingFunction.AutonPath.RED_FAR,
+                    ShootingFunction.ShootingPosition.PRELOAD,
+                    initialTurretPosition
+            );
+            set1Config = ShootingFunction.getConfigurationWithTurretOverride(
+                    ShootingFunction.AutonPath.RED_FAR,
+                    ShootingFunction.ShootingPosition.SET_1,
+                    initialTurretPosition
+            );
+            set2Config = ShootingFunction.getConfigurationWithTurretOverride(
+                    ShootingFunction.AutonPath.RED_FAR,
+                    ShootingFunction.ShootingPosition.SET_2,
+                    initialTurretPosition
+            );
+
+            // Display current turret position
+            telemetry.addLine("=== TURRET ADJUSTMENT ===");
+            telemetry.addData("Turret Position", "%.3f", initialTurretPosition);
+            telemetry.addLine("DPAD LEFT: Decrease (-0.01) | DPAD RIGHT: Increase (+0.01)");
+            telemetry.update();
+        }
     }
 
     @Override

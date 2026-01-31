@@ -10,6 +10,7 @@ import com.pedropathing.util.Timer;
  * NOW SUPPORTS PER-BALL FLYWHEEL POWER AND HOOD POSITION!
  * Each ball in the sequence can have its own unique power and hood settings.
  */
+
 public class ShootingFunction {
 
     public enum AutonPath {
@@ -228,7 +229,7 @@ public class ShootingFunction {
 
     private static Configuration getRedFarConfiguration(ShootingPosition position) {
         // Red Far uses same settings for all balls and all positions
-        return new Configuration(0.8, 0.6, 0.8,0.6,0.8,0.65,0.95, 6.0, FAST_RECOVERY_TIMING, false);
+        return new Configuration(3450, 0.735, 3450, 0.735, 3450, 0.735, 0.5, 6.0, STANDARD_TIMING, true);
     }
 
     // ==================== RED NEAR CONFIGURATIONS ====================

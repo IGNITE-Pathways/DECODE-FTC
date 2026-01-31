@@ -8,6 +8,7 @@ import com.pedropathing.paths.PathChain;
 import com.pedropathing.util.Timer;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.qualcomm.robotcore.hardware.Gamepad;
 import com.qualcomm.robotcore.hardware.Servo;
 
 import org.firstinspires.ftc.teamcode.auto.Pedro.Constants;
@@ -33,9 +34,9 @@ public class BlueFar extends OpMode {
 
     // ==================== POSE CONSTANTS ====================
     private static final double HEADING_180 = Math.toRadians(180);
-    private static final Pose START_POSE = new Pose(60.845, 7.910, HEADING_180);
-    private static final Pose SHOOT_POSE = new Pose(60.845, 7.910);
-    private static final Pose SHOOT_POSE_OFFSET = new Pose(60.845, 7.910);
+    private static final Pose START_POSE = new Pose(57.845, 7.910, HEADING_180);
+    private static final Pose SHOOT_POSE = new Pose(57.845, 7.910);
+    private static final Pose SHOOT_POSE_OFFSET = new Pose(57.845, 7.910);
     private static final Pose SPIKE1_APPROACH = new Pose(41.172, 33.034);
     private static final Pose SPIKE1_BALL1 = new Pose(35.392, 32.899);
     private static final Pose SPIKE1_BALL2 = new Pose(29.358, 32.899);
@@ -46,6 +47,8 @@ public class BlueFar extends OpMode {
     private static final Pose SPIKE2_BALL2 = new Pose(31.568, 56.780);
     private static final Pose SPIKE2_BALL3 = new Pose(25.966, 57.008);
     private static final Pose SPIKE2_CURVE_CONTROL = new Pose(40.606, 42.856);
+
+    private static final Pose LEAVE = new Pose (57, 70);
 
     // ==================== ROBOT COMPONENTS ====================
     private Follower follower;
@@ -68,8 +71,12 @@ public class BlueFar extends OpMode {
         GOING_BACK_TO_SHOOT_SET_1, SHOOTING_SET_1,
         GETTING_NEXT_SET_OF_BALLS, GETTING_FIRST_BALL_SET_2, GETTING_SECOND_BALL_SET_2, GETTING_THIRD_BALL_SET_2,
         GOING_BACK_TO_SHOOT_SET_2, SHOOTING_SET_2,
+        LEAVE,
         IDLE
     }
+    
+    Gamepad currentGamepad1;
+    Gamepad previousGamepad1;
 
     @Override
     public void init() {
@@ -122,19 +129,25 @@ public class BlueFar extends OpMode {
         telemetry.addLine("Blue Far Combined Auto Initialized");
         telemetry.addData("Path Speed", "%.0f%%", PATH_SPEED * 100);
         telemetry.update();
+
+        previousGamepad1 = new Gamepad();
+        currentGamepad1 = new Gamepad();
     }
 
     @Override
     public void init_loop() {
-        // Allow turret position adjustment with RB/LB during init
+        previousGamepad1.copy(currentGamepad1);
+        currentGamepad1.copy(gamepad1);
+
+        // Allow turret position adjustment with DPAD LEFT/RIGHT during init
         if (turretServo != null) {
-            // LB: Decrease turret position
-            if (gamepad1.left_bumper) {
+            // DPAD LEFT: Decrease turret position
+            if (currentGamepad1.dpad_left && !previousGamepad1.dpad_left) {
                 initialTurretPosition -= 0.01;
                 initialTurretPosition = Math.max(0.0, initialTurretPosition);
             }
-            // RB: Increase turret position
-            else if (gamepad1.right_bumper) {
+            // DPAD RIGHT: Increase turret position
+            else if (currentGamepad1.dpad_right && !previousGamepad1.dpad_right) {
                 initialTurretPosition += 0.01;
                 initialTurretPosition = Math.min(1.0, initialTurretPosition);
             }
@@ -162,7 +175,7 @@ public class BlueFar extends OpMode {
             // Display current turret position
             telemetry.addLine("=== TURRET ADJUSTMENT ===");
             telemetry.addData("Turret Position", "%.3f", initialTurretPosition);
-            telemetry.addLine("LB: Decrease (-0.01) | RB: Increase (+0.01)");
+            telemetry.addLine("DPAD LEFT: Decrease (-0.01) | DPAD RIGHT: Increase (+0.01)");
             telemetry.update();
         }
     }
@@ -308,6 +321,13 @@ public class BlueFar extends OpMode {
 
                 if (shootTimer.getElapsedTimeSeconds() >= activeConfig.shootTimeSeconds) {
                     stopShooting();
+                    follower.followPath(paths.leave);
+                    setPathState(PathState.LEAVE);
+                }
+                break;
+
+            case LEAVE:
+                if (!follower.isBusy()) {
                     setPathState(PathState.IDLE);
                 }
                 break;
@@ -426,6 +446,7 @@ public class BlueFar extends OpMode {
         public PathChain gettingSecondBallSet2;
         public PathChain gettingThirdBallSet2;
         public PathChain goingBackToShootSet2;
+        public PathChain leave;
 
         public Paths(Follower follower) {
             goingToNearestBalls = follower.pathBuilder()
@@ -475,6 +496,11 @@ public class BlueFar extends OpMode {
 
             goingBackToShootSet2 = follower.pathBuilder()
                     .addPath(new BezierLine(SPIKE2_BALL3, SHOOT_POSE))
+                    .setConstantHeadingInterpolation(HEADING_180)
+                    .build();
+
+            leave = follower.pathBuilder()
+                    .addPath(new BezierLine(SHOOT_POSE, LEAVE))
                     .setConstantHeadingInterpolation(HEADING_180)
                     .build();
         }
