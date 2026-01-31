@@ -60,6 +60,7 @@ public class BlueFar extends OpMode {
     private Timer opModeTimer;
     private Timer shootTimer;
     private double currentSpeed = PATH_SPEED;
+    private double initialTurretPosition = 0.5;  // Default center position, adjustable in init_loop
 
     public enum PathState {
         PRELOAD_SHOOT_SETUP, PRELOAD_SHOOTING,
@@ -72,20 +73,6 @@ public class BlueFar extends OpMode {
 
     @Override
     public void init() {
-        // Load shooting configurations
-        preloadConfig = ShootingFunction.getConfiguration(
-                ShootingFunction.AutonPath.BLUE_FAR,
-                ShootingFunction.ShootingPosition.PRELOAD
-        );
-        set1Config = ShootingFunction.getConfiguration(
-                ShootingFunction.AutonPath.BLUE_FAR,
-                ShootingFunction.ShootingPosition.SET_1
-        );
-        set2Config = ShootingFunction.getConfiguration(
-                ShootingFunction.AutonPath.BLUE_FAR,
-                ShootingFunction.ShootingPosition.SET_2
-        );
-
         // Initialize timers
         pathTimer = new Timer();
         opModeTimer = new Timer();
@@ -97,14 +84,33 @@ public class BlueFar extends OpMode {
         launcher = new Launcher();
         launcher.initialize(hardwareMap, telemetry);
 
-        // Initialize turret servo
+        // Initialize turret servo and read current position
         try {
             turretServo = hardwareMap.get(Servo.class, HardwareConfig.TURRET_SERVO);
+            initialTurretPosition = turretServo.getPosition();
             telemetry.addLine("Turret Servo: OK");
+            telemetry.addData("Initial Turret Position", "%.3f", initialTurretPosition);
         } catch (Exception e) {
             turretServo = null;
             telemetry.addLine("Turret Servo: NOT FOUND");
         }
+
+        // Load shooting configurations with turret position override
+        preloadConfig = ShootingFunction.getConfigurationWithTurretOverride(
+                ShootingFunction.AutonPath.BLUE_FAR,
+                ShootingFunction.ShootingPosition.PRELOAD,
+                initialTurretPosition
+        );
+        set1Config = ShootingFunction.getConfigurationWithTurretOverride(
+                ShootingFunction.AutonPath.BLUE_FAR,
+                ShootingFunction.ShootingPosition.SET_1,
+                initialTurretPosition
+        );
+        set2Config = ShootingFunction.getConfigurationWithTurretOverride(
+                ShootingFunction.AutonPath.BLUE_FAR,
+                ShootingFunction.ShootingPosition.SET_2,
+                initialTurretPosition
+        );
 
         // Initialize Pedro Pathing
         follower = Constants.createFollower(hardwareMap);
@@ -120,7 +126,45 @@ public class BlueFar extends OpMode {
 
     @Override
     public void init_loop() {
-        // Turret is now controlled by activeConfig in main loop
+        // Allow turret position adjustment with RB/LB during init
+        if (turretServo != null) {
+            // LB: Decrease turret position
+            if (gamepad1.left_bumper) {
+                initialTurretPosition -= 0.01;
+                initialTurretPosition = Math.max(0.0, initialTurretPosition);
+            }
+            // RB: Increase turret position
+            else if (gamepad1.right_bumper) {
+                initialTurretPosition += 0.01;
+                initialTurretPosition = Math.min(1.0, initialTurretPosition);
+            }
+
+            // Apply position to turret servo
+            turretServo.setPosition(initialTurretPosition);
+
+            // Update shooting configs with new turret position
+            preloadConfig = ShootingFunction.getConfigurationWithTurretOverride(
+                    ShootingFunction.AutonPath.BLUE_FAR,
+                    ShootingFunction.ShootingPosition.PRELOAD,
+                    initialTurretPosition
+            );
+            set1Config = ShootingFunction.getConfigurationWithTurretOverride(
+                    ShootingFunction.AutonPath.BLUE_FAR,
+                    ShootingFunction.ShootingPosition.SET_1,
+                    initialTurretPosition
+            );
+            set2Config = ShootingFunction.getConfigurationWithTurretOverride(
+                    ShootingFunction.AutonPath.BLUE_FAR,
+                    ShootingFunction.ShootingPosition.SET_2,
+                    initialTurretPosition
+            );
+
+            // Display current turret position
+            telemetry.addLine("=== TURRET ADJUSTMENT ===");
+            telemetry.addData("Turret Position", "%.3f", initialTurretPosition);
+            telemetry.addLine("LB: Decrease (-0.01) | RB: Increase (+0.01)");
+            telemetry.update();
+        }
     }
 
     @Override
@@ -280,7 +324,13 @@ public class BlueFar extends OpMode {
 
     private void startShooting(ShootingFunction.Configuration config) {
         activeConfig = config;
-        launcher.setPower(config.ball1FlywheelPower);
+        if (config.useRPMControl) {
+            // Use RPM-based velocity control (for far zone matching teleop)
+            launcher.setTargetRPM(config.ball1FlywheelPower);  // Value is RPM when useRPMControl=true
+        } else {
+            // Use direct power control (legacy)
+            launcher.setPower(config.ball1FlywheelPower);
+        }
         launcher.setHoodPosition(config.ball1HoodPosition);
         launcher.setSpinning(true);
         if (turretServo != null) {

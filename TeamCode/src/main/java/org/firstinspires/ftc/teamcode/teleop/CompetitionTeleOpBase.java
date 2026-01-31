@@ -43,7 +43,7 @@ import org.firstinspires.ftc.teamcode.core.util.DistanceCalculator;
  * RT: Intake (works even when flywheel ON!) | LT: Eject
  * DPAD UP: Enable distance detection
  * DPAD DOWN: Disable distance detection (use close range default)
- * DPAD RIGHT: Far zone preset (10+ ft, 3450 RPM)
+ * DPAD RIGHT: Blue Far Auto Sequence (lock turret 0.5, auto-shoot, drive 1 sec)
  *
  * === GAMEPAD 2 (Turret & Manual Controls) ===
  * A: Turret auto-track (aims at AprilTag)
@@ -75,6 +75,16 @@ import org.firstinspires.ftc.teamcode.core.util.DistanceCalculator;
  * - Enables automatic ramp control (ramp raises when flywheel at speed)
  * - Gentle eject (35% power, 400ms) to reposition ball properly
  * - Then shoots for 800ms
+ *
+ * === Blue Far Auto Sequence (GP1-DPAD RIGHT) ===
+ * Automated far zone shooting sequence for back wall scoring:
+ * 1. Locks turret at center position (0.5)
+ * 2. Sets far zone preset (3450 RPM, hood 0.735)
+ * 3. Spins up flywheel
+ * 4. Auto-shoots 3 balls (with delays between shots)
+ * 5. Drives forward at 50% speed for 1 second
+ * 6. Stops and completes sequence
+ * - One button press handles entire sequence!
  */
 public abstract class CompetitionTeleOpBase extends LinearOpMode {
 
@@ -433,18 +443,9 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
         }
         lastGP1_DpadDown = gamepad1.dpad_down;
 
-        // DPAD RIGHT: Quick far zone preset (10+ ft, max distance)
+        // DPAD RIGHT: Blue Far Auto Sequence (lock turret, auto-shoot, drive forward)
         if (gamepad1.dpad_right && !lastGP1_DpadRight) {
-            distanceDetectionEnabled = false;
-            lockedDistance = RobotConstants.RANGE_FAR_MIN;
-            flywheelRPM = RobotConstants.RANGE_FAR_FLYWHEEL_RPM;
-            hoodPosition = RobotConstants.RANGE_FAR_HOOD_POSITION;
-            selectedPreset = "FAR ZONE (Manual)";
-            turret.setPositionDirect(0.5);  // Set turret to center position
-            if (flywheelOn) {
-                launcher.setTargetRPM(flywheelRPM);
-                launcher.setHoodPosition(hoodPosition);
-            }
+            startBlueFarAutoSequence();
         }
         lastGP1_DpadRight = gamepad1.dpad_right;
 
@@ -775,6 +776,102 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
         }
     }
 
+    // ========================================
+    // BLUE FAR AUTO SEQUENCE (GP1-DPAD RIGHT)
+    // ========================================
+
+    /**
+     * Start the Blue Far Auto Sequence
+     * 1. Lock turret at 0.5 (center)
+     * 2. Spin up flywheel to far zone RPM (3450)
+     * 3. Run auto-shoot sequence (3 balls with delays)
+     * 4. Drive forward for 1 second
+     */
+    private void startBlueFarAutoSequence() {
+        blueFarAutoActive = true;
+        blueFarAutoPhase = 0;  // Setup phase
+        blueFarAutoTimer.reset();
+
+        // Stop any ongoing auto-shoot sequence
+        if (autoShootActive) {
+            cancelAutoShoot();
+        }
+
+        // Phase 0: Setup - Lock turret, set far zone preset
+        distanceDetectionEnabled = false;
+        lockedDistance = RobotConstants.RANGE_FAR_MIN;
+        flywheelRPM = RobotConstants.RANGE_FAR_FLYWHEEL_RPM;
+        hoodPosition = RobotConstants.RANGE_FAR_HOOD_POSITION;
+        selectedPreset = "BLUE FAR AUTO";
+
+        // Lock turret at center (0.5)
+        turret.setPositionDirect(0.5);
+        turretTracking = false;  // Disable auto-tracking
+
+        // Ensure flywheel is on
+        if (!flywheelOn) {
+            currentState = RobotState.SHOOTING;
+            activateFlywheel();
+        } else {
+            launcher.setTargetRPM(flywheelRPM);
+            launcher.setHoodPosition(hoodPosition);
+        }
+
+        // Enable automatic ramp control
+        rampAutoControlEnabled = true;
+    }
+
+    /**
+     * Handle the Blue Far Auto Sequence state machine
+     * Phases:
+     * 0 = Setup complete, start auto-shoot
+     * 1 = Waiting for auto-shoot to complete
+     * 2 = Auto-shoot done, drive forward for 1 second
+     * 3 = Sequence complete
+     */
+    private void handleBlueFarAutoSequence() {
+        if (!blueFarAutoActive) {
+            return;
+        }
+
+        switch (blueFarAutoPhase) {
+            case 0:  // Setup complete, start auto-shoot sequence
+                // Start the auto-shoot sequence
+                startAutoShoot();
+                blueFarAutoPhase = 1;
+                break;
+
+            case 1:  // Waiting for auto-shoot to complete
+                if (!autoShootActive) {
+                    // Auto-shoot completed, move to drive phase
+                    blueFarAutoPhase = 2;
+                    blueFarAutoTimer.reset();
+                }
+                break;
+
+            case 2:  // Drive forward for 1 second
+                double elapsed = blueFarAutoTimer.milliseconds();
+                if (elapsed < BLUE_FAR_DRIVE_DURATION_MS) {
+                    // Drive forward at 50% speed
+                    driveTrain.driveRaw(0.5, 0, 0);  // Forward, no strafe, no rotation
+                } else {
+                    // Stop driving, sequence complete
+                    driveTrain.stopMotors();
+                    blueFarAutoPhase = 3;
+                }
+                break;
+
+            case 3:  // Sequence complete
+                blueFarAutoActive = false;
+                blueFarAutoPhase = 0;
+                break;
+        }
+    }
+
+    // ========================================
+    // GAMEPAD 2: MANUAL OVERRIDES
+    // ========================================
+
     // GP2 Manual Overrides:
     // - DPAD UP/DOWN: Adjust RPM (±100 RPM per press)
     // - LEFT/RIGHT BUMPER: Adjust hood angle (±0.03 per press)
@@ -859,6 +956,22 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
             }
         }
 
+        // === BLUE FAR AUTO SEQUENCE ===
+        if (blueFarAutoActive) {
+            String status;
+            switch (blueFarAutoPhase) {
+                case 0: status = "SETUP - Locking turret at 0.5"; break;
+                case 1: status = "AUTO-SHOOTING 3 balls..."; break;
+                case 2:
+                    double remainingMs = BLUE_FAR_DRIVE_DURATION_MS - blueFarAutoTimer.milliseconds();
+                    status = String.format("DRIVING FORWARD (%.1fs left)", remainingMs / 1000.0);
+                    break;
+                case 3: status = "COMPLETE!"; break;
+                default: status = "BLUE FAR AUTO"; break;
+            }
+            telemetry.addLine(String.format(">>> BLUE FAR AUTO: %s <<<", status));
+        }
+
         // === EMERGENCY STOP WARNING ===
         if (emergencyStopped) {
             telemetry.addLine("*** E-STOP ACTIVE - Release GP2-START ***");
@@ -937,7 +1050,7 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
 
         // === CONTROLS (Compact) ===
         telemetry.addLine();
-        telemetry.addLine("GP1: Y-Flywheel X-Ramp RB-AutoShoot B-Lock LB-EjectShoot | RT-In LT-Out | DPAD:U/D-Dist R-Far");
+        telemetry.addLine("GP1: Y-Flywheel X-Ramp RB-AutoShoot B-Lock LB-EjectShoot | RT-In LT-Out | DPAD:U/D-Dist R-BlueFarAuto");
         telemetry.addLine("GP2: A-Track X-CtrTur | LS-Turret DPAD:L-Tur U/D-RPM | LB/RB-Hood | START-ESTOP");
 
         telemetry.update();

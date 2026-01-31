@@ -42,11 +42,12 @@ public class ShootingFunction {
         public final double turretPosition;
         public final double shootTimeSeconds;
         public final TimingConfig timing;
+        public final boolean useRPMControl;  // true = use RPM values, false = use power values
 
         public Configuration(double ball1FlywheelPower, double ball1HoodPosition,
                              double ball2FlywheelPower, double ball2HoodPosition,
                              double ball3FlywheelPower, double ball3HoodPosition,
-                             double turretPosition, double shootTimeSeconds, TimingConfig timing) {
+                             double turretPosition, double shootTimeSeconds, TimingConfig timing, boolean useRPMControl) {
             this.ball1FlywheelPower = ball1FlywheelPower;
             this.ball1HoodPosition = ball1HoodPosition;
             this.ball2FlywheelPower = ball2FlywheelPower;
@@ -56,15 +57,22 @@ public class ShootingFunction {
             this.turretPosition = turretPosition;
             this.shootTimeSeconds = shootTimeSeconds;
             this.timing = timing;
+            this.useRPMControl = useRPMControl;
         }
 
         // Convenience constructor for when all balls use the same settings
         public Configuration(double flywheelPower, double hoodPosition,
-                             double turretPosition, double shootTimeSeconds, TimingConfig timing) {
+                             double turretPosition, double shootTimeSeconds, TimingConfig timing, boolean useRPMControl) {
             this(flywheelPower, hoodPosition,
                     flywheelPower, hoodPosition,
                     flywheelPower, hoodPosition,
-                    turretPosition, shootTimeSeconds, timing);
+                    turretPosition, shootTimeSeconds, timing, useRPMControl);
+        }
+
+        // Legacy constructor for backward compatibility (uses power control)
+        public Configuration(double flywheelPower, double hoodPosition,
+                             double turretPosition, double shootTimeSeconds, TimingConfig timing) {
+            this(flywheelPower, hoodPosition, turretPosition, shootTimeSeconds, timing, false);
         }
     }
 
@@ -168,11 +176,31 @@ public class ShootingFunction {
         }
     }
 
+    /**
+     * Get configuration with custom turret position override
+     * This allows adjusting turret position during init via gamepad
+     */
+    public static Configuration getConfigurationWithTurretOverride(AutonPath path, ShootingPosition position, double turretPosition) {
+        Configuration baseConfig = getConfiguration(path, position);
+        // Create new config with overridden turret position
+        return new Configuration(
+            baseConfig.ball1FlywheelPower, baseConfig.ball1HoodPosition,
+            baseConfig.ball2FlywheelPower, baseConfig.ball2HoodPosition,
+            baseConfig.ball3FlywheelPower, baseConfig.ball3HoodPosition,
+            turretPosition,  // Override with custom turret position
+            baseConfig.shootTimeSeconds,
+            baseConfig.timing,
+            baseConfig.useRPMControl
+        );
+    }
+
     // ==================== BLUE FAR CONFIGURATIONS ====================
 
     private static Configuration getBlueFarConfiguration(ShootingPosition position) {
         // Blue Far uses same settings for all balls and all positions
-        return new Configuration(0.8, 0.6, 0.8,0.6,0.8,0.65,0.95, 6.0, STANDARD_TIMING);
+        // Matches teleop far zone: 3450 RPM, hood 0.735
+        // Uses RPM-based velocity control (dual encoders) like teleop
+        return new Configuration(3450, 0.735, 3450, 0.735, 3450, 0.735, 0.5, 6.0, STANDARD_TIMING, true);
     }
 
     // ==================== BLUE NEAR CONFIGURATIONS ====================
@@ -185,11 +213,11 @@ public class ShootingFunction {
 
             case SET_1:
                 // All balls use same settings for set 1
-                return new Configuration(0.58, 0.36, 0.56, 0.36, 0.56, 0.38, 0.8, 6.0, STANDARD_TIMING);
+                return new Configuration(0.58, 0.36, 0.56, 0.36, 0.56, 0.38, 0.8, 6.0, STANDARD_TIMING, false);
 
             case SET_2:
                 // All balls use same settings for set 2
-                return new Configuration(0.55, 0.7,0.55,0.7,0.55,0.7, 0.85, 6.0, STANDARD_TIMING);
+                return new Configuration(0.55, 0.7,0.55,0.7,0.55,0.7, 0.85, 6.0, STANDARD_TIMING, false);
 
             default:
                 throw new IllegalArgumentException("Unknown shooting position: " + position);
@@ -200,7 +228,7 @@ public class ShootingFunction {
 
     private static Configuration getRedFarConfiguration(ShootingPosition position) {
         // Red Far uses same settings for all balls and all positions
-        return new Configuration(0.8, 0.6, 0.8,0.6,0.8,0.65,0.95, 6.0, FAST_RECOVERY_TIMING);
+        return new Configuration(0.8, 0.6, 0.8,0.6,0.8,0.65,0.95, 6.0, FAST_RECOVERY_TIMING, false);
     }
 
     // ==================== RED NEAR CONFIGURATIONS ====================
@@ -253,15 +281,22 @@ public class ShootingFunction {
             currentHoodPosition = config.ball3HoodPosition;
         }
 
-        // Apply current flywheel power and hood position
-        if (launcher.flyWheelMotor != null) {
-            launcher.flyWheelMotor.setPower(currentFlywheelPower);
-        }
-        if (launcher.flyWheelMotor2 != null) {
-            launcher.flyWheelMotor2.setPower(currentFlywheelPower);
+        // Apply current flywheel power/RPM and hood position
+        if (config.useRPMControl) {
+            // Use RPM-based velocity control (like teleop far zone)
+            launcher.setTargetRPM(currentFlywheelPower);  // Value is actually RPM when useRPMControl=true
+            launcher.setSpinning(true);
+        } else {
+            // Use direct power control (legacy)
+            if (launcher.flyWheelMotor != null) {
+                launcher.flyWheelMotor.setPower(currentFlywheelPower);
+            }
+            if (launcher.flyWheelMotor2 != null) {
+                launcher.flyWheelMotor2.setPower(currentFlywheelPower);
+            }
+            launcher.setSpinning(true);
         }
         launcher.setHoodPosition(currentHoodPosition);
-        launcher.setSpinning(true);
 
         // ========== PHASE 1: SPINUP ==========
         if (elapsed < timing.spinupTime) {
