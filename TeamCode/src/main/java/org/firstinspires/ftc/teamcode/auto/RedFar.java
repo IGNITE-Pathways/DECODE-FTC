@@ -29,13 +29,14 @@ public class RedFar extends OpMode {
     private ShootingFunction.Configuration activeConfig;
 
     // ==================== PATH CONFIGURATION ====================
-    private static final double PATH_SPEED = 0.45;
+    private static final double PATH_SPEED = 0.6;
     private static final double PATH_TIMEOUT = 15.0;
 
     // ==================== POSE CONSTANTS ====================
     private static final double HEADING_0 = Math.toRadians(0);
-    private static final Pose START_POSE = new Pose(84.652, 9.071, HEADING_0);
-    private static final Pose SHOOT_POSE = new Pose(84.652, 9.071, HEADING_0);
+    private static final Pose START_POSE = new Pose(88.652, 9.071, HEADING_0);
+    private static final Pose SHOOT_POSE = new Pose(88.652, 9.071, HEADING_0);
+
     private static final Pose SPIKE1_APPROACH = new Pose(101.559, 35.453);
     private static final Pose SPIKE1_BALL1 = new Pose(107.779, 35.511);
     private static final Pose SPIKE1_BALL2 = new Pose(113.745, 35.511);
@@ -44,8 +45,11 @@ public class RedFar extends OpMode {
     private static final Pose SPIKE2_BALL1 = new Pose(108.322, 59.923);
     private static final Pose SPIKE2_BALL2 = new Pose(114.068, 59.780);
     private static final Pose SPIKE2_BALL3 = new Pose(119.792, 59.815);
-    private static final Pose FINAL_SHOOT_POSE = new Pose(84.581, 9.000);
+    private static final Pose FINAL_SHOOT_POSE = new Pose(88.581, 9.000);
     private static final Pose SPIKE2_CURVE_CONTROL = new Pose(96.735, 54.372);
+
+    private static final Pose LEAVE = new Pose (110, 10);
+
 
     // ==================== ROBOT COMPONENTS ====================
     private Follower follower;
@@ -68,6 +72,7 @@ public class RedFar extends OpMode {
         GOING_BACK_TO_SHOOT_SET_1, SHOOTING_SET_1,
         GETTING_NEXT_SET_OF_BALLS, GETTING_FIRST_BALL_SET_2, GETTING_SECOND_BALL_SET_2, GETTING_THIRD_BALL_SET_2,
         GOING_BACK_TO_SHOOT_SET_2, SHOOTING_SET_2,
+        LEAVE,
         IDLE
     }
 
@@ -141,13 +146,13 @@ public class RedFar extends OpMode {
         if (turretServo != null) {
             // DPAD LEFT: Decrease turret position
             if (currentGamepad1.dpad_left && !previousGamepad1.dpad_left) {
-                initialTurretPosition -= 0.01;
+                initialTurretPosition -= 0.05;
                 initialTurretPosition = Math.max(0.0, initialTurretPosition);
             }
             // DPAD RIGHT: Increase turret position
 
             else if (currentGamepad1.dpad_right && !previousGamepad1.dpad_right) {
-                initialTurretPosition += 0.01;
+                initialTurretPosition += 0.05;
                 initialTurretPosition = Math.min(1.0, initialTurretPosition);
             }
 
@@ -214,8 +219,8 @@ public class RedFar extends OpMode {
                 double elapsed = shootTimer.getElapsedTimeSeconds();
                 if (elapsed >= activeConfig.shootTimeSeconds) {
                     stopShooting();
-                    currentSpeed = 0.8;
-                    follower.setMaxPower(0.8);
+                    currentSpeed = 1.0;
+                    follower.setMaxPower(1.0);
                     intakeTransfer.startIntake();
                     follower.followPath(paths.goingToNearestBalls);
                     setPathState(PathState.GOING_TO_NEAREST_BALLS);
@@ -267,8 +272,8 @@ public class RedFar extends OpMode {
 
                 if (shootTimer.getElapsedTimeSeconds() >= activeConfig.shootTimeSeconds) {
                     stopShooting();
-                    currentSpeed = 0.8;
-                    follower.setMaxPower(0.8);
+                    currentSpeed = 1.0;
+                    follower.setMaxPower(1.0);
                     intakeTransfer.startIntake();
                     follower.followPath(paths.gettingNextSetOfBalls);
                     setPathState(PathState.GETTING_NEXT_SET_OF_BALLS);
@@ -320,6 +325,13 @@ public class RedFar extends OpMode {
 
                 if (shootTimer.getElapsedTimeSeconds() >= activeConfig.shootTimeSeconds) {
                     stopShooting();
+                    follower.followPath(paths.leave);
+                    setPathState(PathState.LEAVE);
+                }
+                break;
+
+            case LEAVE:
+                if (!follower.isBusy()) {
                     setPathState(PathState.IDLE);
                 }
                 break;
@@ -432,6 +444,7 @@ public class RedFar extends OpMode {
         public PathChain gettingSecondBallSet2;
         public PathChain gettingThirdBallSet2;
         public PathChain goingBackToShootSet2;
+        public PathChain leave;
 
         public Paths(Follower follower) {
             goingToNearestBalls = follower.pathBuilder()
@@ -481,6 +494,11 @@ public class RedFar extends OpMode {
 
             goingBackToShootSet2 = follower.pathBuilder()
                     .addPath(new BezierLine(SPIKE2_BALL3, FINAL_SHOOT_POSE))
+                    .setConstantHeadingInterpolation(HEADING_0)
+                    .build();
+
+            leave = follower.pathBuilder()
+                    .addPath(new BezierLine(FINAL_SHOOT_POSE, LEAVE))
                     .setConstantHeadingInterpolation(HEADING_0)
                     .build();
         }

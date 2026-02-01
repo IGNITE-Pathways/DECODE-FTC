@@ -151,7 +151,7 @@ public class ShootingFunction {
     }
 
     private static final TimingConfig STANDARD_TIMING = new TimingConfig(
-            2.0, 0.1, 1.5, 0.1, 1.5, 0.1,
+            2.0, 0.1, 1.5, 0.1, 1.5, 0.5,
             false, true, true, true, true, true, false,
             false, false, false, false, false, false, false
     );
@@ -207,22 +207,9 @@ public class ShootingFunction {
     // ==================== BLUE NEAR CONFIGURATIONS ====================
 
     private static Configuration getBlueNearConfiguration(ShootingPosition position) {
-        switch (position) {
-            case PRELOAD:
-                // All balls use same settings for preload
-                return new Configuration(0.55, 0.17, 0.95, 6.0, STANDARD_TIMING);
 
-            case SET_1:
-                // All balls use same settings for set 1
-                return new Configuration(0.58, 0.36, 0.56, 0.36, 0.56, 0.38, 0.8, 6.0, STANDARD_TIMING, false);
+        return new Configuration(2645, 0.7, 2700, 6.0, STANDARD_TIMING, true);
 
-            case SET_2:
-                // All balls use same settings for set 2
-                return new Configuration(0.55, 0.7,0.55,0.7,0.55,0.7, 0.85, 6.0, STANDARD_TIMING, false);
-
-            default:
-                throw new IllegalArgumentException("Unknown shooting position: " + position);
-        }
     }
 
     // ==================== RED FAR CONFIGURATIONS ====================
@@ -235,22 +222,8 @@ public class ShootingFunction {
     // ==================== RED NEAR CONFIGURATIONS ====================
 
     private static Configuration getRedNearConfiguration(ShootingPosition position) {
-        switch (position) {
-            case PRELOAD:
-                // All balls use same settings for preload
-                return new Configuration(0.58, 0.35, 0.75, 6.0, STANDARD_TIMING);
+        return new Configuration(2645, 0.7, 2700, 6.0, STANDARD_TIMING, true);
 
-            case SET_1:
-                // All balls use same settings for set 1
-                return new Configuration(0.6, 0.7, 0.6, 6.0, STANDARD_TIMING);
-
-            case SET_2:
-                // All balls use same settings for set 2
-                return new Configuration(0.55, 0.6, 0.55, 6.0, STANDARD_TIMING);
-
-            default:
-                throw new IllegalArgumentException("Unknown shooting position: " + position);
-        }
     }
 
     // ==================== SHOOTING EXECUTION ====================

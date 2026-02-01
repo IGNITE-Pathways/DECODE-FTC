@@ -8,6 +8,7 @@ import com.pedropathing.paths.PathChain;
 import com.pedropathing.util.Timer;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.qualcomm.robotcore.hardware.Gamepad;
 import com.qualcomm.robotcore.hardware.Servo;
 
 import org.firstinspires.ftc.teamcode.auto.Pedro.Constants;
@@ -28,24 +29,26 @@ public class RedNear extends OpMode {
     private ShootingFunction.Configuration activeConfig;
 
     // ==================== PATH CONFIGURATION ====================
-    private static final double PATH_SPEED = 0.45;
+    private static final double PATH_SPEED = 0.6;
     private static final double PATH_TIMEOUT = 15.0;
 
     // ==================== POSE CONSTANTS ====================
     private static final double HEADING_307 = Math.toRadians(307);
     private static final double HEADING_0 = Math.toRadians(0);
-    private static final Pose START_POSE = new Pose(121.530, 123.468, HEADING_307);
+    private static final Pose START_POSE = new Pose(121.530, 123.468, HEADING_0);
     private static final Pose SHOOT_POSE = new Pose(96.112, 95.741);
-    private static final Pose SPIKE1_APPROACH = new Pose(100.611, 83.810);
-    private static final Pose SPIKE1_BALL1 = new Pose(107.896, 83.869);
-    private static final Pose SPIKE1_BALL2 = new Pose(113.508, 83.896);
-    private static final Pose SPIKE1_BALL3 = new Pose(118.907, 83.914);
-    private static final Pose SPIKE2_APPROACH = new Pose(101.753, 59.633);
-    private static final Pose SPIKE2_BALL1 = new Pose(107.656, 59.674);
-    private static final Pose SPIKE2_BALL2 = new Pose(112.825, 59.751);
-    private static final Pose SPIKE2_BALL3 = new Pose(117.782, 59.778);
+    private static final Pose SPIKE1_APPROACH = new Pose(100.611, 81.810);
+    private static final Pose SPIKE1_BALL1 = new Pose(100.896, 81.869);
+    private static final Pose SPIKE1_BALL2 = new Pose(113.508, 81.896);
+    private static final Pose SPIKE1_BALL3 = new Pose(118.907, 81.914);
+    private static final Pose SPIKE2_APPROACH = new Pose(101.753, 57.633);
+    private static final Pose SPIKE2_BALL1 = new Pose(107.656, 57.674);
+    private static final Pose SPIKE2_BALL2 = new Pose(112.825, 57.751);
+    private static final Pose SPIKE2_BALL3 = new Pose(117.782, 57.778);
     private static final Pose FINAL_SHOOT_POSE = new Pose(82.983, 80.719);
     private static final Pose SPIKE1_CURVE_CONTROL = new Pose(91.415, 97.825);
+
+    private static final Pose LEAVE = new Pose(108.6870965704541, 85.397663108697);  // REDNEAR LEAVE position
 
     // ==================== ROBOT COMPONENTS ====================
     private Follower follower;
@@ -60,32 +63,23 @@ public class RedNear extends OpMode {
     private Timer opModeTimer;
     private Timer shootTimer;
     private double currentSpeed = PATH_SPEED;
+    private double initialTurretPosition = 0.5;  // Default center position, adjustable in init_loop
 
     public enum PathState {
-        PRELOAD_SHOOT_SETUP, PRELOAD_SHOOTING,
+        MOVING_TO_SHOOT_POSE, PRELOAD_SHOOT_SETUP, PRELOAD_SHOOTING,
         GOING_TO_NEAREST_BALLS, GETTING_FIRST_BALL_SET_1, GETTING_SECOND_BALL_SET_1, GETTING_THIRD_BALL_SET_1,
         GOING_BACK_TO_SHOOT_SET_1, SHOOTING_SET_1,
         GETTING_NEXT_SET_OF_BALLS, GETTING_FIRST_BALL_SET_2, GETTING_SECOND_BALL_SET_2, GETTING_THIRD_BALL_SET_2,
         GOING_BACK_TO_SHOOT_SET_2, SHOOTING_SET_2,
+        LEAVE,
         IDLE
     }
 
+    Gamepad currentGamepad1;
+    Gamepad previousGamepad1;
+
     @Override
     public void init() {
-        // Load shooting configurations
-        preloadConfig = ShootingFunction.getConfiguration(
-                ShootingFunction.AutonPath.RED_NEAR,
-                ShootingFunction.ShootingPosition.PRELOAD
-        );
-        set1Config = ShootingFunction.getConfiguration(
-                ShootingFunction.AutonPath.RED_NEAR,
-                ShootingFunction.ShootingPosition.SET_1
-        );
-        set2Config = ShootingFunction.getConfiguration(
-                ShootingFunction.AutonPath.RED_NEAR,
-                ShootingFunction.ShootingPosition.SET_2
-        );
-
         // Initialize timers
         pathTimer = new Timer();
         opModeTimer = new Timer();
@@ -97,14 +91,33 @@ public class RedNear extends OpMode {
         launcher = new Launcher();
         launcher.initialize(hardwareMap, telemetry);
 
-        // Initialize turret servo
+        // Initialize turret servo and read current position
         try {
             turretServo = hardwareMap.get(Servo.class, HardwareConfig.TURRET_SERVO);
+            initialTurretPosition = turretServo.getPosition();
             telemetry.addLine("Turret Servo: OK");
+            telemetry.addData("Initial Turret Position", "%.3f", initialTurretPosition);
         } catch (Exception e) {
             turretServo = null;
             telemetry.addLine("Turret Servo: NOT FOUND");
         }
+
+        // Load shooting configurations with turret position override
+        preloadConfig = ShootingFunction.getConfigurationWithTurretOverride(
+                ShootingFunction.AutonPath.RED_NEAR,
+                ShootingFunction.ShootingPosition.PRELOAD,
+                initialTurretPosition
+        );
+        set1Config = ShootingFunction.getConfigurationWithTurretOverride(
+                ShootingFunction.AutonPath.RED_NEAR,
+                ShootingFunction.ShootingPosition.SET_1,
+                initialTurretPosition
+        );
+        set2Config = ShootingFunction.getConfigurationWithTurretOverride(
+                ShootingFunction.AutonPath.RED_NEAR,
+                ShootingFunction.ShootingPosition.SET_2,
+                initialTurretPosition
+        );
 
         // Initialize Pedro Pathing
         follower = Constants.createFollower(hardwareMap);
@@ -116,11 +129,55 @@ public class RedNear extends OpMode {
         telemetry.addLine("Red Near Combined Auto Initialized");
         telemetry.addData("Path Speed", "%.0f%%", PATH_SPEED * 100);
         telemetry.update();
+
+        previousGamepad1 = new Gamepad();
+        currentGamepad1 = new Gamepad();
     }
 
     @Override
     public void init_loop() {
-        // Turret is now controlled by activeConfig in main loop
+        // Allow turret position adjustment with DPAD LEFT/RIGHT during init
+        if (turretServo != null) {
+            previousGamepad1.copy(currentGamepad1);
+            currentGamepad1.copy(gamepad1);
+
+            // DPAD LEFT: Decrease turret position
+            if (currentGamepad1.dpad_left && !previousGamepad1.dpad_left) {
+                initialTurretPosition -= 0.05;
+                initialTurretPosition = Math.max(0.0, initialTurretPosition);
+            }
+            // DPAD RIGHT: Increase turret position
+            else if (currentGamepad1.dpad_right && !previousGamepad1.dpad_right) {
+                initialTurretPosition += 0.05;
+                initialTurretPosition = Math.min(1.0, initialTurretPosition);
+            }
+
+            // Apply position to turret servo
+            turretServo.setPosition(initialTurretPosition);
+
+            // Update shooting configs with new turret position
+            preloadConfig = ShootingFunction.getConfigurationWithTurretOverride(
+                    ShootingFunction.AutonPath.RED_NEAR,
+                    ShootingFunction.ShootingPosition.PRELOAD,
+                    initialTurretPosition
+            );
+            set1Config = ShootingFunction.getConfigurationWithTurretOverride(
+                    ShootingFunction.AutonPath.RED_NEAR,
+                    ShootingFunction.ShootingPosition.SET_1,
+                    initialTurretPosition
+            );
+            set2Config = ShootingFunction.getConfigurationWithTurretOverride(
+                    ShootingFunction.AutonPath.RED_NEAR,
+                    ShootingFunction.ShootingPosition.SET_2,
+                    initialTurretPosition
+            );
+
+            // Display current turret position
+            telemetry.addLine("=== TURRET ADJUSTMENT ===");
+            telemetry.addData("Turret Position", "%.3f", initialTurretPosition);
+            telemetry.addLine("DPAD LEFT: Decrease (-0.01) | DPAD RIGHT: Increase (+0.01)");
+            telemetry.update();
+        }
     }
 
     @Override
@@ -128,7 +185,7 @@ public class RedNear extends OpMode {
         opModeTimer.resetTimer();
         pathTimer.resetTimer();
         shootTimer.resetTimer();
-        pathState = PathState.PRELOAD_SHOOT_SETUP;
+        pathState = PathState.MOVING_TO_SHOOT_POSE;
     }
 
     @Override
@@ -147,9 +204,18 @@ public class RedNear extends OpMode {
 
     private void autonomousPathUpdate() {
         switch (pathState) {
+            case MOVING_TO_SHOOT_POSE:
+                currentSpeed = 1.0;
+                follower.setMaxPower(1.0);
+                follower.followPath(paths.movingToShootPose);
+                setPathState(PathState.PRELOAD_SHOOT_SETUP);
+                break;
+
             case PRELOAD_SHOOT_SETUP:
-                startShooting(preloadConfig);
-                setPathState(PathState.PRELOAD_SHOOTING);
+                if (!follower.isBusy()) {
+                    startShooting(preloadConfig);
+                    setPathState(PathState.PRELOAD_SHOOTING);
+                }
                 break;
 
             case PRELOAD_SHOOTING:
@@ -158,8 +224,8 @@ public class RedNear extends OpMode {
                 double elapsed = shootTimer.getElapsedTimeSeconds();
                 if (elapsed >= activeConfig.shootTimeSeconds) {
                     stopShooting();
-                    currentSpeed = 0.8;
-                    follower.setMaxPower(0.8);
+                    currentSpeed = 1.0;
+                    follower.setMaxPower(1.0);
                     intakeTransfer.startIntake();
                     follower.followPath(paths.goingToNearestBalls);
                     setPathState(PathState.GOING_TO_NEAREST_BALLS);
@@ -211,8 +277,8 @@ public class RedNear extends OpMode {
 
                 if (shootTimer.getElapsedTimeSeconds() >= activeConfig.shootTimeSeconds) {
                     stopShooting();
-                    currentSpeed = 0.8;
-                    follower.setMaxPower(0.8);
+                    currentSpeed = 1.0;
+                    follower.setMaxPower(1.0);
                     intakeTransfer.startIntake();
                     follower.followPath(paths.gettingNextSetOfBalls);
                     setPathState(PathState.GETTING_NEXT_SET_OF_BALLS);
@@ -264,6 +330,13 @@ public class RedNear extends OpMode {
 
                 if (shootTimer.getElapsedTimeSeconds() >= activeConfig.shootTimeSeconds) {
                     stopShooting();
+                    follower.followPath(paths.leave);
+                    setPathState(PathState.LEAVE);
+                }
+                break;
+
+            case LEAVE:
+                if (!follower.isBusy()) {
                     setPathState(PathState.IDLE);
                 }
                 break;
@@ -366,6 +439,7 @@ public class RedNear extends OpMode {
     }
 
     public static class Paths {
+        public PathChain movingToShootPose;
         public PathChain goingToNearestBalls;
         public PathChain gettingFirstBallSet1;
         public PathChain gettingSecondBallSet1;
@@ -376,11 +450,17 @@ public class RedNear extends OpMode {
         public PathChain gettingSecondBallSet2;
         public PathChain gettingThirdBallSet2;
         public PathChain goingBackToShootSet2;
+        public PathChain leave;
 
         public Paths(Follower follower) {
+            movingToShootPose = follower.pathBuilder()
+                    .addPath(new BezierLine(START_POSE, SHOOT_POSE))
+                    .setLinearHeadingInterpolation(HEADING_0, HEADING_0)
+                    .build();
+
             goingToNearestBalls = follower.pathBuilder()
-                    .addPath(new BezierCurve(new Pose(121.530, 123.468), SPIKE1_CURVE_CONTROL, SPIKE1_APPROACH))
-                    .setLinearHeadingInterpolation(HEADING_307, HEADING_0)
+                    .addPath(new BezierCurve(SHOOT_POSE, SPIKE1_CURVE_CONTROL, SPIKE1_APPROACH))
+                    .setConstantHeadingInterpolation(HEADING_0)
                     .build();
 
             gettingFirstBallSet1 = follower.pathBuilder()
@@ -424,7 +504,12 @@ public class RedNear extends OpMode {
                     .build();
 
             goingBackToShootSet2 = follower.pathBuilder()
-                    .addPath(new BezierLine(SPIKE2_BALL3, FINAL_SHOOT_POSE))
+                    .addPath(new BezierLine(SPIKE2_BALL3, SHOOT_POSE))
+                    .setConstantHeadingInterpolation(HEADING_0)
+                    .build();
+
+            leave = follower.pathBuilder()
+                    .addPath(new BezierLine(SHOOT_POSE, LEAVE))
                     .setConstantHeadingInterpolation(HEADING_0)
                     .build();
         }

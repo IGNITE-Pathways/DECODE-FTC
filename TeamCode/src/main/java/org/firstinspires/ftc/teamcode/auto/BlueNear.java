@@ -8,6 +8,7 @@ import com.pedropathing.paths.PathChain;
 import com.pedropathing.util.Timer;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.qualcomm.robotcore.hardware.Gamepad;
 import com.qualcomm.robotcore.hardware.Servo;
 
 import org.firstinspires.ftc.teamcode.auto.Pedro.Constants;
@@ -21,6 +22,9 @@ import org.firstinspires.ftc.teamcode.core.constants.HardwareConfig;
 @Autonomous(name = "Blue Near", group = "Autonomous")
 public class BlueNear extends OpMode {
 
+    //2700 for flywheel
+    //0.7 hood
+
     // ==================== CLASS FIELDS ====================
     private ShootingFunction.Configuration preloadConfig;
     private ShootingFunction.Configuration set1Config;
@@ -28,26 +32,27 @@ public class BlueNear extends OpMode {
     private ShootingFunction.Configuration activeConfig;
 
     // ==================== PATH CONFIGURATION ====================
-    private static final double PATH_SPEED = 0.45;
+    private static final double PATH_SPEED = 0.6;  // Base speed for ball collection and init; matches BlueFar/RedFar/RedNear
     private static final double PATH_TIMEOUT = 15.0;
 
     // ==================== POSE CONSTANTS ====================
     private static final double HEADING_233 = Math.toRadians(233);
     private static final double HEADING_180 = Math.toRadians(180);
-    private static final Pose START_POSE = new Pose(24.143, 125.525, HEADING_233);
+    private static final Pose START_POSE = new Pose(24.143, 125.525, HEADING_180);
     private static final Pose SHOOT_POSE = new Pose(48.045, 96.350);
-    private static final Pose SPIKE1_APPROACH = new Pose(41.794, 87.215);
-    private static final Pose SPIKE1_BALL1 = new Pose(36.099, 87.072);
-    private static final Pose SPIKE1_BALL2 = new Pose(30.556, 87.099);
-    private static final Pose SPIKE1_BALL3 = new Pose(25.408, 86.2);
-    private static final Pose SPIKE2_APPROACH = new Pose(45.314, 63.444);
-    private static final Pose SPIKE2_BALL1 = new Pose(36.265, 63.283);
-    private static final Pose SPIKE2_BALL2 = new Pose(31.090, 63.157);
-    private static final Pose SPIKE2_BALL3 = new Pose(25.906, 63.184);
+    private static final Pose SPIKE1_APPROACH = new Pose(48.794, 88.215);
+    private static final Pose SPIKE1_BALL1 = new Pose(38.099, 88.072);
+    private static final Pose SPIKE1_BALL2 = new Pose(32.556, 88.099);
+    private static final Pose SPIKE1_BALL3 = new Pose(27.408, 88.099);
+    private static final Pose SPIKE2_APPROACH = new Pose(45.314, 62.444);
+    private static final Pose SPIKE2_BALL1 = new Pose(36.265, 62.444);
+    private static final Pose SPIKE2_BALL2 = new Pose(31.090, 62.444);
+    private static final Pose SPIKE2_BALL3 = new Pose(25.906, 62.444);
     private static final Pose FINAL_SHOOT_POSE = new Pose(60.673, 81.327);
     private static final Pose SPIKE1_CURVE_CONTROL = new Pose(48.215, 96.000);
     private static final Pose SPIKE2_CURVE_CONTROL = new Pose(55.517695550602824, 63.52260948954108);
 
+    private static final Pose LEAVE = new Pose(36.68709657045411, 83.57231099602096);  // BlueNear LEAVE position
     // ==================== ROBOT COMPONENTS ====================
     private Follower follower;
     private Paths paths;
@@ -61,32 +66,23 @@ public class BlueNear extends OpMode {
     private Timer opModeTimer;
     private Timer shootTimer;
     private double currentSpeed = PATH_SPEED;
+    private double initialTurretPosition = 0.5;  // Default center position, adjustable in init_loop
 
     public enum PathState {
-        PRELOAD_SHOOT_SETUP, PRELOAD_SHOOTING,
+        MOVING_TO_SHOOT_POSE, PRELOAD_SHOOT_SETUP, PRELOAD_SHOOTING,
         GOING_TO_NEAREST_BALLS, GETTING_FIRST_BALL_SET_1, GETTING_SECOND_BALL_SET_1, GETTING_THIRD_BALL_SET_1,
         GOING_BACK_TO_SHOOT_SET_1, SHOOTING_SET_1,
         GETTING_NEXT_SET_OF_BALLS, GETTING_FIRST_BALL_SET_2, GETTING_SECOND_BALL_SET_2, GETTING_THIRD_BALL_SET_2,
         GOING_BACK_TO_SHOOT_SET_2, SHOOTING_SET_2,
+        LEAVE,
         IDLE
     }
 
+    Gamepad currentGamepad1;
+    Gamepad previousGamepad1;
+
     @Override
     public void init() {
-        // Load shooting configurations
-        preloadConfig = ShootingFunction.getConfiguration(
-                ShootingFunction.AutonPath.BLUE_NEAR,
-                ShootingFunction.ShootingPosition.PRELOAD
-        );
-        set1Config = ShootingFunction.getConfiguration(
-                ShootingFunction.AutonPath.BLUE_NEAR,
-                ShootingFunction.ShootingPosition.SET_1
-        );
-        set2Config = ShootingFunction.getConfiguration(
-                ShootingFunction.AutonPath.BLUE_NEAR,
-                ShootingFunction.ShootingPosition.SET_2
-        );
-
         // Initialize timers
         pathTimer = new Timer();
         opModeTimer = new Timer();
@@ -98,14 +94,33 @@ public class BlueNear extends OpMode {
         launcher = new Launcher();
         launcher.initialize(hardwareMap, telemetry);
 
-        // Initialize turret servo
+        // Initialize turret servo and read current position
         try {
             turretServo = hardwareMap.get(Servo.class, HardwareConfig.TURRET_SERVO);
+            initialTurretPosition = turretServo.getPosition();
             telemetry.addLine("Turret Servo: OK");
+            telemetry.addData("Initial Turret Position", "%.3f", initialTurretPosition);
         } catch (Exception e) {
             turretServo = null;
             telemetry.addLine("Turret Servo: NOT FOUND");
         }
+
+        // Load shooting configurations with turret position override
+        preloadConfig = ShootingFunction.getConfigurationWithTurretOverride(
+                ShootingFunction.AutonPath.BLUE_NEAR,
+                ShootingFunction.ShootingPosition.PRELOAD,
+                initialTurretPosition
+        );
+        set1Config = ShootingFunction.getConfigurationWithTurretOverride(
+                ShootingFunction.AutonPath.BLUE_NEAR,
+                ShootingFunction.ShootingPosition.SET_1,
+                initialTurretPosition
+        );
+        set2Config = ShootingFunction.getConfigurationWithTurretOverride(
+                ShootingFunction.AutonPath.BLUE_NEAR,
+                ShootingFunction.ShootingPosition.SET_2,
+                initialTurretPosition
+        );
 
         // Initialize Pedro Pathing
         follower = Constants.createFollower(hardwareMap);
@@ -117,11 +132,55 @@ public class BlueNear extends OpMode {
         telemetry.addLine("Blue Near Combined Auto Initialized");
         telemetry.addData("Path Speed", "%.0f%%", PATH_SPEED * 100);
         telemetry.update();
+
+        previousGamepad1 = new Gamepad();
+        currentGamepad1 = new Gamepad();
     }
 
     @Override
     public void init_loop() {
-        // Turret is now controlled by activeConfig in main loop
+        // Allow turret position adjustment with DPAD LEFT/RIGHT during init
+        if (turretServo != null) {
+            previousGamepad1.copy(currentGamepad1);
+            currentGamepad1.copy(gamepad1);
+
+            // DPAD LEFT: Decrease turret position
+            if (currentGamepad1.dpad_left && !previousGamepad1.dpad_left) {
+                initialTurretPosition -= 0.05;
+                initialTurretPosition = Math.max(0.0, initialTurretPosition);
+            }
+            // DPAD RIGHT: Increase turret position
+            else if (currentGamepad1.dpad_right && !previousGamepad1.dpad_right) {
+                initialTurretPosition += 0.05;
+                initialTurretPosition = Math.min(1.0, initialTurretPosition);
+            }
+
+            // Apply position to turret servo
+            turretServo.setPosition(initialTurretPosition);
+
+            // Update shooting configs with new turret position
+            preloadConfig = ShootingFunction.getConfigurationWithTurretOverride(
+                    ShootingFunction.AutonPath.BLUE_NEAR,
+                    ShootingFunction.ShootingPosition.PRELOAD,
+                    initialTurretPosition
+            );
+            set1Config = ShootingFunction.getConfigurationWithTurretOverride(
+                    ShootingFunction.AutonPath.BLUE_NEAR,
+                    ShootingFunction.ShootingPosition.SET_1,
+                    initialTurretPosition
+            );
+            set2Config = ShootingFunction.getConfigurationWithTurretOverride(
+                    ShootingFunction.AutonPath.BLUE_NEAR,
+                    ShootingFunction.ShootingPosition.SET_2,
+                    initialTurretPosition
+            );
+
+            // Display current turret position
+            telemetry.addLine("=== TURRET ADJUSTMENT ===");
+            telemetry.addData("Turret Position", "%.3f", initialTurretPosition);
+            telemetry.addLine("DPAD LEFT: Decrease (-0.01) | DPAD RIGHT: Increase (+0.01)");
+            telemetry.update();
+        }
     }
 
     @Override
@@ -129,7 +188,7 @@ public class BlueNear extends OpMode {
         opModeTimer.resetTimer();
         pathTimer.resetTimer();
         shootTimer.resetTimer();
-        pathState = PathState.PRELOAD_SHOOT_SETUP;
+        pathState = PathState.MOVING_TO_SHOOT_POSE;
     }
 
     @Override
@@ -148,9 +207,18 @@ public class BlueNear extends OpMode {
 
     private void autonomousPathUpdate() {
         switch (pathState) {
+            case MOVING_TO_SHOOT_POSE:
+                currentSpeed = 1.0;
+                follower.setMaxPower(1.0);
+                follower.followPath(paths.movingToShootPose);
+                setPathState(PathState.PRELOAD_SHOOT_SETUP);
+                break;
+
             case PRELOAD_SHOOT_SETUP:
-                startShooting(preloadConfig);
-                setPathState(PathState.PRELOAD_SHOOTING);
+                if (!follower.isBusy()) {
+                    startShooting(preloadConfig);
+                    setPathState(PathState.PRELOAD_SHOOTING);
+                }
                 break;
 
             case PRELOAD_SHOOTING:
@@ -159,8 +227,8 @@ public class BlueNear extends OpMode {
                 double elapsed = shootTimer.getElapsedTimeSeconds();
                 if (elapsed >= activeConfig.shootTimeSeconds) {
                     stopShooting();
-                    currentSpeed = 0.8;
-                    follower.setMaxPower(0.8);
+                    currentSpeed = 1.0;
+                    follower.setMaxPower(1.0);
                     intakeTransfer.startIntake();
                     follower.followPath(paths.goingToNearestBalls);
                     setPathState(PathState.GOING_TO_NEAREST_BALLS);
@@ -212,8 +280,8 @@ public class BlueNear extends OpMode {
 
                 if (shootTimer.getElapsedTimeSeconds() >= activeConfig.shootTimeSeconds) {
                     stopShooting();
-                    currentSpeed = 0.8;
-                    follower.setMaxPower(0.8);
+                    currentSpeed = 1.0;
+                    follower.setMaxPower(1.0);
                     intakeTransfer.startIntake();
                     follower.followPath(paths.gettingNextSetOfBalls);
                     setPathState(PathState.GETTING_NEXT_SET_OF_BALLS);
@@ -265,6 +333,13 @@ public class BlueNear extends OpMode {
 
                 if (shootTimer.getElapsedTimeSeconds() >= activeConfig.shootTimeSeconds) {
                     stopShooting();
+                    follower.followPath(paths.leave);
+                    setPathState(PathState.LEAVE);
+                }
+                break;
+
+            case LEAVE:
+                if (!follower.isBusy()) {
                     setPathState(PathState.IDLE);
                 }
                 break;
@@ -367,6 +442,7 @@ public class BlueNear extends OpMode {
     }
 
     public static class Paths {
+        public PathChain movingToShootPose;
         public PathChain goingToNearestBalls;
         public PathChain gettingFirstBallSet1;
         public PathChain gettingSecondBallSet1;
@@ -377,11 +453,17 @@ public class BlueNear extends OpMode {
         public PathChain gettingSecondBallSet2;
         public PathChain gettingThirdBallSet2;
         public PathChain goingBackToShootSet2;
+        public PathChain leave;
 
         public Paths(Follower follower) {
+            movingToShootPose = follower.pathBuilder()
+                    .addPath(new BezierLine(START_POSE, SHOOT_POSE))
+                    .setLinearHeadingInterpolation(HEADING_180, HEADING_180)
+                    .build();
+
             goingToNearestBalls = follower.pathBuilder()
-                    .addPath(new BezierCurve(new Pose(24.143, 125.525), SPIKE1_CURVE_CONTROL, SPIKE1_APPROACH))
-                    .setLinearHeadingInterpolation(HEADING_233, HEADING_180)
+                    .addPath(new BezierCurve(SHOOT_POSE, SPIKE1_CURVE_CONTROL, SPIKE1_APPROACH))
+                    .setConstantHeadingInterpolation(HEADING_180)
                     .build();
 
             gettingFirstBallSet1 = follower.pathBuilder()
@@ -425,7 +507,12 @@ public class BlueNear extends OpMode {
                     .build();
 
             goingBackToShootSet2 = follower.pathBuilder()
-                    .addPath(new BezierLine(SPIKE2_BALL3, FINAL_SHOOT_POSE))
+                    .addPath(new BezierLine(SPIKE2_BALL3, SHOOT_POSE))
+                    .setConstantHeadingInterpolation(HEADING_180)
+                    .build();
+
+            leave = follower.pathBuilder()
+                    .addPath(new BezierLine(SHOOT_POSE, LEAVE))
                     .setConstantHeadingInterpolation(HEADING_180)
                     .build();
         }

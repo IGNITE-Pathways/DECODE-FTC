@@ -29,7 +29,7 @@ public class BlueFar extends OpMode {
     private ShootingFunction.Configuration activeConfig;
 
     // ==================== PATH CONFIGURATION ====================
-    private static final double PATH_SPEED = 0.45;
+    private static final double PATH_SPEED = 0.6;
     private static final double PATH_TIMEOUT = 15.0;
 
     // ==================== POSE CONSTANTS ====================
@@ -48,7 +48,7 @@ public class BlueFar extends OpMode {
     private static final Pose SPIKE2_BALL3 = new Pose(25.966, 57.008);
     private static final Pose SPIKE2_CURVE_CONTROL = new Pose(40.606, 42.856);
 
-    private static final Pose LEAVE = new Pose (57, 70);
+    private static final Pose LEAVE = new Pose (10, 10);
 
     // ==================== ROBOT COMPONENTS ====================
     private Follower follower;
@@ -143,12 +143,12 @@ public class BlueFar extends OpMode {
         if (turretServo != null) {
             // DPAD LEFT: Decrease turret position
             if (currentGamepad1.dpad_left && !previousGamepad1.dpad_left) {
-                initialTurretPosition -= 0.01;
+                initialTurretPosition -= 0.05;
                 initialTurretPosition = Math.max(0.0, initialTurretPosition);
             }
             // DPAD RIGHT: Increase turret position
             else if (currentGamepad1.dpad_right && !previousGamepad1.dpad_right) {
-                initialTurretPosition += 0.01;
+                initialTurretPosition += 0.05;
                 initialTurretPosition = Math.min(1.0, initialTurretPosition);
             }
 
@@ -215,8 +215,8 @@ public class BlueFar extends OpMode {
                 double elapsed = shootTimer.getElapsedTimeSeconds();
                 if (elapsed >= activeConfig.shootTimeSeconds) {
                     stopShooting();
-                    currentSpeed = 0.8;
-                    follower.setMaxPower(0.8);
+                    currentSpeed = 1.0;
+                    follower.setMaxPower(1.0);
                     intakeTransfer.startIntake();
                     follower.followPath(paths.goingToNearestBalls);
                     setPathState(PathState.GOING_TO_NEAREST_BALLS);
@@ -268,8 +268,8 @@ public class BlueFar extends OpMode {
 
                 if (shootTimer.getElapsedTimeSeconds() >= activeConfig.shootTimeSeconds) {
                     stopShooting();
-                    currentSpeed = 0.8;
-                    follower.setMaxPower(0.8);
+                    currentSpeed = 1.0;
+                    follower.setMaxPower(1.0);
                     intakeTransfer.startIntake();
                     follower.followPath(paths.gettingNextSetOfBalls);
                     setPathState(PathState.GETTING_NEXT_SET_OF_BALLS);
