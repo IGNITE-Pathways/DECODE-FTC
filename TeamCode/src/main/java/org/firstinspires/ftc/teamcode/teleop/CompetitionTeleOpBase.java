@@ -26,22 +26,22 @@ import org.firstinspires.ftc.teamcode.core.util.DistanceCalculator;
  * Default: CLOSE RANGE (2400 RPM, hood 0.55) - Range 1 for close shots (2.45-3.45 ft)
  *
  * === FLYWHEEL & RAMP CONTROL ===
- * Flywheel and ramp are SEPARATE with AUTOMATIC ramp control:
  * - GP1-Y: Toggle flywheel ON/OFF
- * - GP1-X: Toggle automatic ramp control ON/OFF
- *   - When ON: Ramp automatically raises when flywheel at speed (within 100 RPM)
- *   - When ON: Ramp automatically lowers when flywheel drops out of speed
- * - You can intake/cycle balls while flywheel is spinning!
+ * - Ramp automatically raises when flywheel reaches target RPM (within 150 RPM)
+ * - Ramp automatically lowers when flywheel turns OFF
+ * - You can intake/cycle balls while flywheel is spinning up!
+ *
+ * === AUTOMATIC DISTANCE CONTROL ===
+ * - Limelight automatically detects AprilTag distance (always on)
+ * - Shooting preset (RPM & hood) automatically adjusts based on distance
+ * - No button press needed - just aim and shoot!
  *
  * === GAMEPAD 1 (Driver/Shooter/Presets) ===
  * Sticks: Drive (100% speed always)
- * Y: Toggle flywheel ON/OFF
- * X: Toggle ramp up/down manually
+ * Y: Toggle flywheel ON/OFF (ramp auto-raises when RPM ready)
  * RB: Start auto-shoot 3-ball sequence (when flywheel ON) | Press during auto = Cancel
- * B: Lock distance (when distance detection enabled)
  * LB: Eject-and-shoot sequence (gentle eject 400ms, then shoot 800ms)
  * RT: Intake (works even when flywheel ON!) | LT: Eject
- * DPAD UP: Enable distance detection
  * DPAD DOWN: Disable distance detection (use close range default)
  * DPAD RIGHT: Far zone preset (10+ ft, 3450 RPM)
  *
@@ -58,21 +58,15 @@ import org.firstinspires.ftc.teamcode.core.util.DistanceCalculator;
  *
  * === Shooting Workflow ===
  * 1. GP2-A: Enable turret tracking (aims at AprilTag)
- * 2. GP1-DPAD UP: Enable distance detection (or use DPAD RIGHT for far zone)
- * 3. GP1-B: Lock distance when lined up
- * 4. GP1-Y: Turn ON flywheel (spins up)
- * 5. GP1-X: Enable automatic ramp control
- *    - Ramp auto-raises when RPM ready, auto-lowers when RPM drops
- * 6. GP1-RT: Intake balls while flywheel spins up
- * 7. GP1-RB: Auto-shoot 3 balls OR GP1-RT: Manual feed
- *    - Ramp automatically lowers after each shot when RPM drops
- *    - Ramp automatically raises again when RPM recovers
- * 8. Repeat step 7 for continuous cycling!
+ * 2. Limelight automatically adjusts shooting preset based on distance
+ * 3. GP1-Y: Turn ON flywheel (starts spinning up)
+ * 4. Wait for ramp to auto-raise (when flywheel within 150 RPM of target)
+ * 5. GP1-RT: Intake balls or GP1-RB: Auto-shoot 3 balls
+ * 6. Repeat as needed!
  *
  * === Quick Eject-Shoot (GP1-LB) ===
  * Use when ball is stuck or needs repositioning before shooting
  * - Automatically switches to SHOOTING mode if needed
- * - Enables automatic ramp control (ramp raises when flywheel at speed)
  * - Gentle eject (35% power, 400ms) to reposition ball properly
  * - Then shoots for 800ms
  */
@@ -110,16 +104,13 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
     private double hoodPosition = RobotConstants.HOOD_DEFAULT_POSITION;
     private String selectedPreset = "DEFAULT";
     private boolean turretTracking = false;
-    private boolean distanceDetectionEnabled = false;  // Default: OFF
+    private boolean distanceDetectionEnabled = true;  // Default: ON (always detecting)
     private boolean emergencyStopped = false;
 
     // Gamepad 1 button states
     private boolean lastGP1_Y = false;
-    private boolean lastGP1_X = false;
-    private boolean lastGP1_B = false;
     private boolean lastGP1_LeftBumper = false;
     private boolean lastGP1_RightBumper = false;
-    private boolean lastGP1_DpadUp = false;
     private boolean lastGP1_DpadDown = false;
     private boolean lastGP1_DpadRight = false;
 
@@ -133,7 +124,7 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
     private boolean waitingForFlywheelSpinup = false;
     private int autoShootPhase = 0;  // 0=initial wait, 1=shot1, 2=wait, 3=shot2, 4=wait, 5=shot3
     private ElapsedTime autoShootTimer = new ElapsedTime();
-    private static final double RPM_TOLERANCE = 200;  // Within 200 RPM to start/continue shooting
+    private static final double RPM_TOLERANCE = 150;  // Within 150 RPM to raise ramp and start shooting
     private static final double RPM_HYSTERESIS = 300; // Once ramp is up, allow 300 RPM error before lowering (prevents oscillation)
     private static final double SHOT_DURATION_MS = 500;   // 0.5 seconds for shots 1 & 2
     private static final double FINAL_SHOT_DURATION_MS = 1000;  // 1.0 second for final shot (ball 3)
@@ -169,10 +160,9 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
                 handleManualTurretControl();  // GP2: Manual turret control
                 handleIntake();               // GP1: RT/LT intake/eject
                 handleEjectShoot();           // GP1-LB: Eject-and-shoot sequence
-                handleDistanceLock();         // GP2: DPAD UP/DOWN, Y-far, B-lock
-                handleFlywheelToggle();       // GP1-Y: Toggle flywheel ON/OFF
-                handleRampAutoToggle();       // GP1-X: Toggle ramp up/down manually
-                // handleAutomaticRampControl(); // DISABLED - Using manual toggle instead
+                handleDistanceLock();         // GP1: DPAD DOWN/RIGHT, auto-apply distance
+                handleFlywheelToggle();       // GP1-Y: Toggle flywheel ON/OFF (auto raises ramp)
+                handleAutomaticRampControl(); // Auto-raise ramp when RPM ready (within 150 RPM)
                 handleAutoShootTrigger();     // GP1-RB: Trigger auto-shoot sequence
                 handleAutoShootSequence();    // Auto-shoot sequence (3-ball)
                 handleManualOverrides();      // GP2: Manual hood adjustments
@@ -374,15 +364,10 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
             ejectShootActive = true;
             ejectShootStartTime = System.currentTimeMillis();
 
-            // Ensure flywheel is ready
+            // Ensure flywheel is ready (ramp will auto-raise when RPM ready)
             if (!flywheelOn) {
                 currentState = RobotState.SHOOTING;
                 activateFlywheel();
-            }
-
-            // Enable automatic ramp control
-            // The auto-control will raise the ramp when flywheel is at speed
-            if (!rampAutoControlEnabled) {
                 rampAutoControlEnabled = true;
             }
         }
@@ -410,14 +395,8 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
     // GAMEPAD 2: LAUNCHER CONTROLS
     // ========================================
 
-    // GP1 DPAD: Distance detection & presets | GP1-B: Lock distance
+    // GP1 DPAD: Distance presets (auto-applies based on limelight)
     private void handleDistanceLock() {
-        // DPAD UP: Enable limelight distance detection
-        if (gamepad1.dpad_up && !lastGP1_DpadUp) {
-            distanceDetectionEnabled = true;
-        }
-        lastGP1_DpadUp = gamepad1.dpad_up;
-
         // DPAD DOWN: Disable detection, use default preset
         if (gamepad1.dpad_down && !lastGP1_DpadDown) {
             distanceDetectionEnabled = false;
@@ -448,22 +427,18 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
         }
         lastGP1_DpadRight = gamepad1.dpad_right;
 
-        // Continuously read distance from limelight when enabled
+        // Continuously read distance from limelight and automatically apply preset
         if (distanceDetectionEnabled) {
             double distance = calculateCurrentDistance();
             if (distance > 0) {
-                currentDistance = distance;
+                // Only update if distance changed significantly (avoid jitter)
+                if (Math.abs(distance - currentDistance) > 0.1) {  // 0.1 ft threshold
+                    currentDistance = distance;
+                    lockedDistance = distance;
+                    applyDistancePreset(distance);  // Auto-apply preset for current distance
+                }
             }
         }
-
-        // B: Lock current distance and calculate shooting preset
-        if (gamepad1.b && !lastGP1_B) {
-            if (distanceDetectionEnabled && currentDistance > 0) {
-                lockedDistance = currentDistance;
-                applyDistancePreset(lockedDistance);  // Sets RPM & hood for this distance
-            }
-        }
-        lastGP1_B = gamepad1.b;
     }
 
     private double calculateCurrentDistance() {
@@ -588,7 +563,7 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
         }
     }
 
-    // GP1-Y: Toggle flywheel ON/OFF
+    // GP1-Y: Toggle flywheel ON/OFF (ramp raises automatically when RPM ready)
     // Turns on flywheel and enters SHOOTING mode, or turns off and returns to INTAKE mode
     private void handleFlywheelToggle() {
         if (gamepad1.y && !lastGP1_Y) {
@@ -596,6 +571,8 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
                 // Switch to SHOOTING mode
                 currentState = RobotState.SHOOTING;
                 activateFlywheel();
+                // Enable automatic ramp control (will raise when RPM is within 150 RPM)
+                rampAutoControlEnabled = true;
             } else if (currentState == RobotState.SHOOTING) {
                 // Turn off flywheel and return to INTAKE mode
                 if (autoShootActive) {
@@ -627,34 +604,19 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
         launcher.setTargetRPM(flywheelRPM);  // Set target RPM for PIDF control
         launcher.setSpinning(true);
         launcher.setHoodPosition(hoodPosition);
-        // Ramp is controlled by automatic ramp control (GP1-X toggle)
+        // Ramp will auto-raise when RPM reaches target (within 150 RPM)
         flywheelOn = true;
     }
 
     private void deactivateFlywheel() {
         launcher.setSpinning(false);
-        intakeTransfer.transferDown();  // Always lower ramp when flywheel turns off
+        intakeTransfer.transferDown();  // Automatically lower ramp when flywheel turns off
         rampUp = false;  // Reset ramp state
-        rampAutoControlEnabled = false;  // Turn off auto-control when flywheel turns off
+        rampAutoControlEnabled = false;  // Disable auto-control when flywheel turns off
         flywheelOn = false;
     }
 
-    // GP1-X: Toggle ramp up/down manually
-    private void handleRampAutoToggle() {
-        if (gamepad1.x && !lastGP1_X) {
-            rampUp = !rampUp;
-
-            if (rampUp) {
-                intakeTransfer.transferUp();
-            } else {
-                intakeTransfer.transferDown();
-            }
-        }
-        lastGP1_X = gamepad1.x;
-    }
-
-    // Automatic ramp control - runs every loop when enabled
-    // Raises ramp when flywheel at speed (within 100 RPM), lowers when not at speed
+    // Automatic ramp control - raises ramp when flywheel reaches target RPM (within 150 RPM)
     private void handleAutomaticRampControl() {
         if (!rampAutoControlEnabled) {
             return;  // Auto-control disabled, do nothing
@@ -680,8 +642,7 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
         autoShootTimer.reset();
         intakeTransfer.stopIntake();  // Stop any ongoing intake
 
-        // Enable automatic ramp control
-        // The auto-control will raise the ramp when flywheel is at speed
+        // Ensure automatic ramp control is enabled
         if (!rampAutoControlEnabled) {
             rampAutoControlEnabled = true;
         }
@@ -898,22 +859,18 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
         String rampStatus;
         if (rampAutoControlEnabled) {
             if (rampUp) {
-                rampStatus = "UP (AUTO - ready to shoot)";
+                rampStatus = "UP (ready to shoot)";
             } else {
                 if (flywheelOn) {
                     double currentRPM = launcher.getCurrentRPM();
                     double error = Math.abs(flywheelRPM - currentRPM);
-                    if (error <= RPM_TOLERANCE) {
-                        rampStatus = "DOWN (AUTO - RPM ready, will raise)";
-                    } else {
-                        rampStatus = String.format("DOWN (AUTO - waiting... %.0f RPM to go)", error);
-                    }
+                    rampStatus = String.format("DOWN (spinning up... %.0f RPM to go)", error);
                 } else {
-                    rampStatus = "DOWN (AUTO - flywheel off)";
+                    rampStatus = "DOWN (press Y to start)";
                 }
             }
         } else {
-            rampStatus = rampUp ? "UP (manual)" : "DOWN (auto-control OFF - GP1-X to enable)";
+            rampStatus = rampUp ? "UP" : "DOWN (press Y to start)";
         }
         telemetry.addData("Ramp", rampStatus);
 
@@ -921,12 +878,12 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
         telemetry.addData("Preset", selectedPreset);
 
         // === DISTANCE INFO ===
-        telemetry.addData("Distance Detect", distanceDetectionEnabled ? "ON" : "OFF");
+        telemetry.addData("Distance Detect", distanceDetectionEnabled ? "ON (auto-adjusting)" : "OFF (manual)");
         if (distanceDetectionEnabled && currentDistance > 0) {
-            telemetry.addData("Current Dist", "%.2fft", currentDistance);
+            telemetry.addData("Current Dist", "%.2fft (auto-applied)", currentDistance);
         }
-        if (lockedDistance > 0) {
-            telemetry.addData("Locked Dist", "%.2fft", lockedDistance);
+        if (lockedDistance > 0 && distanceDetectionEnabled) {
+            telemetry.addData("Applied Dist", "%.2fft", lockedDistance);
         }
 
         // === TURRET STATUS ===
@@ -941,7 +898,7 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
 
         // === CONTROLS (Compact) ===
         telemetry.addLine();
-        telemetry.addLine("GP1: Y-Flywheel X-Ramp RB-AutoShoot B-Lock LB-EjectShoot | RT-In LT-Out | DPAD:U/D-Dist R-Far");
+        telemetry.addLine("GP1: Y-Flywheel+Ramp RB-AutoShoot LB-EjectShoot | RT-In LT-Out | DPAD:D-Default R-Far");
         telemetry.addLine("GP2: A-Track X-CtrTur | LS-Turret DPAD:L-Tur U/D-RPM | LB/RB-Hood | START-ESTOP");
 
         telemetry.update();
@@ -956,7 +913,7 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
      * Call this in a loop during autonomous to automatically manage the ramp
      *
      * Uses hysteresis to prevent oscillation:
-     * - Raises ramp when flywheel is within 200 RPM of target
+     * - Raises ramp when flywheel is within 150 RPM of target
      * - Lowers ramp only when flywheel drops beyond 300 RPM of target
      *
      * @return true if ramp is up and ready to shoot, false otherwise
@@ -992,12 +949,12 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
      * Start the automatic 3-ball shooting sequence
      * Call this once to start, then call updateAutoShootSequence() in a loop
      *
-     * Sequence waits for RPM to be within MOE (200 RPM) before each shot:
-     * - Wait for initial spinup (within 200 RPM)
+     * Sequence waits for RPM to be within MOE (150 RPM) before each shot:
+     * - Wait for initial spinup (within 150 RPM)
      * - Ball 1: Shoot for 0.5s
-     * - Wait for RPM recovery (within 200 RPM)
+     * - Wait for RPM recovery (within 150 RPM)
      * - Ball 2: Shoot for 0.5s
-     * - Wait for RPM recovery (within 200 RPM)
+     * - Wait for RPM recovery (within 150 RPM)
      * - Ball 3: Shoot for 1.0s
      */
     public void startAutoShootSequence() {
@@ -1015,7 +972,7 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
      * Update the auto-shoot sequence
      * Call this in a loop after calling startAutoShootSequence()
      *
-     * Uses RPM-based timing with MOE of 100 RPM between shots
+     * Uses RPM-based timing with MOE of 150 RPM between shots
      *
      * @return true if sequence is complete, false if still running
      */
@@ -1048,7 +1005,7 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
 
     /**
      * Enable or disable automatic ramp control
-     * When enabled, ramp automatically raises/lowers based on RPM (within 100 RPM MOE)
+     * When enabled, ramp automatically raises/lowers based on RPM (within 150 RPM MOE)
      *
      * @param enabled true to enable automatic control, false to disable
      */
@@ -1075,7 +1032,7 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
      * Get the current RPM margin of error tolerance
      * This is the acceptable difference between target and actual RPM
      *
-     * @return RPM tolerance (MOE = 100)
+     * @return RPM tolerance (MOE = 150)
      */
     public double getRPMTolerance() {
         return RPM_TOLERANCE;
