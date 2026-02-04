@@ -242,4 +242,67 @@ public class RobotConstants {
         double t = (distanceFeet - minDist) / (maxDist - minDist);
         return minPower + t * (maxPower - minPower);
     }
+
+    // ==================== PINPOINT ODOMETRY CONFIGURATION ====================
+    // Odometry pod offsets (relative to center of robot)
+    public static final double PINPOINT_FORWARD_POD_Y = 3.75;      // Y offset in inches
+    public static final double PINPOINT_STRAFE_POD_X = -7.08661;   // X offset in inches
+
+    // ==================== LAUNCH ZONE BOUNDARIES ====================
+    // Launch zone is a TRIANGLE with vertices at:
+    // - (0, 0)    - Bottom left
+    // - (0, 144)  - Top left
+    // - (144, 144) - Top right
+    //
+    // Any robot position inside this triangle allows the ramp to raise
+    // 30-inch error tolerance is applied to account for odometry skipping/drift
+    //
+    // Triangle edges:
+    // - Left edge: x = 0 (vertical line from origin to (0,144))
+    // - Top edge: y = 144 (horizontal line from (0,144) to (144,144))
+    // - Diagonal edge: y = x (diagonal from origin to (144,144))
+    //
+    // Point is INSIDE if: x >= 0 AND y >= 0 AND y <= 144 AND y >= x
+
+    // Position tolerance in inches (accounts for odometry errors)
+    public static final double POSITION_TOLERANCE = 30.0;
+
+    /**
+     * Check if a position is within the launch zone (triangle)
+     * Triangle vertices: (0,0), (0,144), (144,144)
+     * With 30-inch tolerance for odometry errors
+     *
+     * @param x X coordinate in inches
+     * @param y Y coordinate in inches
+     * @return true if position is in launch zone
+     */
+    public static boolean isInLaunchZone(double x, double y) {
+        // Apply tolerance by expanding the triangle boundaries
+        // Triangle conditions with tolerance:
+        // 1. x >= 0 (with tolerance: x >= -30)
+        // 2. y >= 0 (with tolerance: y >= -30)
+        // 3. y <= 144 (with tolerance: y <= 174)
+        // 4. y >= x (diagonal edge, with tolerance: y >= x - 30)
+
+        return x >= -POSITION_TOLERANCE &&
+               y >= -POSITION_TOLERANCE &&
+               y <= 144 + POSITION_TOLERANCE &&
+               y >= x - POSITION_TOLERANCE;
+    }
+
+    /**
+     * @deprecated Use isInLaunchZone() instead - both alliances use the same triangular zone
+     */
+    @Deprecated
+    public static boolean isInBlueLaunchZone(double x, double y) {
+        return isInLaunchZone(x, y);
+    }
+
+    /**
+     * @deprecated Use isInLaunchZone() instead - both alliances use the same triangular zone
+     */
+    @Deprecated
+    public static boolean isInRedLaunchZone(double x, double y) {
+        return isInLaunchZone(x, y);
+    }
 }
