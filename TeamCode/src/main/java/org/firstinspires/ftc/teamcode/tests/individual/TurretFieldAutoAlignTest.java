@@ -110,8 +110,12 @@ public class TurretFieldAutoAlignTest extends LinearOpMode {
             telemetry.addLine("--- Turret Setpoint ---");
             telemetry.addData("AngleToGoal", "%.2f°", Math.toDegrees(r.angleToGoalRad));
             telemetry.addData("Relative (L+/R-)", "%.2f°", r.relativeToRobotDeg);
-            telemetry.addData("TurretDeg (0L/90C/180R)", "%.2f°", r.turretAngleDeg);
-            telemetry.addData("ServoPos", "%.4f", r.turretServoPosition);
+            telemetry.addData("TurretDeg desired", "%.2f°", r.turretAngleDegDesired);
+            telemetry.addData("TurretDeg cmd", "%.2f°", r.turretAngleDegCmd);
+            telemetry.addData("Servo(0..1)", "%.4f", r.turretServoPosition);
+            if (r.turretAngleDegDesired < 0.0 || r.turretAngleDegDesired > 180.0) {
+                telemetry.addLine("NOTE: Desired turret angle outside range; output clamped to endstop.");
+            }
             telemetry.update();
 
             idle();
@@ -148,13 +152,13 @@ public class TurretFieldAutoAlignTest extends LinearOpMode {
         double relativeRad = wrapRadians(angleToGoalRad - robotHeadingRad);
         double relativeDeg = Math.toDegrees(relativeRad);
 
-        double turretDeg = 90.0 - relativeDeg;
-        turretDeg = clamp(turretDeg, 0.0, 180.0);
+        double turretDegDesired = 90.0 - relativeDeg;
+        double turretDegCmd = clamp(turretDegDesired, 0.0, 180.0);
 
-        // Requested mapping: 0° -> 0.0, 180° -> 1.0 (linear)
-        double servoPos = turretDeg / 180.0;
+        // Requested mapping: 0°->0.0, 90°->0.5, 180°->1.0
+        double servoPos = clamp(turretDegCmd / 180.0, 0.0, 1.0);
 
-        return new TurretResult(servoPos, turretDeg, angleToGoalRad, relativeDeg);
+        return new TurretResult(servoPos, turretDegDesired, turretDegCmd, angleToGoalRad, relativeDeg);
     }
 
     private static double wrapRadians(double rad) {
@@ -169,13 +173,15 @@ public class TurretFieldAutoAlignTest extends LinearOpMode {
 
     private static final class TurretResult {
         final double turretServoPosition;
-        final double turretAngleDeg;
+        final double turretAngleDegDesired;
+        final double turretAngleDegCmd;
         final double angleToGoalRad;
         final double relativeToRobotDeg;
 
-        TurretResult(double turretServoPosition, double turretAngleDeg, double angleToGoalRad, double relativeToRobotDeg) {
+        TurretResult(double turretServoPosition, double turretAngleDegDesired, double turretAngleDegCmd, double angleToGoalRad, double relativeToRobotDeg) {
             this.turretServoPosition = turretServoPosition;
-            this.turretAngleDeg = turretAngleDeg;
+            this.turretAngleDegDesired = turretAngleDegDesired;
+            this.turretAngleDegCmd = turretAngleDegCmd;
             this.angleToGoalRad = angleToGoalRad;
             this.relativeToRobotDeg = relativeToRobotDeg;
         }

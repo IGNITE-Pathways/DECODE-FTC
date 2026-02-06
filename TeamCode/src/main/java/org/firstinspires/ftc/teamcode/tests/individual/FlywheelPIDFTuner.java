@@ -1,5 +1,8 @@
 package org.firstinspires.ftc.teamcode.tests.individual;
 
+import com.qualcomm.hardware.limelightvision.LLResult;
+import com.qualcomm.hardware.limelightvision.LLResultTypes;
+import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
@@ -8,8 +11,13 @@ import com.qualcomm.robotcore.hardware.VoltageSensor;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.core.components.IntakeTransfer;
+import org.firstinspires.ftc.teamcode.core.constants.AllianceColor;
 import org.firstinspires.ftc.teamcode.core.constants.HardwareConfig;
 import org.firstinspires.ftc.teamcode.core.constants.RobotConstants;
+import org.firstinspires.ftc.teamcode.core.util.DistanceCalculator;
+
+import java.util.List;
+import java.util.Locale;
 
 /**
  * *** FLYWHEEL PIDF TUNER WITH DRIVING ***
@@ -25,6 +33,16 @@ import org.firstinspires.ftc.teamcode.core.constants.RobotConstants;
  * 4. Go to RobotConstants.java (line 17-24)
  * 5. Update FLYWHEEL_KP, FLYWHEEL_KI, FLYWHEEL_KD, FLYWHEEL_KF
  * 6. Recompile - gains now automatically used in teleop!
+ *
+ * APRILTAG RANGE MODE (NEW):
+ * ==========================
+ * This tuner can automatically choose the target RPM from RobotConstants RANGE presets
+ * using Limelight AprilTag distance (same method as CompetitionTeleOpBase / AirSortTuningTest).
+ *
+ * - DPAD RIGHT: Toggle AUTO (Tag Range) mode
+ * - DPAD LEFT:  Zero RPM trim
+ * - START:      Toggle alliance (BLUE tag 20 / RED tag 24)
+ * - In AUTO mode, DPAD UP/DOWN adjusts RPM TRIM (±50) instead of absolute target RPM.
  *
  * RECOMMENDED RPM TARGETS (for 6000 RPM motors):
  * - Close shots (2-4 ft): 2500-3000 RPM
@@ -93,6 +111,21 @@ public class FlywheelPIDFTuner extends LinearOpMode {
     private VoltageSensor voltageSensor;
     private com.qualcomm.robotcore.hardware.Servo hoodServo;
 
+    // AprilTag range (Limelight) - optional but recommended for realistic tuning
+    private Limelight3A limelight;
+    private static final int BLUE_APRILTAG = 20;
+    private static final int RED_APRILTAG = 24;
+    private AllianceColor alliance = AllianceColor.BLUE;
+    private int targetAprilTagId = BLUE_APRILTAG;
+
+    private boolean autoRangeMode = true;     // AUTO = target RPM comes from distance ranges
+    private double rpmTrim = 0.0;             // Additional RPM offset applied in AUTO mode
+    private double currentDistanceFeet = -1.0;
+    private double lastGoodDistanceFeet = -1.0;
+    private String currentRangePreset = "N/A";
+    private double currentRangeBaseRPM = 0.0;
+    private double currentRangeHood = RobotConstants.HOOD_DEFAULT_POSITION;
+
     // Hardware - Drive (Gamepad 1, separate from PIDF)
     private DcMotor frontLeft;
     private DcMotor frontRight;
@@ -141,6 +174,9 @@ public class FlywheelPIDFTuner extends LinearOpMode {
     private boolean lastB = false;
     private boolean lastDpadUp = false;
     private boolean lastDpadDown = false;
+    private boolean lastDpadRight = false;
+    private boolean lastDpadLeft = false;
+    private boolean lastStart = false;
 
     // Telemetry tracking
     private double lastPower = 0.0;
@@ -160,6 +196,31 @@ public class FlywheelPIDFTuner extends LinearOpMode {
     private boolean slowModeEnabled = false;
     private boolean lastBack = false;
 
+    // ========================================
+    // TELEOP-STYLE AUTO SHOOT (3-BALL)
+    // ========================================
+
+    // Mirrors CompetitionTeleOpBase timing + RPM gating (so the tuner "shoots like teleop")
+    private static final double AUTO_RPM_TOLERANCE = 150.0;
+    private static final long AUTO_SHOT_1_MS = 500;
+    private static final long AUTO_SHOT_2_MS = 500;
+    private static final long AUTO_SHOT_3_MS = 1000;
+
+    private enum AutoShootState {
+        IDLE,
+        WAIT_SPINUP,
+        SHOT_1,
+        RECOVER_1,
+        SHOT_2,
+        RECOVER_2,
+        SHOT_3,
+        DONE
+    }
+
+    private AutoShootState autoShootState = AutoShootState.IDLE;
+    private final ElapsedTime autoShootTimer = new ElapsedTime();
+    private boolean lastRightStickButton = false;
+
     @Override
     public void runOpMode() {
         initializeHardware();
@@ -176,7 +237,11 @@ public class FlywheelPIDFTuner extends LinearOpMode {
         telemetry.addLine("FLYWHEEL:");
         telemetry.addLine("- Y: ON/OFF");
         telemetry.addLine("- DPAD UP/DN: RPM ±50");
+        telemetry.addLine("- DPAD RIGHT: Toggle AUTO(Tag Range)");
+        telemetry.addLine("- DPAD LEFT: Zero RPM trim (AUTO mode)");
+        telemetry.addLine("- START: Toggle alliance (Tag 20/24)");
         telemetry.addLine("- R-Stick Y: RPM fine");
+        telemetry.addLine("- R-Stick Button: 3-ball auto-shoot (TeleOp-style)");
         telemetry.addLine("- RT: Intake | LT: Eject");
         telemetry.addLine("- X: Reset | B: Save");
         telemetry.addLine();
@@ -185,6 +250,7 @@ public class FlywheelPIDFTuner extends LinearOpMode {
         telemetry.addLine();
         telemetry.addLine("PIDF naturally handles voltage drops!");
         telemetry.addLine("Use RT to test recovery after shots");
+        telemetry.addData("Limelight", (limelight != null) ? "OK (pipeline 3)" : "NOT FOUND");
         telemetry.update();
 
         waitForStart();
@@ -198,6 +264,11 @@ public class FlywheelPIDFTuner extends LinearOpMode {
             measureVelocity();
             intakeTransfer.transferUp();
 
+            // Update AprilTag distance and (optionally) set target from range table
+            updateDistanceFeet();
+            if (autoRangeMode) {
+                applyAutoRangeTarget();
+            }
 
             if (flywheelOn) {
                 double power = calculatePIDFPower();
@@ -223,6 +294,9 @@ public class FlywheelPIDFTuner extends LinearOpMode {
                 resetPID();
                 wasInError = false;
             }
+
+            // TeleOp-style 3-ball sequence (RPM-gated between shots)
+            updateAutoShootSequence();
 
             displayTelemetry();
         }
@@ -264,6 +338,16 @@ public class FlywheelPIDFTuner extends LinearOpMode {
             hoodServo.setPosition(RobotConstants.HOOD_DEFAULT_POSITION);
         } catch (Exception e) {
             hoodServo = null; // Hood servo not configured - that's OK
+        }
+
+        // Initialize Limelight for AprilTag range-based RPM presets (optional)
+        try {
+            limelight = hardwareMap.get(Limelight3A.class, "limelight");
+            limelight.setPollRateHz(20);
+            limelight.pipelineSwitch(3); // AprilTag pipeline (matches CompetitionTeleOpBase)
+            limelight.start();
+        } catch (Exception e) {
+            limelight = null;
         }
 
         // Initialize intake for testing shots
@@ -405,11 +489,29 @@ public class FlywheelPIDFTuner extends LinearOpMode {
     // ========================================
 
     private void handleControls() {
+        // START toggles alliance (affects which tag ID is considered "the range tag")
+        if (gamepad1.start && !lastStart) {
+            setAlliance(alliance == AllianceColor.BLUE ? AllianceColor.RED : AllianceColor.BLUE);
+        }
+        lastStart = gamepad1.start;
+
+        // R-stick button toggles TeleOp-style 3-ball auto-shoot (RPM-gated)
+        boolean rightStickButton = gamepad1.right_stick_button;
+        if (rightStickButton && !lastRightStickButton) {
+            if (autoShootState == AutoShootState.IDLE || autoShootState == AutoShootState.DONE) {
+                startAutoShoot();
+            } else {
+                cancelAutoShoot();
+            }
+        }
+        lastRightStickButton = rightStickButton;
+
         // Toggle flywheel ON/OFF
         if (gamepad1.y && !lastY) {
             flywheelOn = !flywheelOn;
             if (!flywheelOn) {
                 resetPID();
+                cancelAutoShoot();
             }
         }
         lastY = gamepad1.y;
@@ -421,13 +523,34 @@ public class FlywheelPIDFTuner extends LinearOpMode {
         lastX = gamepad1.x;
 
         // Intake control - RT intake, LT eject
-        if (gamepad1.right_trigger > 0.1) {
-            intakeTransfer.startIntake(gamepad1.right_trigger);
-        } else if (gamepad1.left_trigger > 0.1) {
-            intakeTransfer.startEject(gamepad1.left_trigger);
-        } else {
-            intakeTransfer.stopIntake();
+        // IMPORTANT: If auto-shoot is running, it owns intake timing (TeleOp behavior)
+        if (autoShootState == AutoShootState.IDLE || autoShootState == AutoShootState.DONE) {
+            if (gamepad1.right_trigger > 0.1) {
+                intakeTransfer.startIntake(gamepad1.right_trigger);
+            } else if (gamepad1.left_trigger > 0.1) {
+                intakeTransfer.startEject(gamepad1.left_trigger);
+            } else {
+                intakeTransfer.stopIntake();
+            }
         }
+
+        // DPAD RIGHT: toggle AUTO range mode (distance -> preset -> targetRPM)
+        if (gamepad1.dpad_right && !lastDpadRight) {
+            autoRangeMode = !autoRangeMode;
+            // When switching to AUTO, keep a reasonable trim (do not reset by default)
+            // When switching to MANUAL, keep the current targetRPM as-is.
+        }
+        lastDpadRight = gamepad1.dpad_right;
+
+        // DPAD LEFT: zero trim (AUTO) or snap to default (MANUAL)
+        if (gamepad1.dpad_left && !lastDpadLeft) {
+            if (autoRangeMode) {
+                rpmTrim = 0.0;
+            } else {
+                targetRPM = RobotConstants.DEFAULT_TARGET_RPM;
+            }
+        }
+        lastDpadLeft = gamepad1.dpad_left;
 
         // Target RPM adjustment
         if (gamepad1.dpad_up && !lastDpadUp) {
@@ -440,7 +563,11 @@ public class FlywheelPIDFTuner extends LinearOpMode {
             } else if (gamepad1.a) {
                 kD += 0.0001; // Tune kD
             } else {
-                targetRPM += 50; // Adjust target
+                if (autoRangeMode) {
+                    rpmTrim += 50; // Adjust trim on top of range preset
+                } else {
+                    targetRPM += 50; // Adjust manual target
+                }
             }
         }
         lastDpadUp = gamepad1.dpad_up;
@@ -455,7 +582,11 @@ public class FlywheelPIDFTuner extends LinearOpMode {
             } else if (gamepad1.a) {
                 kD -= 0.0001; // Tune kD
             } else {
-                targetRPM -= 50; // Adjust target
+                if (autoRangeMode) {
+                    rpmTrim -= 50; // Adjust trim
+                } else {
+                    targetRPM -= 50; // Adjust manual target
+                }
             }
         }
         lastDpadDown = gamepad1.dpad_down;
@@ -463,22 +594,31 @@ public class FlywheelPIDFTuner extends LinearOpMode {
         // Fine RPM control with right stick Y (when not rotating)
         // Right stick Y adjusts RPM when not using it for rotation
         if (Math.abs(gamepad1.right_stick_y) > 0.1 && Math.abs(gamepad1.right_stick_x) < 0.1) {
-            targetRPM += -gamepad1.right_stick_y * 5; // ±5 RPM per frame
-            targetRPM = Math.max(0, Math.min(6000, targetRPM));
+            if (autoRangeMode) {
+                rpmTrim += -gamepad1.right_stick_y * 5; // ±5 RPM per frame (trim)
+            } else {
+                targetRPM += -gamepad1.right_stick_y * 5; // ±5 RPM per frame (manual)
+            }
         }
 
         // Save gains to telemetry
         if (gamepad1.b && !lastB) {
             telemetry.log().add("=== TUNED GAINS - COPY TO RobotConstants.java ===");
-            telemetry.log().add(String.format("FLYWHEEL_KP = %.6f;", kP));
-            telemetry.log().add(String.format("FLYWHEEL_KI = %.6f;", kI));
-            telemetry.log().add(String.format("FLYWHEEL_KD = %.6f;", kD));
-            telemetry.log().add(String.format("FLYWHEEL_KF = %.6f;", kF));
-            telemetry.log().add(String.format("DEFAULT_TARGET_RPM = %.0f;", targetRPM));
-            telemetry.log().add("Update these in RobotConstants.java lines 17-24!");
+            telemetry.log().add(String.format(Locale.US, "FLYWHEEL_KP = %.6f;", kP));
+            telemetry.log().add(String.format(Locale.US, "FLYWHEEL_KI = %.6f;", kI));
+            telemetry.log().add(String.format(Locale.US, "FLYWHEEL_KD = %.6f;", kD));
+            telemetry.log().add(String.format(Locale.US, "FLYWHEEL_KF = %.6f;", kF));
+            telemetry.log().add(String.format(Locale.US, "DEFAULT_TARGET_RPM = %.0f;", targetRPM));
+            telemetry.log().add(String.format(Locale.US, "// AUTO mode: rpmTrim=%.0f  preset=%s  dist=%.2fft",
+                    rpmTrim, currentRangePreset, (currentDistanceFeet > 0 ? currentDistanceFeet : lastGoodDistanceFeet)));
+            telemetry.log().add("Update these in RobotConstants.java (PIDF section).");
             telemetry.log().add("Then recompile - teleop will use new values automatically");
         }
         lastB = gamepad1.b;
+
+        // Clamp target/trim to sane ranges
+        rpmTrim = Math.max(-1500, Math.min(1500, rpmTrim));
+        targetRPM = Math.max(0, Math.min(6000, targetRPM));
     }
 
     // ========================================
@@ -596,7 +736,7 @@ public class FlywheelPIDFTuner extends LinearOpMode {
         telemetry.addData("Motor Sync", "%.0f RPM diff (%s)", motorDiff, syncStatus);
 
         double error = targetRPM - avgRPM;
-        double errorPercent = (error / targetRPM) * 100;
+        double errorPercent = (targetRPM > 1e-6) ? (error / targetRPM) * 100.0 : 0.0;
         String errorStatus;
         if (Math.abs(error) < 20) {
             errorStatus = "EXCELLENT ✓";
@@ -632,10 +772,11 @@ public class FlywheelPIDFTuner extends LinearOpMode {
 
         // PIDF Components with explanations
         telemetry.addLine("--- PIDF COMPONENTS (What's Happening) ---");
-        telemetry.addData("F (base power)", "%.4f (%.0f%% of total)", fComponent, (fComponent/lastPower)*100);
-        telemetry.addData("P (error fix)", "%.4f (%.0f%% of total)", pComponent, Math.abs(pComponent/lastPower)*100);
-        telemetry.addData("I (drift fix)", "%.4f (%.0f%% of total)", iComponent, Math.abs(iComponent/lastPower)*100);
-        telemetry.addData("D (smoothing)", "%.4f (%.0f%% of total)", dComponent, Math.abs(dComponent/lastPower)*100);
+        double denom = (Math.abs(lastPower) > 1e-6) ? lastPower : 1.0;
+        telemetry.addData("F (base power)", "%.4f (%.0f%% of total)", fComponent, (fComponent / denom) * 100.0);
+        telemetry.addData("P (error fix)", "%.4f (%.0f%% of total)", pComponent, Math.abs(pComponent / denom) * 100.0);
+        telemetry.addData("I (drift fix)", "%.4f (%.0f%% of total)", iComponent, Math.abs(iComponent / denom) * 100.0);
+        telemetry.addData("D (smoothing)", "%.4f (%.0f%% of total)", dComponent, Math.abs(dComponent / denom) * 100.0);
         telemetry.addLine();
 
         // Component balance analysis
@@ -700,6 +841,212 @@ public class FlywheelPIDFTuner extends LinearOpMode {
         telemetry.addLine("  2. Should recover in < 200ms");
         telemetry.addLine("  3. Should not overshoot");
 
+        telemetry.addLine();
+        telemetry.addLine("--- RANGE (APRILTAG) ---");
+        telemetry.addData("Mode", autoRangeMode ? "AUTO (tag range preset)" : "MANUAL (fixed target)");
+        telemetry.addData("Alliance/Tag", "%s (ID %d)", alliance.name(), targetAprilTagId);
+        if (currentDistanceFeet > 0) {
+            telemetry.addData("Distance", "%.2f ft", currentDistanceFeet);
+        } else if (lastGoodDistanceFeet > 0) {
+            telemetry.addData("Distance", "NO TAG (last %.2f ft)", lastGoodDistanceFeet);
+        } else {
+            telemetry.addData("Distance", "NO TAG");
+        }
+        telemetry.addData("Preset", "%s (base %.0f RPM)", currentRangePreset, currentRangeBaseRPM);
+        telemetry.addData("Trim", "%+.0f RPM", rpmTrim);
+        telemetry.addData("Hood", hoodServo != null ? String.format(Locale.US, "%.3f", currentRangeHood) : "N/A");
+
+        telemetry.addLine();
+        telemetry.addLine("--- AUTO SHOOT (TELEOP STYLE) ---");
+        telemetry.addData("State", autoShootState.name());
+        telemetry.addData("RPM Ready?", rpmReadyAuto() ? "YES" : "no");
+        telemetry.addData("Tol", "%.0f RPM", AUTO_RPM_TOLERANCE);
+
         telemetry.update();
+    }
+
+    // ========================================
+    // TELEOP-STYLE AUTO SHOOT (3-BALL)
+    // ========================================
+
+    private boolean rpmReadyAuto() {
+        return Math.abs(targetRPM - avgRPM) <= AUTO_RPM_TOLERANCE;
+    }
+
+    private void startAutoShoot() {
+        // TeleOp expects flywheel ON before running a 3-ball sequence; do it automatically here.
+        flywheelOn = true;
+        autoShootState = AutoShootState.WAIT_SPINUP;
+        autoShootTimer.reset();
+        intakeTransfer.stopIntake();
+    }
+
+    private void cancelAutoShoot() {
+        autoShootState = AutoShootState.IDLE;
+        autoShootTimer.reset();
+        intakeTransfer.stopIntake();
+    }
+
+    private void updateAutoShootSequence() {
+        if (autoShootState == AutoShootState.IDLE || autoShootState == AutoShootState.DONE) {
+            return;
+        }
+
+        if (!flywheelOn) {
+            cancelAutoShoot();
+            return;
+        }
+
+        switch (autoShootState) {
+            case WAIT_SPINUP:
+                intakeTransfer.stopIntake();
+                if (rpmReadyAuto()) {
+                    autoShootState = AutoShootState.SHOT_1;
+                    autoShootTimer.reset();
+                }
+                break;
+
+            case SHOT_1:
+                if (autoShootTimer.milliseconds() < AUTO_SHOT_1_MS) {
+                    intakeTransfer.startIntake(1.0);
+                } else {
+                    intakeTransfer.stopIntake();
+                    autoShootState = AutoShootState.RECOVER_1;
+                    autoShootTimer.reset();
+                }
+                break;
+
+            case RECOVER_1:
+                intakeTransfer.stopIntake();
+                if (rpmReadyAuto()) {
+                    autoShootState = AutoShootState.SHOT_2;
+                    autoShootTimer.reset();
+                }
+                break;
+
+            case SHOT_2:
+                if (autoShootTimer.milliseconds() < AUTO_SHOT_2_MS) {
+                    intakeTransfer.startIntake(1.0);
+                } else {
+                    intakeTransfer.stopIntake();
+                    autoShootState = AutoShootState.RECOVER_2;
+                    autoShootTimer.reset();
+                }
+                break;
+
+            case RECOVER_2:
+                intakeTransfer.stopIntake();
+                if (rpmReadyAuto()) {
+                    autoShootState = AutoShootState.SHOT_3;
+                    autoShootTimer.reset();
+                }
+                break;
+
+            case SHOT_3:
+                if (autoShootTimer.milliseconds() < AUTO_SHOT_3_MS) {
+                    intakeTransfer.startIntake(1.0);
+                } else {
+                    intakeTransfer.stopIntake();
+                    autoShootState = AutoShootState.DONE;
+                    autoShootTimer.reset();
+                }
+                break;
+        }
+    }
+
+    // ========================================
+    // APRILTAG DISTANCE -> RANGE PRESET
+    // ========================================
+
+    private void setAlliance(AllianceColor newAlliance) {
+        alliance = newAlliance;
+        targetAprilTagId = (alliance == AllianceColor.BLUE) ? BLUE_APRILTAG : RED_APRILTAG;
+    }
+
+    private void updateDistanceFeet() {
+        double dist = calculateCurrentDistanceFeet();
+        currentDistanceFeet = dist;
+        if (dist > 0) {
+            lastGoodDistanceFeet = dist;
+        }
+    }
+
+    private double calculateCurrentDistanceFeet() {
+        if (limelight == null || !limelight.isConnected()) {
+            return -1.0;
+        }
+
+        LLResult result = limelight.getLatestResult();
+        if (result == null || !result.isValid()) {
+            return -1.0;
+        }
+
+        List<LLResultTypes.FiducialResult> fiducials = result.getFiducialResults();
+        if (fiducials == null || fiducials.isEmpty()) {
+            return -1.0;
+        }
+
+        for (LLResultTypes.FiducialResult f : fiducials) {
+            if (f.getFiducialId() == targetAprilTagId) {
+                return DistanceCalculator.calculateDistance(result);
+            }
+        }
+
+        return -1.0;
+    }
+
+    private void applyAutoRangeTarget() {
+        double basis = (currentDistanceFeet > 0) ? currentDistanceFeet : lastGoodDistanceFeet;
+        if (basis <= 0) {
+            currentRangePreset = "NO TAG";
+            currentRangeBaseRPM = targetRPM;
+            return;
+        }
+
+        RangePreset preset = getRangePreset(basis);
+        currentRangePreset = preset.name;
+        currentRangeBaseRPM = preset.rpm;
+        currentRangeHood = preset.hood;
+
+        targetRPM = preset.rpm + rpmTrim;
+        targetRPM = Math.max(0, Math.min(6000, targetRPM));
+
+        if (hoodServo != null) {
+            hoodServo.setPosition(Math.max(0.0, Math.min(1.0, preset.hood)));
+        }
+    }
+
+    private static final class RangePreset {
+        final String name;
+        final double rpm;
+        final double hood;
+
+        RangePreset(String name, double rpm, double hood) {
+            this.name = name;
+            this.rpm = rpm;
+            this.hood = hood;
+        }
+    }
+
+    private RangePreset getRangePreset(double distanceFeet) {
+        if (distanceFeet >= RobotConstants.RANGE_1_MIN && distanceFeet <= RobotConstants.RANGE_1_MAX) {
+            return new RangePreset("RANGE 1", RobotConstants.RANGE_1_FLYWHEEL_RPM, RobotConstants.RANGE_1_HOOD_POSITION);
+        } else if (distanceFeet >= RobotConstants.RANGE_2_MIN && distanceFeet <= RobotConstants.RANGE_2_MAX) {
+            return new RangePreset("RANGE 2", RobotConstants.RANGE_2_FLYWHEEL_RPM, RobotConstants.RANGE_2_HOOD_POSITION);
+        } else if (distanceFeet >= RobotConstants.RANGE_3_MIN && distanceFeet <= RobotConstants.RANGE_3_MAX) {
+            return new RangePreset("RANGE 3", RobotConstants.RANGE_3_FLYWHEEL_RPM, RobotConstants.RANGE_3_HOOD_POSITION);
+        } else if (distanceFeet >= RobotConstants.RANGE_4_MIN && distanceFeet <= RobotConstants.RANGE_4_MAX) {
+            return new RangePreset("RANGE 4", RobotConstants.RANGE_4_FLYWHEEL_RPM, RobotConstants.RANGE_4_HOOD_POSITION);
+        } else if (distanceFeet >= RobotConstants.RANGE_5_MIN && distanceFeet <= RobotConstants.RANGE_5_MAX) {
+            return new RangePreset("RANGE 5", RobotConstants.RANGE_5_FLYWHEEL_RPM, RobotConstants.RANGE_5_HOOD_POSITION);
+        } else if (distanceFeet >= RobotConstants.RANGE_6_MIN && distanceFeet <= RobotConstants.RANGE_6_MAX) {
+            return new RangePreset("RANGE 6", RobotConstants.RANGE_6_FLYWHEEL_RPM, RobotConstants.RANGE_6_HOOD_POSITION);
+        } else if (distanceFeet >= RobotConstants.RANGE_7_MIN && distanceFeet <= RobotConstants.RANGE_7_MAX) {
+            return new RangePreset("RANGE 7", RobotConstants.RANGE_7_FLYWHEEL_RPM, RobotConstants.RANGE_7_HOOD_POSITION);
+        } else if (distanceFeet >= RobotConstants.RANGE_FAR_MIN) {
+            return new RangePreset("FAR", RobotConstants.RANGE_FAR_FLYWHEEL_RPM, RobotConstants.RANGE_FAR_HOOD_POSITION);
+        }
+
+        return new RangePreset("DEFAULT", RobotConstants.DEFAULT_TARGET_RPM, RobotConstants.HOOD_DEFAULT_POSITION);
     }
 }

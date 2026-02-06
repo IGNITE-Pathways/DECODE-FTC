@@ -56,6 +56,13 @@ public class FieldCentricDriveTurretAutoAlignTest extends LinearOpMode {
     private Servo turretServo;
     private GoBildaPinpointDriver pinpoint;
 
+    // Offsets that map Pinpoint's arbitrary origin into your Pedro field pose.
+    // These get computed once after start, after Pinpoint settles.
+    private double fieldXOffsetIn = 0.0;
+    private double fieldYOffsetIn = 0.0;
+    private double pinpointHeadingOffsetDeg = 0.0; // applied to raw Pinpoint heading
+    private boolean offsetsInitialized = false;
+
     // Debug: detect heading freezes / jumps
     private double lastPinpointHeadingDeg = Double.NaN;
     private double lastTurretServoPos = Double.NaN;
@@ -81,16 +88,49 @@ public class FieldCentricDriveTurretAutoAlignTest extends LinearOpMode {
         telemetry.addData("StartPose", "(%.1f, %.1f, %.1f°)", START_X_IN, START_Y_IN, START_HEADING_DEG);
         telemetry.addLine("Drive: LS=fwd/strafe, RSx=rotate (robot-centric)");
         telemetry.addLine("Turret: automatic (no buttons)");
+        telemetry.addLine("NOTE: Init holds turret; offsets lock before START.");
         telemetry.update();
 
-        waitForStart();
-
-        // Avoid "glitchy" start pose: let Pinpoint settle for a few updates, then seed pose once.
-        for (int i = 0; i < 5 && opModeIsActive(); i++) {
+        // INIT LOOP:
+        // - Keep turret held (so your init alignment stays perfect)
+        // - Initialize offsets once Pinpoint reports READY (so it won't jump on START)
+        while (!isStarted() && !isStopRequested()) {
             pinpoint.update();
+            Pose2D pose = pinpoint.getPosition();
+
+            if (!offsetsInitialized && pinpoint.getDeviceStatus() == GoBildaPinpointDriver.DeviceStatus.READY) {
+                initializeFieldOffsetsFromCurrentPose();
+            }
+
+            // Hold turret on init (do NOT auto-aim yet)
+            turretServo.setPosition(TurretConstants.SERVO_CENTER);
+
+            telemetry.addLine("=== TeleOpDrive + Turret AutoAlign (INIT) ===");
+            telemetry.addData("PinpointStatus", pinpoint.getDeviceStatus());
+            telemetry.addData("OffsetsInit", offsetsInitialized ? "YES" : "NO");
+            if (offsetsInitialized) {
+                // Show the pose that WILL be used on start
+                double rawPinpointHeadingDeg = pose.getHeading(AngleUnit.DEGREES);
+                double robotX = pose.getX(DistanceUnit.INCH) + fieldXOffsetIn;
+                double robotY = pose.getY(DistanceUnit.INCH) + fieldYOffsetIn;
+                double pinpointHeadingDeg = rawPinpointHeadingDeg + pinpointHeadingOffsetDeg;
+                telemetry.addData("PoseUsed(onStart)", "X=%.1f Y=%.1f H(pedro)=%.1f°", robotX, robotY, pinpointHeadingDeg + PINPOINT_TO_PEDRO_DEG);
+            } else {
+                telemetry.addLine("Waiting for Pinpoint READY to lock start pose offsets...");
+            }
+            telemetry.update();
+
             idle();
         }
-        seedStartPose();
+
+        // If we never saw READY during init, fall back to initializing offsets at start.
+        if (!offsetsInitialized) {
+            for (int i = 0; i < 8 && opModeIsActive(); i++) {
+                pinpoint.update();
+                idle();
+            }
+            initializeFieldOffsetsFromCurrentPose();
+        }
 
         while (opModeIsActive()) {
             pinpoint.update();
@@ -123,68 +163,88 @@ public class FieldCentricDriveTurretAutoAlignTest extends LinearOpMode {
 
             // ===== Pose for turret =====
             Pose2D pose = pinpoint.getPosition();
-            double pinpointHeadingDeg = pose.getHeading(AngleUnit.DEGREES);
-            double pedroHeadingRadForTurret = Math.toRadians(pinpointHeadingDeg + PINPOINT_TO_PEDRO_DEG);
-
-            // ===== Turret auto-align (always live) =====
-            double robotX = pose.getX(DistanceUnit.INCH);
-            double robotY = pose.getY(DistanceUnit.INCH);
-
-            double goalX = (ALLIANCE == AllianceColor.BLUE) ? BLUE_GOAL_X_IN : RED_GOAL_X_IN;
-            double goalY = GOAL_Y_IN;
-
-            // Compute once so telemetry matches the command exactly
-            double angleToGoalRad = Math.atan2(goalY - robotY, goalX - robotX);
-            double relativeRad = wrapRadians(angleToGoalRad - pedroHeadingRadForTurret);
-            double relativeDeg = Math.toDegrees(relativeRad);
-            double turretDeg = 90.0 - relativeDeg;
-            turretDeg = clamp(turretDeg, 0.0, 180.0);
-            double turretServoPos = turretDeg / 180.0; // 0..1 mapping
-
-            turretServo.setPosition(turretServoPos);
-
-            // Telemetry
-            telemetry.addLine("=== TeleOpDrive + Turret AutoAlign ===");
-            telemetry.addData("PinpointStatus", pinpoint.getDeviceStatus());
-            telemetry.addData("X", "%.1f", robotX);
-            telemetry.addData("Y", "%.1f", robotY);
-            telemetry.addData("Heading (Pinpoint)", "%.1f°", pinpointHeadingDeg);
-            telemetry.addData("Heading (Pedro)", "%.1f°", pinpointHeadingDeg + PINPOINT_TO_PEDRO_DEG);
-            telemetry.addData("dx", "%.1f", goalX - robotX);
-            telemetry.addData("dy", "%.1f", goalY - robotY);
-            telemetry.addLine();
-            telemetry.addLine("--- Turret Math ---");
-            telemetry.addData("AngleToGoal", "%.1f°", Math.toDegrees(angleToGoalRad));
-            telemetry.addData("Relative", "%.1f°", relativeDeg);
-            telemetry.addData("TurretDeg", "%.1f°", turretDeg);
-            telemetry.addData("TurretServo", "%.4f", turretServoPos);
-
-            // Heading freeze detection (helpful when it "stops adjusting")
-            if (!Double.isNaN(lastPinpointHeadingDeg)) {
-                double headingDelta = Math.abs(pinpointHeadingDeg - lastPinpointHeadingDeg);
-                double servoDelta = Double.isNaN(lastTurretServoPos) ? 0.0 : Math.abs(turretServoPos - lastTurretServoPos);
-
-                // If driver is commanding rotation but heading barely changes, Pinpoint isn't updating heading.
-                if (Math.abs(rot) > 0.25 && headingDelta < 0.2) {
-                    telemetry.addLine("WARNING: Rotating input but heading not changing (check Pinpoint/IMU).");
-                }
-                // If heading changes but servo doesn't, you're likely clamped at 0° or 180°.
-                if (headingDelta > 1.0 && servoDelta < 0.001 && (turretDeg < 1.0 || turretDeg > 179.0)) {
-                    telemetry.addLine("NOTE: Turret setpoint clamped at endstop (0° or 180°).");
-                }
-            }
-            lastPinpointHeadingDeg = pinpointHeadingDeg;
-            lastTurretServoPos = turretServoPos;
-
-            telemetry.update();
+            updateTurretAndTelemetry(pose, fwd, str, rot, false);
 
             idle();
         }
     }
 
-    private void seedStartPose() {
-        double startPinpointHeadingDeg = START_HEADING_DEG - PINPOINT_TO_PEDRO_DEG; // usually 0°
-        pinpoint.setPosition(new Pose2D(DistanceUnit.INCH, START_X_IN, START_Y_IN, AngleUnit.DEGREES, startPinpointHeadingDeg));
+    private void updateTurretAndTelemetry(Pose2D pose, double fwd, double str, double rot, boolean isInit) {
+        double rawPinpointHeadingDeg = pose.getHeading(AngleUnit.DEGREES);
+
+        // Apply our offsets so the turret math uses a consistent field coordinate frame.
+        double robotX = pose.getX(DistanceUnit.INCH) + fieldXOffsetIn;
+        double robotY = pose.getY(DistanceUnit.INCH) + fieldYOffsetIn;
+        double pinpointHeadingDeg = rawPinpointHeadingDeg + pinpointHeadingOffsetDeg;
+        double pedroHeadingRadForTurret = Math.toRadians(pinpointHeadingDeg + PINPOINT_TO_PEDRO_DEG);
+
+        double goalX = (ALLIANCE == AllianceColor.BLUE) ? BLUE_GOAL_X_IN : RED_GOAL_X_IN;
+        double goalY = GOAL_Y_IN;
+
+        // Compute once so telemetry matches the command exactly
+        double angleToGoalRad = Math.atan2(goalY - robotY, goalX - robotX);
+        double relativeRad = wrapRadians(angleToGoalRad - pedroHeadingRadForTurret);
+        double relativeDeg = Math.toDegrees(relativeRad);
+
+        double turretDegDesired = 90.0 - relativeDeg;
+        double turretDegCmd = clamp(turretDegDesired, 0.0, 180.0);
+        double turretServoPos = clamp(turretDegCmd / 180.0, 0.0, 1.0);
+
+        turretServo.setPosition(turretServoPos);
+
+        telemetry.addLine(isInit ? "=== TeleOpDrive + Turret AutoAlign (INIT) ===" : "=== TeleOpDrive + Turret AutoAlign ===");
+        telemetry.addData("PinpointStatus", pinpoint.getDeviceStatus());
+        telemetry.addData("OffsetsInit", offsetsInitialized ? "YES" : "NO");
+        telemetry.addData("PoseUsed", "X=%.1f Y=%.1f H(pedro)=%.1f°", robotX, robotY, pinpointHeadingDeg + PINPOINT_TO_PEDRO_DEG);
+        telemetry.addData("X", "%.1f", robotX);
+        telemetry.addData("Y", "%.1f", robotY);
+        telemetry.addData("Heading (Pinpoint)", "%.1f°", pinpointHeadingDeg);
+        telemetry.addData("Heading (Pedro)", "%.1f°", pinpointHeadingDeg + PINPOINT_TO_PEDRO_DEG);
+        telemetry.addData("dx", "%.1f", goalX - robotX);
+        telemetry.addData("dy", "%.1f", goalY - robotY);
+        telemetry.addLine();
+        telemetry.addLine("--- Turret Math ---");
+        telemetry.addData("AngleToGoal", "%.1f°", Math.toDegrees(angleToGoalRad));
+        telemetry.addData("Relative", "%.1f°", relativeDeg);
+        telemetry.addData("TurretDeg (desired)", "%.1f°", turretDegDesired);
+        telemetry.addData("TurretDeg (cmd)", "%.1f°", turretDegCmd);
+        telemetry.addData("TurretServo(0..1)", "%.4f", turretServoPos);
+        if (turretDegDesired < 0.0 || turretDegDesired > 180.0) {
+            telemetry.addLine("NOTE: Desired turret angle outside range; output clamped to endstop.");
+        }
+
+        if (!Double.isNaN(lastPinpointHeadingDeg)) {
+            double headingDelta = Math.abs(pinpointHeadingDeg - lastPinpointHeadingDeg);
+            double servoDelta = Double.isNaN(lastTurretServoPos) ? 0.0 : Math.abs(turretServoPos - lastTurretServoPos);
+
+            if (Math.abs(rot) > 0.25 && headingDelta < 0.2) {
+                telemetry.addLine("WARNING: Rotating input but heading not changing (check Pinpoint/IMU).");
+            }
+            if (headingDelta > 1.0 && servoDelta < 0.001 && (turretDegCmd < 1.0 || turretDegCmd > 179.0)) {
+                telemetry.addLine("NOTE: Turret setpoint clamped at endstop (0° or 180°).");
+            }
+        }
+        lastPinpointHeadingDeg = pinpointHeadingDeg;
+        lastTurretServoPos = turretServoPos;
+
+        telemetry.update();
+    }
+
+    private void initializeFieldOffsetsFromCurrentPose() {
+        // Compute offsets so that the current Pinpoint pose maps to the desired Pedro field pose.
+        Pose2D pose = pinpoint.getPosition();
+
+        double rawX = pose.getX(DistanceUnit.INCH);
+        double rawY = pose.getY(DistanceUnit.INCH);
+        double rawHeadingDeg = pose.getHeading(AngleUnit.DEGREES);
+
+        // Convert desired Pedro heading into the equivalent Pinpoint heading.
+        double desiredPinpointHeadingDeg = START_HEADING_DEG - PINPOINT_TO_PEDRO_DEG;
+
+        fieldXOffsetIn = START_X_IN - rawX;
+        fieldYOffsetIn = START_Y_IN - rawY;
+        pinpointHeadingOffsetDeg = desiredPinpointHeadingDeg - rawHeadingDeg;
+        offsetsInitialized = true;
     }
 
     private double applyDeadzone(double input) {

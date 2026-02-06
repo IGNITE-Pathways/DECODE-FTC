@@ -30,10 +30,10 @@ public class RobotConstants {
 
     // PIDF Gains - TUNE USING FlywheelPIDFTuner!
     // Last tuned: These values provide good performance across 2400-3500 RPM range
-    public static final double FLYWHEEL_KP = 0.023550;  // Proportional gain
-    public static final double FLYWHEEL_KI = 0.000025;  // Integral gain
-    public static final double FLYWHEEL_KD = 0.000325;  // Derivative gain
-    public static final double FLYWHEEL_KF = 0.000235;  // Feedforward gain
+    public static final double FLYWHEEL_KP = 0.023738;  // Proportional gain
+    public static final double FLYWHEEL_KI = 0.000028;  // Integral gain
+    public static final double FLYWHEEL_KD = 0.000329;  // Derivative gain
+    public static final double FLYWHEEL_KF = 0.000238;  // Feedforward gain
 
     // ==================== FLYWHEEL STARTUP BOOST (Faster Spinup) ====================
     // These settings control the initial power burst when the flywheel starts spinning
