@@ -24,6 +24,35 @@ public class ActualTurretLockOn {
     private Limelight3A limelight;
     private Telemetry telemetry;
 
+    // ==================== FIELD GOAL AUTO ALIGN (ODOMETRY + HEADING) ====================
+    // Goal coords (Pedro inches)
+    private static final double BLUE_GOAL_X_IN = 12.0;
+    private static final double RED_GOAL_X_IN = 132.0;
+    private static final double GOAL_Y_IN = 137.0;
+
+    // Default starting field pose (Pedro inches/degrees). Adjust from TeleOp if needed.
+    private double desiredStartXIn = 56.0;
+    private double desiredStartYIn = 38.0;
+    private double desiredStartHeadingPedroDeg = 90.0;
+
+    // Heading convention bridge:
+    // Pinpoint heading behaves like 0°=+Y forward, 90°=+X right.
+    // Pedro/trig uses 0°=+X right, 90°=+Y forward.
+    private static final double PINPOINT_TO_PEDRO_DEG = 90.0;
+
+    // Offsets to map Pinpoint's arbitrary origin into your Pedro field pose.
+    private double fieldXOffsetIn = 0.0;
+    private double fieldYOffsetIn = 0.0;
+    private double pinpointHeadingOffsetDeg = 0.0;
+    private boolean offsetsInitialized = false;
+
+    private boolean fieldGoalAutoAlignEnabled = false;
+    private AllianceColor fieldGoalAlliance = AllianceColor.BLUE;
+
+    // Soft limits for FIELD GOAL auto align output
+    private static final double FIELD_GOAL_SERVO_MIN = 0.2;
+    private static final double FIELD_GOAL_SERVO_MAX = 0.8;
+
     // PID Controller variables - TUNED TO PREVENT OVERSHOOT/HUNTING
     private double kP = 0.008;    // Proportional gain - REDUCED to prevent overshoot
     private double kI = 0.0;      // Integral gain - DISABLED to prevent oscillation
@@ -113,6 +142,12 @@ public class ActualTurretLockOn {
 
     public boolean update() {
         try {
+            // Field goal mode bypasses Limelight PID tracking.
+            if (fieldGoalAutoAlignEnabled) {
+                debugState = "FIELD GOAL: waiting for pose";
+                return true;
+            }
+
             if (limelight == null || !limelight.isConnected()) {
                 debugState = "NO LIMELIGHT";
                 return false;
@@ -316,6 +351,133 @@ public class ActualTurretLockOn {
     public void setAlliance(AllianceColor alliance) {
         targetTagId = (alliance == AllianceColor.BLUE) ? BLUE_TAG : RED_TAG;
         resetPID();
+    }
+
+    // ==================== FIELD GOAL AUTO ALIGN - PUBLIC API ====================
+
+    /**
+     * Enable field-goal auto align (odometry + heading) aiming at the alliance-specific goal.
+     * Uses the same trig approach as the test OpMode (atan2 + relative heading).
+     */
+    public void enableFieldGoalAutoAlign(AllianceColor alliance) {
+        this.fieldGoalAlliance = alliance;
+        this.fieldGoalAutoAlignEnabled = true;
+        this.offsetsInitialized = false; // re-lock offsets next time we get READY
+        this.debugState = "FIELD GOAL (ENABLED)";
+    }
+
+    public void disableFieldGoalAutoAlign() {
+        this.fieldGoalAutoAlignEnabled = false;
+        this.debugState = "FIELD GOAL (DISABLED)";
+    }
+
+    public boolean isFieldGoalAutoAlignEnabled() {
+        return fieldGoalAutoAlignEnabled;
+    }
+
+    /**
+     * Set the assumed starting pose in the Pedro field coordinate system.
+     * On the next READY Pinpoint update, offsets will be computed so the current Pinpoint pose maps to this pose.
+     */
+    public void setFieldStartPosePedro(double startXIn, double startYIn, double startHeadingPedroDeg) {
+        this.desiredStartXIn = startXIn;
+        this.desiredStartYIn = startYIn;
+        this.desiredStartHeadingPedroDeg = startHeadingPedroDeg;
+        this.offsetsInitialized = false;
+    }
+
+    // ==================== FIELD GOAL AUTO ALIGN - IMPLEMENTATION ====================
+
+    /**
+     * Pre-compute the field offsets without moving the turret.
+     * Call this every loop while field goal mode is enabled so offsets lock as soon as Pinpoint is READY,
+     * even if auto-align is currently OFF.
+     */
+    public void primeFieldGoalOffsetsFromPinpointPose(
+            double rawXIn,
+            double rawYIn,
+            double rawHeadingPinpointDeg,
+            boolean pinpointReady
+    ) {
+        if (!fieldGoalAutoAlignEnabled) return;
+        if (offsetsInitialized) return;
+        if (!pinpointReady) return;
+
+        double desiredPinpointHeadingDeg = desiredStartHeadingPedroDeg - PINPOINT_TO_PEDRO_DEG;
+        fieldXOffsetIn = desiredStartXIn - rawXIn;
+        fieldYOffsetIn = desiredStartYIn - rawYIn;
+        pinpointHeadingOffsetDeg = desiredPinpointHeadingDeg - rawHeadingPinpointDeg;
+        offsetsInitialized = true;
+    }
+
+    /**
+     * Field-goal auto align update using Pinpoint pose values provided by TeleOp.
+     *
+     * @param rawXIn Pinpoint X (inches)
+     * @param rawYIn Pinpoint Y (inches)
+     * @param rawHeadingPinpointDeg Pinpoint heading (degrees)
+     * @param pinpointReady true when Pinpoint status is READY
+     */
+    public void updateFieldGoalFromPinpointPose(
+            double rawXIn,
+            double rawYIn,
+            double rawHeadingPinpointDeg,
+            boolean pinpointReady
+    ) {
+        if (!fieldGoalAutoAlignEnabled) return;
+
+        // Initialize offsets once Pinpoint is READY to reduce startup glitches.
+        primeFieldGoalOffsetsFromPinpointPose(rawXIn, rawYIn, rawHeadingPinpointDeg, pinpointReady);
+
+        double robotX = rawXIn + fieldXOffsetIn;
+        double robotY = rawYIn + fieldYOffsetIn;
+        double headingPinpointDeg = rawHeadingPinpointDeg + pinpointHeadingOffsetDeg;
+        double headingPedroRad = Math.toRadians(headingPinpointDeg + PINPOINT_TO_PEDRO_DEG);
+
+        double goalX = (fieldGoalAlliance == AllianceColor.BLUE) ? BLUE_GOAL_X_IN : RED_GOAL_X_IN;
+        double goalY = GOAL_Y_IN;
+
+        // Exact math from the test:
+        double angleToGoalRad = Math.atan2(goalY - robotY, goalX - robotX);
+        double relativeRad = wrapRadians(angleToGoalRad - headingPedroRad);
+        double relativeDeg = Math.toDegrees(relativeRad);
+
+        double turretDegDesired = 90.0 - relativeDeg;
+        double turretDegCmd = clamp(turretDegDesired, 0.0, 180.0);
+
+        // Requested mapping: 0°->0.0, 90°->0.5, 180°->1.0
+        double turretServoDesired = clamp(turretDegCmd / 180.0, 0.0, 1.0);
+        // Soft limits (requested): clamp output but keep tracking desired internally.
+        double turretServoCmd = clamp(turretServoDesired, FIELD_GOAL_SERVO_MIN, FIELD_GOAL_SERVO_MAX);
+
+        servoPos = turretServoCmd;
+        if (turretServo != null) {
+            turretServo.setPosition(turretServoCmd);
+        }
+
+        // Locked definition for field goal (same tolerance as AprilTag mode)
+        isLocked = Math.abs(relativeDeg) <= POSITION_TOLERANCE;
+
+        debugState = String.format(
+                "FIELD GOAL %s | X=%.1f Y=%.1f H=%.1f° | turret=%.1f° | servo=%.3f (want %.3f)",
+                fieldGoalAlliance.name(),
+                robotX,
+                robotY,
+                Math.toDegrees(headingPedroRad),
+                turretDegCmd
+                , turretServoCmd
+                , turretServoDesired
+        );
+    }
+
+    private static double wrapRadians(double rad) {
+        while (rad <= -Math.PI) rad += 2.0 * Math.PI;
+        while (rad > Math.PI) rad -= 2.0 * Math.PI;
+        return rad;
+    }
+
+    private static double clamp(double v, double lo, double hi) {
+        return Math.max(lo, Math.min(hi, v));
     }
 
     public void setPositionDirect(double position) {

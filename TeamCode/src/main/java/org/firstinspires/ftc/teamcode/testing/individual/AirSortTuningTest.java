@@ -41,9 +41,9 @@ public class AirSortTuningTest extends LinearOpMode {
     // =========================
 
     /** SLOWEST shot: hood = normal - delta */
-    public static double slowestHoodDelta = 0.445;
+    public static double slowestHoodDelta = 0.38;
     /** SLOWEST shot: rpm = normal + delta */
-    public static double slowestRpmDelta = 550.0;
+    public static double slowestRpmDelta = 765.0;
 
     /** Tag selection (default BLUE). You can also toggle in-opmode. */
     public static AllianceColor allianceDefault = AllianceColor.BLUE;
@@ -75,9 +75,9 @@ public class AirSortTuningTest extends LinearOpMode {
      */
     public static long preShot1DelayMs = 800;
     /** Extra wait after shot 1 before shot 2 can start (lets hood/RPM settle). */
-    public static long postShot1DelayMs = 220;
+    public static long postShot1DelayMs = 195;
     /** Extra wait after shot 2 before shot 3 can start (lets hood/RPM settle). */
-    public static long postShot2DelayMs = 190;
+    public static long postShot2DelayMs = 210;
     /** Extra "motor-off" dwell after each feed pulse (lets ball clear). */
     public static long postFeedDwellMs = 80;
 
@@ -181,6 +181,13 @@ public class AirSortTuningTest extends LinearOpMode {
         launcher = new Launcher();
         launcher.initialize(hardwareMap, telemetry);
         launcher.setVelocityControlEnabled(RobotConstants.USE_VELOCITY_CONTROL);
+        // Ensure AirSort tuning uses the exact same PIDF as competition teleop
+        launcher.setPIDFGains(
+                RobotConstants.FLYWHEEL_KP,
+                RobotConstants.FLYWHEEL_KI,
+                RobotConstants.FLYWHEEL_KD,
+                RobotConstants.FLYWHEEL_KF
+        );
 
         intakeTransfer = new IntakeTransfer();
         intakeTransfer.initialize(hardwareMap, telemetry);
