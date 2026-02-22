@@ -270,6 +270,19 @@ public class RobotConstants {
     public static final double RED_GOAL_X = 70.0;       // Center of field (X)
     public static final double RED_GOAL_Y = 70.0;      // Front wall (positive Y)
 
+    // ==================== GOAL POSITIONS (Pedro Pathing Coordinates) ====================
+    // Pedro Pathing coordinate system: Origin (0, 0) is at field corner
+    // Used by field-aligned turret for odometry-based auto-aiming
+    // These coordinates should match your actual goal positions on the field
+
+    // Blue alliance goal position (Pedro inches from corner)
+    public static final double BLUE_GOAL_PEDRO_X = 12.0;   // Near left side
+    public static final double BLUE_GOAL_PEDRO_Y = 137.0;  // Near back wall
+
+    // Red alliance goal position (Pedro inches from corner)
+    public static final double RED_GOAL_PEDRO_X = 132.0;   // Near right side
+    public static final double RED_GOAL_PEDRO_Y = 137.0;   // Near back wall
+
     // ==================== LAUNCH ZONE BOUNDARIES ====================
     // Launch zone is a TRIANGLE with vertices at:
     // - (0, 0)    - Bottom left

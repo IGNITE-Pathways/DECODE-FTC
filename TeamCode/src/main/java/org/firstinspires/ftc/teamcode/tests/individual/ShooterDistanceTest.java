@@ -6,10 +6,10 @@ import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.hardware.limelightvision.Limelight3A;
 import com.qualcomm.hardware.limelightvision.LLResult;
 
-import org.firstinspires.ftc.teamcode.core.components.Launcher;
-import org.firstinspires.ftc.teamcode.core.components.IntakeTransfer;
-import org.firstinspires.ftc.teamcode.core.constants.HardwareConfig;
-import org.firstinspires.ftc.teamcode.core.constants.RobotConstants;
+import org.firstinspires.ftc.teamcode.subsystems.shooter.Launcher;
+import org.firstinspires.ftc.teamcode.subsystems.intake.IntakeTransfer;
+import org.firstinspires.ftc.teamcode.config.HardwareConfig;
+import org.firstinspires.ftc.teamcode.config.RobotConstants;
 
 /**
  * Shooter Distance Test Program

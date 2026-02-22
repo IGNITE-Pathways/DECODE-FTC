@@ -8,6 +8,7 @@ import com.qualcomm.robotcore.hardware.Servo;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
 import org.firstinspires.ftc.teamcode.config.RobotConstants.AllianceColor;
+import org.firstinspires.ftc.teamcode.config.RobotConstants;
 import org.firstinspires.ftc.teamcode.config.HardwareConfig;
 import org.firstinspires.ftc.teamcode.config.TurretConstants;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
@@ -39,9 +40,7 @@ public class TurretFieldAutoAlignTest extends LinearOpMode {
     private static final AllianceColor ALLIANCE = AllianceColor.BLUE;
 
     // ======= GOAL COORDINATES (Pedro inches) =======
-    private static final double BLUE_GOAL_X_IN = 12.0;
-    private static final double RED_GOAL_X_IN = 132.0;
-    private static final double GOAL_Y_IN = 137.0;
+    // Now using centralized coordinates from RobotConstants
 
     // ======= Pinpoint configuration (must match robot) =======
     private static final double FORWARD_POD_Y = 3.75;
@@ -67,8 +66,10 @@ public class TurretFieldAutoAlignTest extends LinearOpMode {
         telemetry.addLine("Turret continuously tracks the goal while enabled.");
         telemetry.addData("START", "(%.1f, %.1f, %.1f°)", START_X_IN, START_Y_IN, START_HEADING_DEG);
         telemetry.addData("ALLIANCE", ALLIANCE);
-        telemetry.addData("Goal BLUE", "(%.0f, %.0f)", BLUE_GOAL_X_IN, GOAL_Y_IN);
-        telemetry.addData("Goal RED", "(%.0f, %.0f)", RED_GOAL_X_IN, GOAL_Y_IN);
+        telemetry.addData("Goal BLUE", "(%.0f, %.0f)",
+                          RobotConstants.BLUE_GOAL_PEDRO_X, RobotConstants.BLUE_GOAL_PEDRO_Y);
+        telemetry.addData("Goal RED", "(%.0f, %.0f)",
+                          RobotConstants.RED_GOAL_PEDRO_X, RobotConstants.RED_GOAL_PEDRO_Y);
         telemetry.update();
 
         waitForStart();
@@ -82,8 +83,10 @@ public class TurretFieldAutoAlignTest extends LinearOpMode {
             double robotHeadingDeg = pose.getHeading(AngleUnit.DEGREES) - headingOffsetDeg;
             double robotHeadingRad = Math.toRadians(robotHeadingDeg + PINPOINT_TO_PEDRO_DEG);
 
-            double goalX = (ALLIANCE == AllianceColor.BLUE) ? BLUE_GOAL_X_IN : RED_GOAL_X_IN;
-            double goalY = GOAL_Y_IN;
+            double goalX = (ALLIANCE == AllianceColor.BLUE) ?
+                           RobotConstants.BLUE_GOAL_PEDRO_X : RobotConstants.RED_GOAL_PEDRO_X;
+            double goalY = (ALLIANCE == AllianceColor.BLUE) ?
+                           RobotConstants.BLUE_GOAL_PEDRO_Y : RobotConstants.RED_GOAL_PEDRO_Y;
 
             TurretResult r = computeTurretToGoal(
                     robotX,

@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.teleop;
+package org.firstinspires.ftc.teamcode.competition.base;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.util.ElapsedTime;
@@ -12,14 +12,14 @@ import java.util.List;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
-import org.firstinspires.ftc.teamcode.core.components.DriveTrain;
-import org.firstinspires.ftc.teamcode.core.components.Launcher;
-import org.firstinspires.ftc.teamcode.core.components.IntakeTransfer;
-import org.firstinspires.ftc.teamcode.core.components.ActualTurretLockOn;
-import org.firstinspires.ftc.teamcode.core.constants.AllianceColor;
-import org.firstinspires.ftc.teamcode.core.constants.RobotConstants;
-import org.firstinspires.ftc.teamcode.core.constants.HardwareConfig;
-import org.firstinspires.ftc.teamcode.core.util.DistanceCalculator;
+import org.firstinspires.ftc.teamcode.subsystems.drivetrain.DriveTrain;
+import org.firstinspires.ftc.teamcode.subsystems.shooter.Launcher;
+import org.firstinspires.ftc.teamcode.subsystems.intake.IntakeTransfer;
+import org.firstinspires.ftc.teamcode.subsystems.turret.ActualTurretLockOn;
+import org.firstinspires.ftc.teamcode.config.RobotConstants.AllianceColor;
+import org.firstinspires.ftc.teamcode.config.RobotConstants;
+import org.firstinspires.ftc.teamcode.config.HardwareConfig;
+import org.firstinspires.ftc.teamcode.testing.DistanceCalculator;
 
 /**
  * *** COMPETITION TELEOP ***
@@ -32,10 +32,8 @@ import org.firstinspires.ftc.teamcode.core.util.DistanceCalculator;
  *
  * === FLYWHEEL & RAMP CONTROL ===
  * - GP1-Y: Toggle flywheel ON/OFF
- * - Ramp automatically raises when:
- *   1. Flywheel reaches target RPM (within 150 RPM) AND
- *   2. Robot is inside LAUNCH ZONE (triangle: (0,0), (0,144), (144,144) with 30" tolerance)
- * - Ramp automatically lowers when flywheel turns OFF OR robot leaves launch zone
+ * - Ramp automatically raises immediately when you press Y
+ * - Ramp stays up while flywheel is on, lowers when flywheel turns OFF
  * - You can intake/cycle balls while flywheel is spinning up!
  *
  * === AUTOMATIC DISTANCE CONTROL (DEFAULT) ===
@@ -45,33 +43,32 @@ import org.firstinspires.ftc.teamcode.core.util.DistanceCalculator;
  *
  * === GAMEPAD 1 (Driver/Shooter/Presets) ===
  * Sticks: Drive (100% speed always)
+ * A: Toggle turret field-goal auto-align (aims at goal using odometry)
  * Y: Toggle flywheel ON/OFF (ramp auto-raises when RPM ready AND in launch zone)
  * RB: Start auto-shoot 3-ball sequence (when flywheel ON) | Press during auto = Cancel
  * LB: Eject-and-shoot sequence (gentle eject 400ms, then shoot 800ms)
  * RT: Intake (works even when flywheel ON!) | LT: Eject
  * DPAD UP: Re-enable limelight auto-detection (DEFAULT MODE)
  * DPAD DOWN: Disable distance detection (use close range default)
+ * DPAD LEFT: Close range preset (2-3 ft, manual)
  * DPAD RIGHT: Far zone preset (10+ ft, 3450 RPM)
  *
- * === GAMEPAD 2 (Turret & Manual Controls) ===
- * A: Turret auto-track (aims at AprilTag)
+ * === GAMEPAD 2 (Manual Overrides) ===
  * X: Center turret
  * Left Stick X: Manual turret control
  * DPAD LEFT: Fine turret adjust left
  * DPAD UP: Increase RPM (+100)
  * DPAD DOWN: Decrease RPM (-100)
- * LB: Lower hood angle (-0.03)
- * RB: Raise hood angle (+0.03)
+ * B: Lower hood angle (-0.03)
+ * Y: Raise hood angle (+0.03)
  * START: EMERGENCY STOP
  *
  * === Shooting Workflow ===
- * 1. GP2-A: Enable turret tracking (aims at AprilTag)
+ * 1. GP1-A: Enable turret field-goal tracking (aims at goal using odometry)
  * 2. Limelight automatically adjusts shooting preset based on distance
- * 3. GP1-Y: Turn ON flywheel (starts spinning up)
- * 4. Drive into LAUNCH ZONE (triangle zone in positive quadrant)
- * 5. Wait for ramp to auto-raise (when flywheel within 150 RPM AND in launch zone)
- * 6. GP1-RT: Intake balls or GP1-RB: Auto-shoot 3 balls
- * 7. Repeat as needed!
+ * 3. GP1-Y: Turn ON flywheel (ramp raises immediately, flywheel spins up)
+ * 4. GP1-RT: Intake balls or GP1-RB: Auto-shoot 3 balls
+ * 5. Repeat as needed!
  *
  * === Quick Eject-Shoot (GP1-LB) ===
  * Use when ball is stuck or needs repositioning before shooting
@@ -125,11 +122,13 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
     private static final double FIELD_START_HEADING_PEDRO_DEG = 90.0;
 
     // Gamepad 1 button states
+    private boolean lastGP1_A = false;
     private boolean lastGP1_Y = false;
     private boolean lastGP1_LeftBumper = false;
     private boolean lastGP1_RightBumper = false;
     private boolean lastGP1_DpadUp = false;
     private boolean lastGP1_DpadDown = false;
+    private boolean lastGP1_DpadLeft = false;
     private boolean lastGP1_DpadRight = false;
 
     // Eject-and-shoot sequence
@@ -260,7 +259,7 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
         telemetry.addLine(alliance.name() + " TeleOp Ready");
         telemetry.addLine(limelight != null ? "Limelight: OK" : "Limelight: NOT FOUND");
         telemetry.addLine(pinpoint != null ? "Pinpoint: OK" : "Pinpoint: NOT FOUND");
-        telemetry.addLine("Turret: Field-goal auto align ON (GP2-A toggles)");
+        telemetry.addLine("Turret: Field-goal auto align ON (GP1-A toggles)");
         telemetry.update();
     }
 
@@ -393,12 +392,12 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
         return sign * (Math.abs(input) - RobotConstants.JOYSTICK_DEAD_ZONE) / (1.0 - RobotConstants.JOYSTICK_DEAD_ZONE);
     }
 
-    // GP2-RB: Toggle turret auto-align to field goal (odometry + heading)
+    // GP1-A: Toggle turret auto-align to field goal (odometry + heading)
     private void handleTurret() {
-        if (gamepad2.right_bumper && !lastGP2_RightBumper) {
+        if (gamepad1.a && !lastGP1_A) {
             turretTracking = !turretTracking;
         }
-        lastGP2_RightBumper = gamepad2.right_bumper;
+        lastGP1_A = gamepad1.a;
 
         if (turretTracking) {
             // Field-goal auto align uses Pinpoint pose (exact trig implementation from the test).
@@ -524,6 +523,20 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
             }
         }
         lastGP1_DpadDown = gamepad1.dpad_down;
+
+        // DPAD LEFT: Close range preset (2-3 ft)
+        if (gamepad1.dpad_left && !lastGP1_DpadLeft) {
+            distanceDetectionEnabled = false;
+            lockedDistance = RobotConstants.RANGE_1_MIN;  // 2.45 ft
+            flywheelRPM = RobotConstants.RANGE_1_FLYWHEEL_RPM;
+            hoodPosition = RobotConstants.RANGE_1_HOOD_POSITION;
+            selectedPreset = "CLOSE RANGE (Manual)";
+            if (flywheelOn) {
+                launcher.setTargetRPM(flywheelRPM);
+                launcher.setHoodPosition(hoodPosition);
+            }
+        }
+        lastGP1_DpadLeft = gamepad1.dpad_left;
 
         // DPAD RIGHT: Quick far zone preset (10+ ft, max distance)
         if (gamepad1.dpad_right && !lastGP1_DpadRight) {
@@ -717,8 +730,13 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
         launcher.setTargetRPM(flywheelRPM);  // Set target RPM for PIDF control
         launcher.setSpinning(true);
         launcher.setHoodPosition(hoodPosition);
-        // Ramp will auto-raise when RPM reaches target (within 150 RPM)
         flywheelOn = true;
+
+        // Raise ramp immediately when flywheel turns on
+        if (rampAutoControlEnabled) {
+            intakeTransfer.transferUp();
+            rampUp = true;
+        }
     }
 
     private void deactivateFlywheel() {
@@ -970,24 +988,10 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
 
         // === RAMP STATUS ===
         String rampStatus;
-        if (rampAutoControlEnabled) {
-            if (rampUp) {
-                rampStatus = "UP (ready to shoot)";
-            } else {
-                if (flywheelOn) {
-                    double currentRPM = launcher.getCurrentRPM();
-                    double error = Math.abs(flywheelRPM - currentRPM);
-                    if (!inLaunchZone) {
-                        rampStatus = "DOWN (MOVE TO TRIANGLE ZONE!)";
-                    } else {
-                        rampStatus = String.format("DOWN (spinning up... %.0f RPM to go)", error);
-                    }
-                } else {
-                    rampStatus = "DOWN (press Y to start)";
-                }
-            }
+        if (rampUp) {
+            rampStatus = "UP";
         } else {
-            rampStatus = rampUp ? "UP" : "DOWN (press Y to start)";
+            rampStatus = "DOWN (press Y to raise)";
         }
         telemetry.addData("Ramp", rampStatus);
 
@@ -1055,8 +1059,8 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
 
         // === CONTROLS (Compact) ===
         telemetry.addLine();
-        telemetry.addLine("GP1: Y-Flywheel+Ramp RB-AutoShoot LB-EjectShoot | RT-In LT-Out | DPAD:U-Auto D-Default R-Far");
-        telemetry.addLine("GP2: RB-GoalAlign X-CtrTur | LS-Turret DPAD:L-Tur U/D-RPM | B/Y-Hood | START-ESTOP");
+        telemetry.addLine("GP1: A-TurretAlign Y-Flywheel RB-AutoShoot LB-EjectShoot | RT-In LT-Out | DPAD:U-Auto D-Default L-Close R-Far");
+        telemetry.addLine("GP2: X-CtrTur LS-Turret DPAD:L-Tur U/D-RPM | B/Y-Hood | START-ESTOP");
 
         telemetry.update();
     }
@@ -1066,43 +1070,29 @@ public abstract class CompetitionTeleOpBase extends LinearOpMode {
     // ========================================
 
     /**
-     * Automatic ramp control based on flywheel RPM AND robot position
+     * Automatic ramp control - simple and reliable
      * Call this in a loop during autonomous to automatically manage the ramp
      *
-     * Launch zone: Triangle with vertices (0,0), (0,144), (144,144) plus 30" tolerance
+     * - Raises ramp immediately when flywheel turns on
+     * - Ramp stays up while flywheel is on
+     * - Lowers ramp only when flywheel turns off
      *
-     * Uses hysteresis to prevent oscillation:
-     * - Raises ramp when flywheel is within 150 RPM of target AND robot is in launch zone
-     * - Lowers ramp only when flywheel drops beyond 300 RPM of target OR robot leaves launch zone
-     *
-     * @return true if ramp is up and ready to shoot, false otherwise
+     * @return true if ramp is up and flywheel is on, false otherwise
      */
     public boolean updateAutomaticRampControl() {
-        // Calculate flywheel error
-        double error = 0;
-        if (flywheelOn) {
-            double currentRPM = launcher.getCurrentRPM();
-            error = Math.abs(flywheelRPM - currentRPM);
+        // Simple ramp control - just follow flywheel state
+        if (flywheelOn && !rampUp) {
+            // Flywheel is on, raise the ramp
+            intakeTransfer.transferUp();
+            rampUp = true;
+        } else if (!flywheelOn && rampUp) {
+            // Flywheel is off, lower the ramp
+            intakeTransfer.transferDown();
+            rampUp = false;
         }
 
-        // Hysteresis logic to prevent oscillation
-        if (rampUp) {
-            // Ramp is currently UP - only lower if RPM drops significantly (beyond hysteresis threshold)
-            // OR if robot leaves the launch zone
-            if (!flywheelOn || error > RPM_HYSTERESIS || !inLaunchZone) {
-                intakeTransfer.transferDown();
-                rampUp = false;
-            }
-        } else {
-            // Ramp is currently DOWN - raise when RPM is within tolerance AND robot is in launch zone
-            if (flywheelOn && error <= RPM_TOLERANCE && inLaunchZone) {
-                intakeTransfer.transferUp();
-                rampUp = true;
-            }
-        }
-
-        // Return true only if ramp is up AND flywheel is within tolerance AND in launch zone
-        return rampUp && flywheelOn && (error <= RPM_TOLERANCE) && inLaunchZone;
+        // Return true if ramp is up and flywheel is on
+        return rampUp && flywheelOn;
     }
 
     /**

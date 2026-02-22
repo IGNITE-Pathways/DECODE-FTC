@@ -9,6 +9,7 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.config.RobotConstants.AllianceColor;
+import org.firstinspires.ftc.teamcode.config.RobotConstants;
 import org.firstinspires.ftc.teamcode.config.HardwareConfig;
 
 import java.util.List;
@@ -25,10 +26,8 @@ public class ActualTurretLockOn {
     private Telemetry telemetry;
 
     // ==================== FIELD GOAL AUTO ALIGN (ODOMETRY + HEADING) ====================
-    // Goal coords (Pedro inches)
-    private static final double BLUE_GOAL_X_IN = 12.0;
-    private static final double RED_GOAL_X_IN = 132.0;
-    private static final double GOAL_Y_IN = 137.0;
+    // Goal coordinates are now read from RobotConstants (Pedro coordinate system)
+    // This ensures both teleop programs use the same goal positions
 
     // Default starting field pose (Pedro inches/degrees). Adjust from TeleOp if needed.
     private double desiredStartXIn = 56.0;
@@ -434,8 +433,10 @@ public class ActualTurretLockOn {
         double headingPinpointDeg = rawHeadingPinpointDeg + pinpointHeadingOffsetDeg;
         double headingPedroRad = Math.toRadians(headingPinpointDeg + PINPOINT_TO_PEDRO_DEG);
 
-        double goalX = (fieldGoalAlliance == AllianceColor.BLUE) ? BLUE_GOAL_X_IN : RED_GOAL_X_IN;
-        double goalY = GOAL_Y_IN;
+        double goalX = (fieldGoalAlliance == AllianceColor.BLUE) ?
+                       RobotConstants.BLUE_GOAL_PEDRO_X : RobotConstants.RED_GOAL_PEDRO_X;
+        double goalY = (fieldGoalAlliance == AllianceColor.BLUE) ?
+                       RobotConstants.BLUE_GOAL_PEDRO_Y : RobotConstants.RED_GOAL_PEDRO_Y;
 
         // Exact math from the test:
         double angleToGoalRad = Math.atan2(goalY - robotY, goalX - robotX);

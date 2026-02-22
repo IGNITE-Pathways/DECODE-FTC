@@ -34,9 +34,8 @@ import org.firstinspires.ftc.teamcode.config.TurretConstants;
 public class FieldAlignedTurret {
 
     // ======= GOAL COORDINATES (Pedro inches) =======
-    private static final double BLUE_GOAL_X_IN = 12.0;
-    private static final double RED_GOAL_X_IN = 132.0;
-    private static final double GOAL_Y_IN = 137.0;
+    // Now using centralized coordinates from RobotConstants
+    // Ensures consistency across all programs
 
     // Pinpoint heading convention: 0°=+Y (forward). Pedro uses: 90°=+Y (forward).
     private static final double PINPOINT_TO_PEDRO_DEG = 90.0;
@@ -205,8 +204,10 @@ public class FieldAlignedTurret {
             goalX = customGoalX;
             goalY = customGoalY;
         } else {
-            goalX = (alliance == AllianceColor.BLUE) ? BLUE_GOAL_X_IN : RED_GOAL_X_IN;
-            goalY = GOAL_Y_IN;
+            goalX = (alliance == AllianceColor.BLUE) ?
+                    RobotConstants.BLUE_GOAL_PEDRO_X : RobotConstants.RED_GOAL_PEDRO_X;
+            goalY = (alliance == AllianceColor.BLUE) ?
+                    RobotConstants.BLUE_GOAL_PEDRO_Y : RobotConstants.RED_GOAL_PEDRO_Y;
         }
 
         // Calculate turret position
@@ -279,8 +280,11 @@ public class FieldAlignedTurret {
         if (useCustomGoal) {
             return new double[]{customGoalX, customGoalY};
         } else {
-            double goalX = (alliance == AllianceColor.BLUE) ? BLUE_GOAL_X_IN : RED_GOAL_X_IN;
-            return new double[]{goalX, GOAL_Y_IN};
+            double goalX = (alliance == AllianceColor.BLUE) ?
+                           RobotConstants.BLUE_GOAL_PEDRO_X : RobotConstants.RED_GOAL_PEDRO_X;
+            double goalY = (alliance == AllianceColor.BLUE) ?
+                           RobotConstants.BLUE_GOAL_PEDRO_Y : RobotConstants.RED_GOAL_PEDRO_Y;
+            return new double[]{goalX, goalY};
         }
     }
 

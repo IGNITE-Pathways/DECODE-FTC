@@ -43,9 +43,7 @@ public class FieldCentricDriveTurretAutoAlignTest extends LinearOpMode {
     private static final double PINPOINT_TO_PEDRO_DEG = 90.0;
 
     // ======= GOAL COORDINATES (Pedro inches) =======
-    private static final double BLUE_GOAL_X_IN = 12.0;
-    private static final double RED_GOAL_X_IN = 132.0;
-    private static final double GOAL_Y_IN = 137.0;
+    // Now using centralized coordinates from RobotConstants
 
     // ======= Pinpoint configuration (must match robot) =======
     private static final double FORWARD_POD_Y = 3.75;
@@ -178,8 +176,10 @@ public class FieldCentricDriveTurretAutoAlignTest extends LinearOpMode {
         double pinpointHeadingDeg = rawPinpointHeadingDeg + pinpointHeadingOffsetDeg;
         double pedroHeadingRadForTurret = Math.toRadians(pinpointHeadingDeg + PINPOINT_TO_PEDRO_DEG);
 
-        double goalX = (ALLIANCE == AllianceColor.BLUE) ? BLUE_GOAL_X_IN : RED_GOAL_X_IN;
-        double goalY = GOAL_Y_IN;
+        double goalX = (ALLIANCE == AllianceColor.BLUE) ?
+                       RobotConstants.BLUE_GOAL_PEDRO_X : RobotConstants.RED_GOAL_PEDRO_X;
+        double goalY = (ALLIANCE == AllianceColor.BLUE) ?
+                       RobotConstants.BLUE_GOAL_PEDRO_Y : RobotConstants.RED_GOAL_PEDRO_Y;
 
         // Compute once so telemetry matches the command exactly
         double angleToGoalRad = Math.atan2(goalY - robotY, goalX - robotX);
